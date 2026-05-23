@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
+import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import type { GuildConfig, EmbedPreset, EmbedField } from '@pinguin/shared';
 
 export default function EmbedsPage() {
@@ -112,12 +112,7 @@ export default function EmbedsPage() {
   const handleSend = async (embed: EmbedPreset) => {
     if (!sendChannel.trim()) return;
     try {
-      await fetch(`/api/guilds/${guildId}/embeds/send`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embed, channelId: sendChannel.trim() }),
-      });
+      await api.post(`/api/guilds/${guildId}/embeds/send`, { embed, channelId: sendChannel.trim() });
       setSendChannel('');
       setPreviewOpen(false);
     } catch { /* ignore */ }

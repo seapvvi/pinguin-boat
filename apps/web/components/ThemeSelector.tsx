@@ -36,6 +36,7 @@ export default function ThemeSelector() {
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         style={{
           display: 'flex',
@@ -85,6 +86,7 @@ export default function ThemeSelector() {
             const isSelected = current === name;
             return (
               <button
+                type="button"
                 key={name}
                 onClick={() => {
                   setTheme(name);

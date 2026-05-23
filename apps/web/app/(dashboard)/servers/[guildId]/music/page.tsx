@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Card, Toggle, Input, Button, Badge, Select, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
+import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
 import type { GuildConfig, MusicSettings, TrackInfo } from '@pinguin/shared';
 
@@ -37,14 +37,13 @@ export default function MusicPage() {
         setConfig(res.data.guild);
         setLocal({ ...res.data.guild.music });
       }
-      const queueRes = await fetch(`/api/guilds/${guildId}/music/queue`, { credentials: 'include' });
-      if (queueRes.ok) {
-        const qData = await queueRes.json();
+      try {
+        const qData = await api.get<any>(`/api/guilds/${guildId}/music/queue`);
         if (qData.data) {
           setQueue(qData.data.tracks ?? []);
           setCurrentTrack(qData.data.currentTrack ?? null);
         }
-      }
+      } catch { /* ignore */ }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
@@ -58,13 +57,10 @@ export default function MusicPage() {
     if (!local?.enabled) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/guilds/${guildId}/music/queue`, { credentials: 'include' });
-        if (res.ok) {
-          const qData = await res.json();
-          if (qData.data) {
-            setQueue(qData.data.tracks ?? []);
-            setCurrentTrack(qData.data.currentTrack ?? null);
-          }
+        const qData = await api.get<any>(`/api/guilds/${guildId}/music/queue`);
+        if (qData.data) {
+          setQueue(qData.data.tracks ?? []);
+          setCurrentTrack(qData.data.currentTrack ?? null);
         }
       } catch { /* ignore */ }
     }, 5000);
@@ -73,12 +69,7 @@ export default function MusicPage() {
 
   const sendControl = async (action: string, value?: unknown) => {
     try {
-      await fetch(`/api/guilds/${guildId}/music/control`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, value }),
-      });
+      await api.post(`/api/guilds/${guildId}/music/control`, { action, value });
     } catch { /* ignore */ }
   };
 

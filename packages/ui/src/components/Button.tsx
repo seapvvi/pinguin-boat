@@ -43,6 +43,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <motion.button
+      type="button"
       whileTap={{ scale: 0.97 }}
       transition={{ duration: 0.12, ease: 'easeInOut' }}
       disabled={disabled || loading}

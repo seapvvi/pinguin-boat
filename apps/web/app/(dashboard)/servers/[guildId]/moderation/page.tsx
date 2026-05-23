@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchModCases } from '@/lib/api';
+import { fetchModCases, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { ModCase } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -76,22 +76,15 @@ export default function ModerationPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/guilds/${guildId}/moderation`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: form.type,
-          userId: form.userId.trim(),
-          reason: form.reason.trim(),
-          duration: form.duration ? Number(form.duration) : undefined,
-        }),
+      const res = await api.post(`/api/guilds/${guildId}/moderation`, {
+        type: form.type,
+        userId: form.userId.trim(),
+        reason: form.reason.trim(),
+        duration: form.duration ? Number(form.duration) : undefined,
       });
-      if (res.ok) {
-        setCreateOpen(false);
-        setForm({ userId: '', type: ModerationCaseType.WARN, reason: '', duration: '' });
-        load(page);
-      }
+      setCreateOpen(false);
+      setForm({ userId: '', type: ModerationCaseType.WARN, reason: '', duration: '' });
+      load(page);
     } catch { /* ignore */ } finally {
       setSubmitting(false);
     }
@@ -103,12 +96,7 @@ export default function ModerationPage() {
     const reason = prompt('Raison:');
     if (!reason) return;
     try {
-      await fetch(`/api/guilds/${guildId}/moderation`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, userId: userId.trim(), reason: reason.trim() }),
-      });
+      await api.post(`/api/guilds/${guildId}/moderation`, { type, userId: userId.trim(), reason: reason.trim() });
       load(page);
     } catch { /* ignore */ }
   };

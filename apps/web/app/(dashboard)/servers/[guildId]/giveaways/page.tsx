@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGiveaways } from '@/lib/api';
+import { fetchGiveaways, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Giveaway } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -70,21 +70,16 @@ export default function GiveawaysPage() {
 
     setSubmitting(true);
     try {
-      await fetch(`/api/guilds/${guildId}/giveaways`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prize: form.prize.trim(),
-          winners: form.winners,
-          duration: form.duration,
-          requirements: {
-            minAccountAge: form.minAccountAge || undefined,
-            minGuildJoinTime: form.minGuildJoinTime || undefined,
-            requiredRoleId: form.requiredRoleId.trim() || null,
-            boostRequired: form.boostRequired,
-          },
-        }),
+      await api.post(`/api/guilds/${guildId}/giveaways`, {
+        prize: form.prize.trim(),
+        winners: form.winners,
+        duration: form.duration,
+        requirements: {
+          minAccountAge: form.minAccountAge || undefined,
+          minGuildJoinTime: form.minGuildJoinTime || undefined,
+          requiredRoleId: form.requiredRoleId.trim() || null,
+          boostRequired: form.boostRequired,
+        },
       });
       setCreateOpen(false);
       setForm({ prize: '', winners: 1, duration: 60, minAccountAge: 0, minGuildJoinTime: 0, requiredRoleId: '', boostRequired: false });
@@ -96,12 +91,7 @@ export default function GiveawaysPage() {
 
   const handleAction = async (id: string, action: string) => {
     try {
-      await fetch(`/api/guilds/${guildId}/giveaways/${id}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
+      await api.post(`/api/guilds/${guildId}/giveaways/${id}`, { action });
       load(page);
     } catch { /* ignore */ }
   };

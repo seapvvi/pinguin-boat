@@ -81,16 +81,7 @@ export default function GuildOverviewPage() {
       <div className="flex items-center gap-4 mb-6">
         {loading ? (
           <Skeleton className="w-12 h-12 rounded-full" />
-        ) : (
-          <img
-            src={`https://cdn.discordapp.com/icons/${guildId}/${config?.guildId}.png?size=64`}
-            alt=""
-            className="w-12 h-12 rounded-full bg-[var(--bg-surface-alt)]"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
-        )}
+        ) : null}
         <div>
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">
             {loading ? '...' : 'Aperçu du serveur'}

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchPolls } from '@/lib/api';
+import { fetchPolls, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Poll } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -55,15 +55,10 @@ export default function PollsPage() {
 
     setSubmitting(true);
     try {
-      await fetch(`/api/guilds/${guildId}/polls`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: form.question.trim(),
-          options: validOptions,
-          duration: form.duration,
-        }),
+      await api.post(`/api/guilds/${guildId}/polls`, {
+        question: form.question.trim(),
+        options: validOptions,
+        duration: form.duration,
       });
       setCreateOpen(false);
       setForm({ question: '', options: ['', ''], duration: 300 });
@@ -85,12 +80,7 @@ export default function PollsPage() {
 
   const closePoll = async (pollId: string) => {
     try {
-      await fetch(`/api/guilds/${guildId}/polls/${pollId}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CLOSED' }),
-      });
+      await api.put(`/api/guilds/${guildId}/polls/${pollId}`, { status: 'CLOSED' });
       load(page);
     } catch { /* ignore */ }
   };

@@ -168,6 +168,7 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
           return (
             <div key={category.label} style={{ marginBottom: 4 }}>
               <button
+                type="button"
                 onClick={() => toggleCategory(category.label)}
                 style={{
                   display: 'flex',
@@ -331,6 +332,7 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
               </div>
             </div>
             <button
+              type="button"
               onClick={onLogout}
               title="Déconnexion"
               style={{
@@ -416,6 +418,7 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
             >
               <div style={{ position: 'relative', height: '100%' }}>
                 <button
+                  type="button"
                   onClick={onClose}
                   style={{
                     position: 'absolute',

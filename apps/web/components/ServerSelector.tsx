@@ -52,12 +52,13 @@ export default function ServerSelector({ guildId }: ServerSelectorProps) {
   const handleSelect = (id: string) => {
     setOpen(false);
     setSearch('');
-    router.push(`/dashboard/${id}`);
+    router.push(`/servers/${id}/overview`);
   };
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         style={{
           display: 'flex',
@@ -172,6 +173,7 @@ export default function ServerSelector({ guildId }: ServerSelectorProps) {
                 const isSelected = g.id === guildId;
                 return (
                   <button
+                    type="button"
                     key={g.id}
                     onClick={() => handleSelect(g.id)}
                     style={{

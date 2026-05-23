@@ -91,10 +91,19 @@ export function Snowflakes({ enabled = true, count = 35 }: SnowflakesProps) {
   if (!enabled || prefersReduced) return null;
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 pointer-events-none -z-10"
-      style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
-    />
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: -9999,
+        pointerEvents: 'none',
+        overflow: 'hidden',
+      }}
+    >
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100%', height: '100%', display: 'block' }}
+      />
+    </div>
   );
 }

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchTickets } from '@/lib/api';
+import { fetchTickets, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { TicketData } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -70,12 +70,7 @@ export default function TicketsPage() {
 
     setSubmitting(true);
     try {
-      await fetch(`/api/guilds/${guildId}/tickets`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
+      await api.post(`/api/guilds/${guildId}/tickets`, form);
       setCreateOpen(false);
       setForm({ category: 'support', subject: '', description: '' });
       load(page);
@@ -86,12 +81,7 @@ export default function TicketsPage() {
 
   const handleAction = async (ticketId: string, action: string) => {
     try {
-      await fetch(`/api/guilds/${guildId}/tickets/${ticketId}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
+      await api.put(`/api/guilds/${guildId}/tickets/${ticketId}`, { action });
       load(page);
     } catch { /* ignore */ }
   };

@@ -35,6 +35,7 @@ export default function Header({ user, onMenuToggle, onLogout, guildId }: Header
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button
+          type="button"
           onClick={onMenuToggle}
           style={{
             display: 'flex',
@@ -84,6 +85,7 @@ export default function Header({ user, onMenuToggle, onLogout, guildId }: Header
         {guildId && <ServerSelector guildId={guildId} />}
         <ThemeSelector />
         <button
+          type="button"
           onClick={onLogout}
           title="Déconnexion"
           style={{

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchSuggestions } from '@/lib/api';
+import { fetchSuggestions, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Suggestion } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -60,12 +60,7 @@ export default function SuggestionsPage() {
     if (!staffResponse.trim()) return;
     setSubmitting(true);
     try {
-      await fetch(`/api/guilds/${guildId}/suggestions/${suggestionId}/respond`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, response: staffResponse.trim() }),
-      });
+      await api.post(`/api/guilds/${guildId}/suggestions/${suggestionId}/respond`, { action, response: staffResponse.trim() });
       setSelectedSuggestion(null);
       setStaffResponse('');
       load(page);
