@@ -1,7 +1,8 @@
-# TODO
+# TODO - Dashboard Discord (proxy API)
 
-- [ ] Corriger la page dashboard Welcome pour qu’elle utilise uniquement les champs définis dans `WelcomeSettings` (packages/shared/src/types.ts)
-- [ ] Enlever les champs frontend inexistants (ex: welcomeEmbedUrl, goodbyeEmbedUrl, goodbyeImageUrl, dmWelcomeMessage) et s’assurer que l’API reçoit `welcome/welcomeMessage/...` correctement
-- [ ] Retirer l’UI de couleur d’embed si elle n’est pas stockée (ou la connecter à un champ réel)
-- [ ] Vérifier que le clic “Enregistrer” déclenche bien `updateGuildSettings` avec le bon payload
+- [ ] Comprendre pourquoi le dashboard (Next) proxy vers `http://localhost:4000` alors que l’API est sur `192.168.1.130`
+- [ ] Modifier `apps/web/next.config.js` pour utiliser une URL d’API configurable (ex: `NEXT_PUBLIC_API_URL` ou `API_URL`) au lieu de `localhost:4000`
+- [ ] Optionnel: ajouter `allowedDevOrigins` pour supprimer le warning cross-origin Next.js
+- [ ] Vérifier que `apps/api` est accessible depuis la machine du navigateur sur `192.168.1.130:<port>/api/auth/me`
+- [ ] Lancer/rétester : dashboard + appel `/api/auth/me` puis login Discord
 
