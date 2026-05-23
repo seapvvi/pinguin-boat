@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '../utils/cn';
 
 interface AvatarProps {
@@ -37,16 +37,19 @@ function hashColor(name: string): string {
 }
 
 export function Avatar({ src, alt = '', name, size = 32, className }: AvatarProps) {
+  const [imgError, setImgError] = useState(false);
   const initials = name ? getInitials(name) : '?';
   const bgColor = name ? hashColor(name) : '#666';
 
-  if (src) {
+  if (src && !imgError) {
     return (
       <img
         src={src}
         alt={alt || name || 'Avatar'}
         width={size}
         height={size}
+        referrerPolicy="no-referrer"
+        onError={() => setImgError(true)}
         className={cn('rounded-full object-cover flex-shrink-0', className)}
         style={{ width: size, height: size }}
       />

@@ -4,12 +4,13 @@ import { Avatar } from '@pinguin/ui';
 import { Menu, LogOut } from 'lucide-react';
 import ThemeSelector from './ThemeSelector';
 import ServerSelector from './ServerSelector';
+import { getAvatarUrl } from '@/lib/utils';
 
 interface HeaderProps {
   user: {
     id: string;
     username: string;
-    avatar: string;
+    avatar: string | null;
   } | null;
   onMenuToggle: () => void;
   onLogout: () => void;
@@ -62,8 +63,8 @@ export default function Header({ user, onMenuToggle, onLogout, guildId }: Header
         {user && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Avatar
-              src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`}
-              alt={user.username}
+              src={getAvatarUrl(user) ?? undefined}
+              name={user.username}
               size={28}
             />
             <span

@@ -172,7 +172,23 @@ export async function authRoutes(app: FastifyInstance) {
       },
     });
 
-    reply.send(success(user));
+    if (!user) {
+      return reply.status(401).send(error('Utilisateur introuvable'));
+    }
+
+    reply.send(success({
+      id: user.discordId,
+      discordId: user.discordId,
+      username: user.username,
+      avatar: user.avatar,
+      email: user.email,
+      locale: user.locale,
+      theme: user.theme,
+      snowflakes: user.snowflakes,
+      createdAt: user.createdAt,
+      discriminator: '0',
+      isOwner: user.discordId === config.DISCORD_OWNER_ID,
+    }));
   });
 
   app.get('/guilds', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {

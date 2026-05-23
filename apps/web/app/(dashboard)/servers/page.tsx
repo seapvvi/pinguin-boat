@@ -1,16 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import { useRouter } from 'next/navigation';
-import { Server, Search, Plus, Users, Wifi } from 'lucide-react';
-import { Card, Input, Button, Badge, Skeleton, EmptyState } from '@pinguin/ui';
+import { Server, Search, Plus, Users } from 'lucide-react';
+import { Card, Input, Badge, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuilds } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
 import type { GuildItemDTO } from '@pinguin/shared';
 
 export default function ServersPage() {
-  const router = useRouter();
   const [guilds, setGuilds] = useState<GuildItemDTO[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,14 +36,14 @@ export default function ServersPage() {
 
   if (error) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
+      <div className="p-6">
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+    <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">Sélecteur de serveur</h1>
@@ -77,13 +74,9 @@ export default function ServersPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((g) => (
-            <motion.div
+            <div
               key={g.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius)] p-5 cursor-pointer hover:border-[var(--accent)] transition-colors duration-200"
-              onClick={() => router.push(`/servers/${g.id}/overview`)}
+              className="bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius)] p-5 transition-colors duration-200"
             >
               <div className="flex items-center gap-3 mb-3">
                 {g.icon ? (
@@ -114,26 +107,27 @@ export default function ServersPage() {
                   <Server size={12} /> {g.premium !== 'FREE' ? 'Premium' : 'Gratuit'}
                 </span>
               </div>
-              {!g.botPresent && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="mt-3 w-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(
-                      `https://discord.com/oauth2/authorize?client_id=1320932385427947605&permissions=8&scope=bot&guild_id=${g.id}`,
-                      '_blank'
-                    );
-                  }}
+              {g.botPresent ? (
+                <a
+                  href={`/servers/${g.id}/overview`}
+                  className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border bg-[var(--accent)] text-[var(--bg-primary)] border-[var(--accent)] hover:opacity-90 no-underline"
+                >
+                  Gérer
+                </a>
+              ) : (
+                <a
+                  href={`https://discord.com/oauth2/authorize?client_id=1320932385427947605&permissions=8&scope=bot&guild_id=${g.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border text-[var(--text-primary)] border-[var(--border-color)] hover:bg-[var(--bg-surface-alt)] no-underline"
                 >
                   <Plus size={12} /> Inviter
-                </Button>
+                </a>
               )}
-            </motion.div>
+            </div>
           ))}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

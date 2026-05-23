@@ -250,8 +250,8 @@ export async function fetchErrorLogs(params?: Record<string, string>): Promise<A
   return api.get<APIResponse<{ entries: any[]; pagination: any }>>('/api/owner/errors', params);
 }
 
-export async function fetchOwnerLogs(params?: Record<string, string>): Promise<APIResponse<{ entries: any[]; pagination: any }>> {
-  return api.get<APIResponse<{ entries: any[]; pagination: any }>>('/api/owner/logs', params);
+export async function fetchOwnerLogs(params?: Record<string, string>): Promise<APIResponse<any>> {
+  return api.get<APIResponse<any>>('/api/owner/logs', params);
 }
 
 export async function sendAnnouncement(message: string, targetType: 'ALL' | 'GUILD', guildId?: string): Promise<APIResponse<{ success: boolean }>> {

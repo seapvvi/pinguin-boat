@@ -7,10 +7,10 @@ import {
   DollarSign, Wifi, MessageSquare, Activity,
   TrendingUp, Heart, Plus, ChevronRight, Sparkles
 } from 'lucide-react';
-import { Card, KPICard, Skeleton, EmptyState, Button, Badge } from '@pinguin/ui';
+import { Card, KPICard, Skeleton, EmptyState, Badge } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { getUser, type User } from '@/lib/auth';
-import { fetchBotStats, fetchChangelogs, fetchXPLeaderboard, fetchGuilds } from '@/lib/api';
+import { fetchBotStats, fetchChangelogs, fetchGuilds } from '@/lib/api';
 import { formatNumber, formatDuration } from '@/lib/utils';
 import type { BotStats, Changelog, GuildItemDTO, LeaderboardEntry } from '@pinguin/shared';
 
@@ -38,16 +38,15 @@ export default function OverviewPage() {
         router.replace('/auth/login');
         return;
       }
-      const [statsRes, changelogsRes, xpRes, guildsRes] = await Promise.allSettled([
+      const [statsRes, changelogsRes, guildsRes] = await Promise.allSettled([
         fetchBotStats(),
         fetchChangelogs({ page: '1', limit: '5' }),
-        fetchXPLeaderboard('global', { page: '1', limit: '10' }),
         fetchGuilds(),
       ]);
       setData({
         stats: statsRes.status === 'fulfilled' ? statsRes.value.data ?? null : null,
         changelogs: changelogsRes.status === 'fulfilled' ? changelogsRes.value.data?.entries ?? [] : [],
-        topXP: xpRes.status === 'fulfilled' ? xpRes.value.data?.entries ?? [] : [],
+        topXP: [],
         topGuilds: guildsRes.status === 'fulfilled' ? guildsRes.value.data?.guilds?.slice(0, 5) ?? [] : [],
       });
     } catch (e) {
@@ -92,12 +91,22 @@ export default function OverviewPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={() => window.open('https://patreon.com/pinguinboat', '_blank')}>
+          <a
+            href="https://patreon.com/pinguinboat"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border text-[var(--text-primary)] border-[var(--border-color)] hover:bg-[var(--bg-surface-alt)] no-underline cursor-pointer"
+          >
             <Heart size={14} /> Nous soutenir
-          </Button>
-          <Button size="sm" onClick={() => window.open('https://discord.com/oauth2/authorize?client_id=1320932385427947605&permissions=8&scope=bot', '_blank')}>
+          </a>
+          <a
+            href="https://discord.com/oauth2/authorize?client_id=1320932385427947605&permissions=8&scope=bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border bg-[var(--accent)] text-[var(--bg-primary)] border-[var(--accent)] hover:opacity-90 no-underline cursor-pointer"
+          >
             <Plus size={14} /> Inviter le bot
-          </Button>
+          </a>
         </div>
       </div>
 

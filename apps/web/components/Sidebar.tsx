@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, Logo, Avatar, Toggle } from '@pinguin/ui';
 import { useSnowflakes } from '@pinguin/ui';
+import { getAvatarUrl } from '@/lib/utils';
 import {
   LayoutDashboard,
   Server,
@@ -35,7 +36,7 @@ interface SidebarProps {
   user: {
     id: string;
     username: string;
-    avatar: string;
+    avatar: string | null;
     isOwner: boolean;
   } | null;
   isOpen: boolean;
@@ -55,46 +56,57 @@ interface Item {
   ownerOnly?: boolean;
 }
 
-const categories: Category[] = [
+function guildHref(guildId: string | null, base: string, isGuildPage: boolean): string {
+  if (!isGuildPage) return base;
+  if (!guildId) return '/servers';
+  return `/servers/${guildId}${base}`;
+}
+
+interface CategoryDef {
+  label: string;
+  items: { label: string; icon: React.ReactNode; href: string; guildPage?: boolean; ownerOnly?: boolean }[];
+}
+
+const categoryDefs: CategoryDef[] = [
   {
     label: 'Général',
     items: [
-      { label: 'Vue d\'ensemble', icon: <LayoutDashboard size={18} />, href: '/dashboard' },
-      { label: 'Sélecteur de serveur', icon: <Server size={18} />, href: '/dashboard/servers' },
+      { label: 'Vue d\'ensemble', icon: <LayoutDashboard size={18} />, href: '/' },
+      { label: 'Sélecteur de serveur', icon: <Server size={18} />, href: '/servers' },
     ],
   },
   {
     label: 'Gestion',
     items: [
-      { label: 'Modération', icon: <Shield size={18} />, href: '/dashboard/moderation' },
-      { label: 'Protection', icon: <Swords size={18} />, href: '/dashboard/protection' },
-      { label: 'Tickets', icon: <Ticket size={18} />, href: '/dashboard/tickets' },
-      { label: 'Logs', icon: <ScrollText size={18} />, href: '/dashboard/logs' },
+      { label: 'Modération', icon: <Shield size={18} />, href: '/moderation', guildPage: true },
+      { label: 'Protection', icon: <Swords size={18} />, href: '/protection', guildPage: true },
+      { label: 'Tickets', icon: <Ticket size={18} />, href: '/tickets', guildPage: true },
+      { label: 'Logs', icon: <ScrollText size={18} />, href: '/logs', guildPage: true },
     ],
   },
   {
     label: 'Communauté',
     items: [
-      { label: 'Niveaux / XP', icon: <Trophy size={18} />, href: '/dashboard/levels' },
-      { label: 'Économie', icon: <Wallet size={18} />, href: '/dashboard/economy' },
-      { label: 'Giveaways', icon: <Gift size={18} />, href: '/dashboard/giveaways' },
-      { label: 'Sondages', icon: <Vote size={18} />, href: '/dashboard/polls' },
-      { label: 'Suggestions', icon: <Lightbulb size={18} />, href: '/dashboard/suggestions' },
+      { label: 'Niveaux / XP', icon: <Trophy size={18} />, href: '/levels', guildPage: true },
+      { label: 'Économie', icon: <Wallet size={18} />, href: '/economy', guildPage: true },
+      { label: 'Giveaways', icon: <Gift size={18} />, href: '/giveaways', guildPage: true },
+      { label: 'Sondages', icon: <Vote size={18} />, href: '/polls', guildPage: true },
+      { label: 'Suggestions', icon: <Lightbulb size={18} />, href: '/suggestions', guildPage: true },
     ],
   },
   {
     label: 'Configuration',
     items: [
-      { label: 'Bienvenue', icon: <DoorOpen size={18} />, href: '/dashboard/welcome' },
-      { label: 'Auto-rôles', icon: <UserPlus size={18} />, href: '/dashboard/autoroles' },
-      { label: 'Embeds', icon: <FileText size={18} />, href: '/dashboard/embeds' },
-      { label: 'Paramètres', icon: <Settings size={18} />, href: '/dashboard/settings' },
+      { label: 'Bienvenue', icon: <DoorOpen size={18} />, href: '/welcome', guildPage: true },
+      { label: 'Auto-rôles', icon: <UserPlus size={18} />, href: '/autoroles', guildPage: true },
+      { label: 'Embeds', icon: <FileText size={18} />, href: '/embeds', guildPage: true },
+      { label: 'Paramètres', icon: <Settings size={18} />, href: '/settings', guildPage: true },
     ],
   },
   {
     label: 'Premium',
     items: [
-      { label: 'Premium', icon: <Crown size={18} />, href: '/dashboard/premium' },
+      { label: 'Premium', icon: <Crown size={18} />, href: '/premium', guildPage: true },
     ],
   },
 ];
@@ -102,17 +114,10 @@ const categories: Category[] = [
 export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProps) {
   const pathname = usePathname();
   const { enabled: snowflakesEnabled, toggle: toggleSnowflakes } = useSnowflakes();
+
+  const guildId = pathname.match(/^\/servers\/([^/]+)/)?.[1] ?? null;
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => {
-    const expanded = new Set<string>();
-    for (const cat of categories) {
-      for (const item of cat.items) {
-        if (pathname.startsWith(item.href)) {
-          expanded.add(cat.label);
-        }
-      }
-    }
-    if (expanded.size === 0) expanded.add('Général');
-    return expanded;
+    return new Set(categoryDefs.map((c) => c.label));
   });
 
   const toggleCategory = (label: string) => {
@@ -127,7 +132,11 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
     });
   };
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  const isActive = (href: string, isGuildPage?: boolean) => {
+    if (isGuildPage && !guildId) return false;
+    if (href === '/servers') return pathname === '/servers';
+    return pathname === href || pathname.startsWith(href + '/');
+  };
 
   const sidebarContent = (
     <div
@@ -135,18 +144,20 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        minHeight: 0,
+        overflow: 'hidden',
         backgroundColor: 'var(--bg-sidebar)',
         borderRight: '1px solid var(--border-color)',
       }}
     >
       <div style={{ padding: '20px 16px', borderBottom: '1px solid var(--border-color)' }}>
-        <Link href="/dashboard" onClick={onClose}>
+        <Link href="/" onClick={onClose}>
           <Logo withText size={28} />
         </Link>
       </div>
 
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-        {categories.map((category) => {
+      <nav style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '8px 0' }}>
+        {categoryDefs.map((category) => {
           const visibleItems = category.items.filter(
             (item) => !item.ownerOnly || user?.isOwner
           );
@@ -184,57 +195,46 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
                 </motion.div>
               </button>
 
-              <AnimatePresence initial={false}>
-                {isExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
-                    style={{ overflow: 'hidden' }}
+              {visibleItems.map((item) => {
+                const href = guildHref(guildId, item.href, !!item.guildPage);
+                const active = isActive(href, !!item.guildPage);
+                return (
+                  <Link
+                    key={item.href}
+                    href={href}
+                    onClick={onClose}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 16px 8px 24px',
+                      fontSize: 14,
+                      fontWeight: active ? 500 : 400,
+                      color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      backgroundColor: active ? 'var(--bg-sidebar-active)' : 'transparent',
+                      borderRight: active ? '2px solid var(--accent)' : '2px solid transparent',
+                      textDecoration: 'none',
+                      transition: 'background-color 0.15s, color 0.15s',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!active) {
+                        e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!active) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
                   >
-                    {visibleItems.map((item) => {
-                      const active = isActive(item.href);
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={onClose}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10,
-                            padding: '8px 16px 8px 24px',
-                            fontSize: 14,
-                            fontWeight: active ? 500 : 400,
-                            color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            backgroundColor: active ? 'var(--bg-sidebar-active)' : 'transparent',
-                            borderRight: active ? '2px solid var(--accent)' : '2px solid transparent',
-                            textDecoration: 'none',
-                            transition: 'background-color 0.15s, color 0.15s',
-                            cursor: 'pointer',
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!active) {
-                              e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!active) {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }
-                          }}
-                        >
-                          <span style={{ opacity: active ? 1 : 0.6, flexShrink: 0 }}>
-                            {item.icon}
-                          </span>
-                          {item.label}
-                        </Link>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    <span style={{ opacity: active ? 1 : 0.6, flexShrink: 0 }}>
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </Link>
+                );
+              })}
             </div>
           );
         })}
@@ -312,8 +312,8 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
         {user && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Avatar
-              src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`}
-              alt={user.username}
+              src={getAvatarUrl(user) ?? undefined}
+              name={user.username}
               size={32}
             />
             <div style={{ flex: 1, minWidth: 0 }}>

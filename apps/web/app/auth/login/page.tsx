@@ -1,13 +1,9 @@
 'use client';
 
-import { Logo, Button } from '@pinguin/ui';
+import { Logo } from '@pinguin/ui';
 import { getLoginUrl } from '@/lib/auth';
 
 export default function LoginPage() {
-  const handleLogin = () => {
-    window.location.href = getLoginUrl();
-  };
-
   return (
     <div
       style={{
@@ -59,7 +55,28 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <Button onClick={handleLogin} size="lg" style={{ width: '100%' }}>
+        <a
+          href={getLoginUrl()}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            width: '100%',
+            padding: '12px 24px',
+            fontSize: 16,
+            fontWeight: 500,
+            color: 'var(--bg-primary)',
+            backgroundColor: 'var(--accent)',
+            border: '1px solid var(--accent)',
+            borderRadius: 'var(--radius-sm)',
+            cursor: 'pointer',
+            textDecoration: 'none',
+            transition: 'background-color 0.15s ease-in-out',
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'var(--accent-hover)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'var(--accent)'; }}
+        >
           <svg
             width={18}
             height={18}
@@ -73,7 +90,7 @@ export default function LoginPage() {
             />
           </svg>
           Connexion avec Discord
-        </Button>
+        </a>
       </div>
     </div>
   );

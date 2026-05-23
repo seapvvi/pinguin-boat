@@ -93,7 +93,7 @@ export function Snowflakes({ enabled = true, count = 35 }: SnowflakesProps) {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-[9999]"
+      className="fixed inset-0 pointer-events-none -z-10"
       style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
     />
   );

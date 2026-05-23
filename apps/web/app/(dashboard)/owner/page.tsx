@@ -22,7 +22,7 @@ interface OwnerAction {
   action: string;
   details: string;
   createdAt: string;
-  user: string;
+  user: { username: string };
   success: boolean;
 }
 
@@ -57,7 +57,9 @@ export default function OwnerDashboardPage() {
         fetchOwnerLogs({ limit: '10' }),
       ]);
       if (statsRes.success && statsRes.data) setStats(statsRes.data);
-      if (logsRes.success && logsRes.data) setLogs(logsRes.data.entries ?? []);
+      if (logsRes.success && logsRes.data) {
+        setLogs(Array.isArray(logsRes.data) ? logsRes.data : (logsRes.data as any).entries ?? []);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
@@ -223,7 +225,7 @@ export default function OwnerDashboardPage() {
                   )}
                   <div>
                     <span className="text-sm text-[var(--text-primary)]">{log.details || log.action}</span>
-                    <p className="text-xs text-[var(--text-secondary)]">{log.user}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">{log.user.username}</p>
                   </div>
                 </div>
                 <span className="text-xs text-[var(--text-secondary)] shrink-0">{formatDate(log.createdAt)}</span>

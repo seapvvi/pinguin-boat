@@ -12,6 +12,9 @@ import { ownerRoutes } from './routes/owner';
 import { deployRoutes } from './routes/deploy';
 import { musicRoutes } from './routes/music';
 import { webhookRoutes } from './routes/webhooks';
+import { authenticate } from './middleware/auth';
+import { success, error, paginated } from './utils/response';
+import { getSystemMetrics, getGlobalStats } from './services/metrics';
 
 const config = getConfig();
 
@@ -56,6 +59,54 @@ async function main() {
     status: 'ok',
     timestamp: new Date().toISOString(),
   }));
+
+  app.get('/api/stats', { preHandler: [authenticate] }, async (_request, reply) => {
+    try {
+      const [globalStats, metrics, commandCount] = await Promise.all([
+        getGlobalStats(),
+        getSystemMetrics(),
+        prisma.auditLog.count(),
+      ]);
+      reply.send(success({
+        totalGuilds: globalStats.guilds,
+        totalUsers: globalStats.users,
+        totalCommands: commandCount,
+        uptime: metrics.processUptime,
+        cpuUsage: metrics.cpu,
+        ramUsage: metrics.ram.percent,
+        premiumRevenue: 0,
+        systemStatus: 'OPERATIONAL',
+      }));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message || 'Erreur lors de la récupération des stats'));
+    }
+  });
+
+  app.get('/api/changelogs', { preHandler: [authenticate] }, async (request, reply) => {
+    try {
+      const query = request.query as any;
+      const page = Math.max(1, parseInt(query.page) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(query.limit) || 10));
+      const [entries, total] = await Promise.all([
+        prisma.changelog.findMany({
+          where: { published: true },
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
+          include: {
+            author: { select: { username: true, avatar: true } },
+          },
+        }),
+        prisma.changelog.count({ where: { published: true } }),
+      ]);
+      reply.send({
+        success: true,
+        data: { entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } },
+      });
+    } catch (err: any) {
+      reply.status(500).send(error(err.message || 'Erreur lors de la récupération des changelogs'));
+    }
+  });
 
   try {
     await app.listen({

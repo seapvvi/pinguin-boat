@@ -21,14 +21,23 @@ export async function guildRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const guilds = await prisma.guild.findMany({
-        where: { botPresent: true },
         select: {
           id: true, name: true, icon: true, ownerId: true, memberCount: true,
-          modulesEnabled: true,
+          botPresent: true,
         },
-        orderBy: { memberCount: 'desc' },
+        orderBy: [{ botPresent: 'desc' }, { memberCount: 'desc' }],
       });
-      reply.send(success({ guilds }));
+      const premiumGuildIds = new Set(
+        (await prisma.premiumSubscription.findMany({
+          where: { guildId: { not: null }, status: 'ACTIVE' },
+          select: { guildId: true },
+        })).map((s) => s.guildId).filter(Boolean)
+      );
+      const enriched = guilds.map((g) => ({
+        ...g,
+        premium: (premiumGuildIds.has(g.id) ? 'BASIC' : 'FREE') as 'BASIC' | 'FREE',
+      }));
+      reply.send(success({ guilds: enriched }));
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur lors de la récupération'));
     }
@@ -246,7 +255,14 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as any;
       let xp = await prisma.xPSettings.findUnique({ where: { guildId } });
-      if (!xp) xp = await prisma.xPSettings.create({ data: { guildId } });
+      if (!xp) {
+        await prisma.guild.upsert({
+          where: { id: guildId },
+          update: {},
+          create: { id: guildId, name: guildId, ownerId: 'unknown', memberCount: 0 },
+        });
+        xp = await prisma.xPSettings.create({ data: { guildId } });
+      }
       const rewards = await prisma.xPRoleReward.findMany({ where: { guildId }, orderBy: { levelRequired: 'asc' } });
       reply.send(success({ settings: xp, roleRewards: rewards }));
     } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }

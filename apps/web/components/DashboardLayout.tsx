@@ -81,7 +81,6 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
           display: 'flex',
           flexDirection: 'column',
           flex: 1,
-          marginLeft: 0,
         }}
         className="lg:ml-[260px]"
       >

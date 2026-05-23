@@ -37,11 +37,15 @@ export function getInitials(name: string): string {
     .toUpperCase();
 }
 
-export function getAvatarUrl(user: { id: string; avatar: string }): string {
-  if (user.avatar.startsWith('a_')) {
-    return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.gif?size=128`;
+export function getAvatarUrl(user: { id: string; avatar: string | null; discriminator?: string }): string | null {
+  if (user.avatar) {
+    const ext = user.avatar.startsWith('a_') ? 'gif' : 'png';
+    return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${ext}?size=128`;
   }
-  return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
+  const disc = user.discriminator && user.discriminator !== '0'
+    ? parseInt(user.discriminator) % 5
+    : (parseInt(user.id) >> 22) % 6;
+  return `https://cdn.discordapp.com/embed/avatars/${disc}.png`;
 }
 
 export function classNames(...classes: (string | undefined | null | false)[]): string {

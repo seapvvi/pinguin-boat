@@ -116,8 +116,8 @@ export default function ThemeSelector() {
                     width: 16,
                     height: 16,
                     borderRadius: '50%',
-                    backgroundColor: theme.colors.accent,
-                    border: '1px solid var(--border-color)',
+                    backgroundColor: theme.colors.background,
+                    border: '2px solid var(--border-color)',
                     flexShrink: 0,
                   }}
                 />
