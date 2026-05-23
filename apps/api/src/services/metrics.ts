@@ -1,0 +1,106 @@
+import { prisma } from '@pinguin/db';
+import * as os from 'os';
+
+interface SystemMetricsData {
+  cpu: number;
+  ram: { used: number; total: number; percent: number };
+  uptime: number;
+  processUptime: number;
+  platform: string;
+  nodeVersion: string;
+  loadAvg: number[];
+}
+
+function getCPUUsage(): number {
+  const cpus = os.cpus();
+  let totalIdle = 0;
+  let totalTick = 0;
+  for (const cpu of cpus) {
+    for (const type in cpu.times) {
+      totalTick += (cpu.times as any)[type];
+    }
+    totalIdle += cpu.times.idle;
+  }
+  const idle = totalIdle / cpus.length;
+  const tick = totalTick / cpus.length;
+  return parseFloat(((1 - idle / tick) * 100).toFixed(2));
+}
+
+export function getSystemMetrics(): SystemMetricsData {
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const usedMem = totalMem - freeMem;
+
+  return {
+    cpu: getCPUUsage(),
+    ram: {
+      used: Math.round(usedMem / 1024 / 1024),
+      total: Math.round(totalMem / 1024 / 1024),
+      percent: parseFloat(((usedMem / totalMem) * 100).toFixed(2)),
+    },
+    uptime: os.uptime(),
+    processUptime: process.uptime(),
+    platform: os.platform(),
+    nodeVersion: process.version,
+    loadAvg: os.loadavg(),
+  };
+}
+
+export async function collectAndStore(): Promise<void> {
+  const metrics = getSystemMetrics();
+
+  const guildCount = await prisma.guild.count();
+  const userCount = await prisma.user.count();
+  const commandCount = await prisma.auditLog.count();
+  const messagesToday = 0;
+  const activeChannels = 0;
+
+  await prisma.systemMetricsSnapshot.create({
+    data: {
+      cpuUsage: metrics.cpu,
+      ramUsage: metrics.ram.used,
+      ramTotal: metrics.ram.total,
+      uptimeSeconds: Math.floor(metrics.uptime),
+      guildCount,
+      userCount,
+      commandCount,
+      messagesToday,
+      activeChannels,
+      onlineMembers: 0,
+      timestamp: new Date(),
+    },
+  });
+}
+
+export async function getMetricsHistory(
+  hours: number = 24
+): Promise<any[]> {
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+
+  return prisma.systemMetricsSnapshot.findMany({
+    where: { timestamp: { gte: since } },
+    orderBy: { timestamp: 'asc' },
+    take: 500,
+  });
+}
+
+export async function getGlobalStats() {
+  const [guildCount, userCount, totalXp, totalCases, premiumCount] =
+    await Promise.all([
+      prisma.guild.count(),
+      prisma.user.count(),
+      prisma.xPProfile.aggregate({ _sum: { xp: true } }),
+      prisma.moderationCase.count(),
+      prisma.premiumSubscription.count({
+        where: { status: 'ACTIVE' },
+      }),
+    ]);
+
+  return {
+    guilds: guildCount,
+    users: userCount,
+    totalXp: totalXp._sum.xp || 0,
+    moderationCases: totalCases,
+    premiumSubscriptions: premiumCount,
+  };
+}

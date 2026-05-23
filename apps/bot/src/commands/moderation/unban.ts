@@ -1,0 +1,64 @@
+import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFlagsBits } from 'discord.js';
+import { prisma } from '@pinguin/db';
+import { errorEmbed, successEmbed } from '../../services/embed';
+import { log } from '../../services/logger';
+
+export const data = new SlashCommandBuilder()
+  .setName('unban')
+  .setDescription('Débannir un utilisateur')
+  .addStringOption((opt) => opt.setName('user_id').setDescription('ID de l\'utilisateur à débannir').setRequired(true))
+  .addStringOption((opt) => opt.setName('reason').setDescription('Raison du débannissement').setRequired(true))
+  .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers);
+
+export const permissions = true;
+export const module = 'moderation';
+
+export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
+  await interaction.deferReply();
+
+  const userId = interaction.options.get('user_id')?.value as string;
+  const reason = interaction.options.get('reason')?.value as string;
+
+  if (!interaction.guild) return;
+
+  try {
+    const ban = await interaction.guild.bans.fetch(userId).catch(() => null);
+    if (!ban) {
+      await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Cet utilisateur n\'est pas banni.')] });
+      return;
+    }
+
+    await interaction.guild.members.unban(userId, `Débanni par ${interaction.user.tag}: ${reason}`);
+
+    const activeCase = await prisma.moderationCase.findFirst({
+      where: { guildId: interaction.guild.id, userId, type: { in: ['BAN', 'TEMPBAN'] }, active: true },
+    });
+
+    if (activeCase) {
+      await prisma.moderationCase.update({
+        where: { id: activeCase.id },
+        data: { active: false },
+      });
+    }
+
+    await prisma.moderationCase.create({
+      data: {
+        guildId: interaction.guild.id,
+        userId,
+        moderatorId: interaction.user.id,
+        type: 'UNBAN',
+        reason,
+        active: false,
+      },
+    });
+
+    log({ level: 'info', message: `Unban: ${userId} par ${interaction.user.tag}`, guildId: interaction.guild.id });
+
+    await interaction.editReply({
+      embeds: [successEmbed('Utilisateur débanni', `<@${userId}> a été débanni.\nRaison : ${reason}`)],
+    });
+  } catch (error) {
+    console.error(error);
+    await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de débannir cet utilisateur.')] });
+  }
+}

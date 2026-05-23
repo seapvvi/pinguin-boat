@@ -1,0 +1,979 @@
+// ─── Générateur & Source de données ───
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Énumérations ───
+
+/// Types d'événements de logs disponibles
+enum LogEventType {
+  MESSAGE_DELETE
+  MESSAGE_EDIT
+  MEMBER_JOIN
+  MEMBER_LEAVE
+  MEMBER_BAN
+  MEMBER_UNBAN
+  MEMBER_KICK
+  MEMBER_TIMEOUT
+  MEMBER_ROLE_ADD
+  MEMBER_ROLE_REMOVE
+  CHANNEL_CREATE
+  CHANNEL_DELETE
+  CHANNEL_UPDATE
+  ROLE_CREATE
+  ROLE_DELETE
+  ROLE_UPDATE
+  VOICE_JOIN
+  VOICE_LEAVE
+  VOICE_MOVE
+  EMOJI_CREATE
+  EMOJI_DELETE
+  INVITE_CREATE
+  INVITE_DELETE
+  THREAD_CREATE
+  THREAD_DELETE
+  THREAD_UPDATE
+  STAGE_START
+  STAGE_END
+  AUTO_MOD
+  MEMBER_WARN
+  MEMBER_MUTE
+  MEMBER_UNMUTE
+}
+
+/// Types de sanctions de modération
+enum ModerationCaseType {
+  WARN
+  MUTE
+  UNMUTE
+  KICK
+  BAN
+  TEMPBAN
+  UNBAN
+  TIMEOUT
+}
+
+/// Statut d'un ticket
+enum TicketStatus {
+  OPEN
+  CLAIMED
+  PENDING
+  CLOSED
+  DELETED
+}
+
+/// Statut de déploiement
+enum DeploymentStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  ROLLED_BACK
+}
+
+/// Type de rôle automatique
+enum AutoroleType {
+  JOIN
+  LEVEL
+  REACTION
+}
+
+/// Type de transaction économique
+enum TransactionType {
+  DAILY
+  TRANSFER
+  SHOP_BUY
+  GAMBLE
+  ADMIN
+  EARN
+}
+
+/// Statut d'un giveaway
+enum GiveawayStatus {
+  RUNNING
+  ENDED
+  CANCELLED
+}
+
+/// Statut d'un sondage
+enum PollStatus {
+  OPEN
+  CLOSED
+}
+
+/// Statut d'une suggestion
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+}
+
+/// Mode de boucle musicale
+enum LoopMode {
+  NONE
+  TRACK
+  QUEUE
+}
+
+/// Statut d'abonnement premium
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+/// Actions auditées
+enum AuditAction {
+  GUILD_UPDATE
+  GUILD_DELETE
+  MEMBER_KICK
+  MEMBER_BAN
+  MEMBER_UNBAN
+  MEMBER_TIMEOUT
+  MEMBER_WARN
+  MEMBER_MUTE
+  MEMBER_UNMUTE
+  TICKET_CREATE
+  TICKET_CLOSE
+  TICKET_DELETE
+  MESSAGE_PURGE
+  ROLE_CREATE
+  ROLE_DELETE
+  ROLE_UPDATE
+  CHANNEL_CREATE
+  CHANNEL_DELETE
+  CHANNEL_UPDATE
+  SETTINGS_UPDATE
+  PREMIUM_UPDATE
+  ECONOMY_ADMIN
+  PLUGIN_ENABLE
+  PLUGIN_DISABLE
+  BLACKLIST_ADD
+  BLACKLIST_REMOVE
+  BLACKLIST_USER
+  UNBLACKLIST_USER
+  BLACKLIST_GUILD
+  UNBLACKLIST_GUILD
+  FORCE_LEAVE
+  DEPLOYMENT_START
+  DEPLOYMENT_SUCCESS
+  DEPLOYMENT_FAILURE
+  DEPLOYMENT_ROLLBACK
+  PREMIUM_GRANT
+  PREMIUM_REVOKE
+  ALPHA_MODE_TOGGLE
+  CHANGELOG_PUBLISH
+  GLOBAL_ANNOUNCEMENT
+  SERVICE_RESTART
+  BACKUP_CREATED
+  BACKUP_RESTORED
+  SETTINGS_CHANGE
+  OWNER_LOGIN
+  OWNER_LOGOUT
+}
+
+// ─── Modèles ───
+
+/// Utilisateur du bot
+model User {
+  id              String   @id @default(cuid()) @map("id")
+  discordId       String   @unique @map("discord_id")
+  username        String   @map("username")
+  displayName     String?  @map("display_name")
+  avatar          String?  @map("avatar")
+  email           String?  @map("email")
+  locale          String   @default("fr") @map("locale")
+  theme           String   @default("OLED") @map("theme")
+  snowflakes      Boolean  @default(true) @map("snowflakes")
+
+  premiumSubscription PremiumSubscription?
+
+  economyGuilds   EconomyWallet[]
+  xpProfiles      XPProfile[]
+  moderationCases ModerationCase[]
+  ticketsCreated  Ticket[]       @relation("TicketCreator")
+  ticketClaims    TicketClaim[]
+  claimedTickets  Ticket[]       @relation("TicketClaims")
+  suggestions     Suggestion[]
+  pollVotes       PollVote[]
+  giveawayEntries GiveawayEntry[]
+  auditLogs       AuditLog[]
+  ownerLogs       OwnerLog[]
+  sessions        Session[]
+  owner2FA        Owner2FA?
+  changelogs      Changelog[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+/// Session de connexion
+model Session {
+  id        String   @id @map("id")
+  userId    String   @map("user_id")
+  guildId   String?  @map("guild_id")
+  token     String   @unique @map("token")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+/// Authentification à deux facteurs pour les propriétaires
+model Owner2FA {
+  id            String    @id @default(cuid()) @map("id")
+  userId        String    @unique @map("user_id")
+  secret        String    @map("secret")
+  enabled       Boolean   @default(false) @map("enabled")
+  verified      Boolean   @default(false) @map("verified")
+  lastVerifiedAt DateTime? @map("last_verified_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("owner_2fa")
+}
+
+/// Serveur Discord
+model Guild {
+  id          String  @id @map("id")
+  name        String  @map("name")
+  icon        String? @map("icon")
+  ownerId     String  @map("owner_id")
+  memberCount Int     @default(0) @map("member_count")
+  botPresent  Boolean @default(true) @map("bot_present")
+
+  settings        GuildSettings?
+  modulesEnabled  ModuleEnabled?
+  logSettings     LogSettings?
+  xpSettings      XPSettings?
+  welcomeSettings WelcomeSettings?
+  autoroleSettings AutoroleSettings?
+  musicQueues     MusicQueue?
+  blacklist       BlacklistGuild?
+  premiumSubscription PremiumSubscription?
+
+  moderationCases  ModerationCase[]
+  tickets          Ticket[]
+  ticketCategories TicketCategory[]
+  xpProfiles       XPProfile[]
+  xpRoleRewards    XPRoleReward[]
+  economyWallets   EconomyWallet[]
+  economyTransactions EconomyTransaction[]
+  musicHistory     MusicHistoryEntry[]
+  giveaways        Giveaway[]
+  polls            Poll[]
+  suggestions      Suggestion[]
+  autoroleEntries  AutoroleEntry[]
+  savedEmbeds      SavedEmbed[]
+  auditLogs        AuditLog[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("guilds")
+}
+
+/// Configuration générale d'un serveur
+model GuildSettings {
+  id           String   @id @default(cuid()) @map("id")
+  guildId      String   @unique @map("guild_id")
+  prefix       String?  @map("prefix")
+  locale       String   @default("fr") @map("locale")
+  timezone     String   @default("Europe/Paris") @map("timezone")
+  modLogChannel String? @map("mod_log_channel")
+  modRoleIds   String   @default("[]") @map("mod_role_ids")
+  adminRoleIds String   @default("[]") @map("admin_role_ids")
+  muteRoleId   String?  @map("mute_role_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@map("guild_settings")
+}
+
+/// Modules activés ou désactivés sur un serveur
+model ModuleEnabled {
+  id          String   @id @default(cuid()) @map("id")
+  guildId     String   @unique @map("guild_id")
+
+  moderation  Boolean  @default(true) @map("moderation")
+  protection  Boolean  @default(true) @map("protection")
+  tickets     Boolean  @default(false) @map("tickets")
+  logs        Boolean  @default(true) @map("logs")
+  levels      Boolean  @default(true) @map("levels")
+  economy     Boolean  @default(false) @map("economy")
+  music       Boolean  @default(true) @map("music")
+  giveaways   Boolean  @default(true) @map("giveaways")
+  polls       Boolean  @default(true) @map("polls")
+  suggestions Boolean  @default(true) @map("suggestions")
+  welcome     Boolean  @default(true) @map("welcome")
+  autoroles   Boolean  @default(true) @map("autoroles")
+  embeds      Boolean  @default(true) @map("embeds")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@map("modules_enabled")
+}
+
+/// Cas de modération
+model ModerationCase {
+  id           String   @id @default(cuid()) @map("id")
+  guildId      String   @map("guild_id")
+  userId       String   @map("user_id")
+  moderatorId  String   @map("moderator_id")
+  type         ModerationCaseType @map("type")
+  reason       String   @map("reason")
+  duration     Int?     @map("duration")
+  expiresAt    DateTime? @map("expires_at")
+  active       Boolean  @default(true) @map("active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([guildId, userId])
+  @@index([guildId, moderatorId])
+  @@index([guildId, createdAt])
+  @@map("moderation_cases")
+}
+
+/// Avertissements indépendants des cas de modération
+model Warning {
+  id           String   @id @default(cuid()) @map("id")
+  guildId      String   @map("guild_id")
+  userId       String   @map("user_id")
+  moderatorId  String   @map("moderator_id")
+  reason       String   @map("reason")
+  active       Boolean  @default(true) @map("active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([guildId, userId])
+  @@map("warnings")
+}
+
+/// Ticket de support
+model Ticket {
+  id          String       @id @default(cuid()) @map("id")
+  guildId     String       @map("guild_id")
+  channelId   String       @unique @map("channel_id")
+  creatorId   String       @map("creator_id")
+  categoryId  String?      @map("category_id")
+  subject     String       @map("subject")
+  description String?      @map("description")
+  status      TicketStatus @default(OPEN) @map("status")
+  claimedById String?      @map("claimed_by_id")
+  closedById  String?      @map("closed_by_id")
+  closedAt    DateTime?    @map("closed_at")
+  transcriptId String?     @map("transcript_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  guild    Guild           @relation(fields: [guildId], references: [id])
+  creator  User            @relation("TicketCreator", fields: [creatorId], references: [id])
+  category TicketCategory? @relation(fields: [categoryId], references: [id])
+  claimedBy User?          @relation("TicketClaims", fields: [claimedById], references: [id])
+  claims   TicketClaim[]
+
+  @@index([guildId, status])
+  @@index([guildId, creatorId])
+  @@map("tickets")
+}
+
+/// Réclamation d'un ticket par un membre du staff
+model TicketClaim {
+  id        String   @id @default(cuid()) @map("id")
+  ticketId  String   @map("ticket_id")
+  userId    String   @map("user_id")
+  claimedAt DateTime @default(now()) @map("claimed_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([ticketId, userId])
+  @@map("ticket_claims")
+}
+
+/// Catégorie de ticket
+model TicketCategory {
+  id               String   @id @default(cuid()) @map("id")
+  guildId          String   @map("guild_id")
+  name             String   @map("name")
+  description      String?  @map("description")
+  staffRoleIds     String   @default("[]") @map("staff_role_ids")
+  maxTicketsPerUser Int     @default(5) @map("max_tickets_per_user")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  guild   Guild   @relation(fields: [guildId], references: [id])
+  tickets Ticket[]
+
+  @@index([guildId])
+  @@map("ticket_categories")
+}
+
+/// Métadonnées de transcription de ticket
+model TranscriptMeta {
+  id        String   @id @default(cuid()) @map("id")
+  ticketId  String   @unique @map("ticket_id")
+  channelId String   @map("channel_id")
+  guildId   String   @map("guild_id")
+  fileUrl   String?  @map("file_url")
+  content   String?  @map("content")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("transcript_metas")
+}
+
+/// Configuration des logs d'audit
+model LogSettings {
+  id              String   @id @default(cuid()) @map("id")
+  guildId         String   @unique @map("guild_id")
+  logChannelId    String?  @map("log_channel_id")
+  events          String   @default("[]") @map("events")
+  ignoredChannels String   @default("[]") @map("ignored_channels")
+  ignoredRoles    String   @default("[]") @map("ignored_roles")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@map("log_settings")
+}
+
+/// Configuration du système d'XP et niveaux
+model XPSettings {
+  id                  String   @id @default(cuid()) @map("id")
+  guildId             String   @unique @map("guild_id")
+  enabled             Boolean  @default(true) @map("enabled")
+  messageXp           Int      @default(15) @map("message_xp")
+  voiceXp             Int      @default(10) @map("voice_xp")
+  messageCooldown     Int      @default(60) @map("message_cooldown")
+  voiceCooldown       Int      @default(120) @map("voice_cooldown")
+  levelFormula        String   @default("100 * level * 1.5") @map("level_formula")
+  maxLevel            Int      @default(1000) @map("max_level")
+  ignoredChannels     String   @default("[]") @map("ignored_channels")
+  ignoredRoles        String   @default("[]") @map("ignored_roles")
+  announcementChannelId String? @map("announcement_channel_id")
+  announcementMessage String?  @map("announcement_message")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@map("xp_settings")
+}
+
+/// Profil d'XP d'un utilisateur sur un serveur
+model XPProfile {
+  id            String    @id @default(cuid()) @map("id")
+  guildId       String    @map("guild_id")
+  userId        String    @map("user_id")
+  xp            Int       @default(0) @map("xp")
+  level         Int       @default(0) @map("level")
+  voiceXp       Int       @default(0) @map("voice_xp")
+  messageCount  Int       @default(0) @map("message_count")
+  voiceMinutes  Int       @default(0) @map("voice_minutes")
+  lastMessageAt DateTime? @map("last_message_at")
+  lastVoiceAt   DateTime? @map("last_voice_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([guildId, userId])
+  @@index([guildId, xp])
+  @@index([guildId, level])
+  @@map("xp_profiles")
+}
+
+/// Récompense de rôle liée à un niveau
+model XPRoleReward {
+  id            String   @id @default(cuid()) @map("id")
+  guildId       String   @map("guild_id")
+  roleId        String   @map("role_id")
+  levelRequired Int      @map("level_required")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@unique([guildId, roleId])
+  @@index([guildId, levelRequired])
+  @@map("xp_role_rewards")
+}
+
+/// Portefeuille économique d'un utilisateur sur un serveur
+model EconomyWallet {
+  id          String    @id @default(cuid()) @map("id")
+  guildId     String    @map("guild_id")
+  userId      String    @map("user_id")
+  wallet      Int       @default(0) @map("wallet")
+  bank        Int       @default(0) @map("bank")
+  totalEarned Int       @default(0) @map("total_earned")
+  lastDailyAt DateTime? @map("last_daily_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([guildId, userId])
+  @@map("economy_wallets")
+}
+
+/// Transaction économique
+model EconomyTransaction {
+  id          String          @id @default(cuid()) @map("id")
+  guildId     String          @map("guild_id")
+  fromUserId  String?         @map("from_user_id")
+  toUserId    String?         @map("to_user_id")
+  amount      Int             @map("amount")
+  type        TransactionType @map("type")
+  description String?         @map("description")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@index([guildId, fromUserId])
+  @@index([guildId, toUserId])
+  @@map("economy_transactions")
+}
+
+/// File d'attente musicale
+model MusicQueue {
+  id              String   @id @default(cuid()) @map("id")
+  guildId         String   @unique @map("guild_id")
+  tracks          String   @default("[]") @map("tracks")
+  currentTrack    String?  @map("current_track")
+  position        Int      @default(0) @map("position")
+  loopMode        LoopMode @default(NONE) @map("loop_mode")
+  autoplay        Boolean  @default(false) @map("autoplay")
+  volume          Int      @default(50) @map("volume")
+  voiceChannelId  String?  @map("voice_channel_id")
+  textChannelId   String?  @map("text_channel_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@map("music_queues")
+}
+
+/// Entrée d'historique musical
+model MusicHistoryEntry {
+  id            String   @id @default(cuid()) @map("id")
+  guildId       String   @map("guild_id")
+  trackTitle    String   @map("track_title")
+  trackUrl      String   @map("track_url")
+  duration      Int      @map("duration")
+  requestedById String   @map("requested_by_id")
+  playedAt      DateTime @default(now()) @map("played_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@index([guildId, playedAt])
+  @@map("music_history_entries")
+}
+
+/// Giveaway (concours)
+model Giveaway {
+  id               String         @id @default(cuid()) @map("id")
+  guildId          String         @map("guild_id")
+  channelId        String         @map("channel_id")
+  messageId        String?        @map("message_id")
+  prize            String         @map("prize")
+  winnerCount      Int            @default(1) @map("winner_count")
+  duration         Int            @map("duration")
+  endsAt           DateTime       @map("ends_at")
+  requiredRoleId   String?        @map("required_role_id")
+  requiredLevel    Int            @default(0) @map("required_level")
+  requiredAccountAge Int          @default(0) @map("required_account_age")
+  status           GiveawayStatus @default(RUNNING) @map("status")
+  winners          String?        @map("winners")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  guild   Guild            @relation(fields: [guildId], references: [id])
+  entries GiveawayEntry[]
+
+  @@index([guildId, status])
+  @@map("giveaways")
+}
+
+/// Participation à un giveaway
+model GiveawayEntry {
+  id         String   @id @default(cuid()) @map("id")
+  giveawayId String   @map("giveaway_id")
+  userId     String   @map("user_id")
+  joinedAt   DateTime @default(now()) @map("joined_at")
+
+  giveaway Giveaway @relation(fields: [giveawayId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([giveawayId, userId])
+  @@map("giveaway_entries")
+}
+
+/// Sondage
+model Poll {
+  id        String    @id @default(cuid()) @map("id")
+  guildId   String    @map("guild_id")
+  channelId String    @map("channel_id")
+  messageId String?   @map("message_id")
+  question  String    @map("question")
+  options   String    @map("options")
+  status    PollStatus @default(OPEN) @map("status")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+  votes PollVote[]
+
+  @@index([guildId, status])
+  @@map("polls")
+}
+
+/// Vote dans un sondage
+model PollVote {
+  id          String   @id @default(cuid()) @map("id")
+  pollId      String   @map("poll_id")
+  userId      String   @map("user_id")
+  optionIndex Int      @map("option_index")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  poll Poll @relation(fields: [pollId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([pollId, userId])
+  @@map("poll_votes")
+}
+
+/// Suggestion
+model Suggestion {
+  id              String           @id @default(cuid()) @map("id")
+  guildId         String           @map("guild_id")
+  channelId       String           @map("channel_id")
+  messageId       String?          @map("message_id")
+  authorId        String           @map("author_id")
+  content         String           @map("content")
+  upvotes         Int              @default(0) @map("upvotes")
+  downvotes       Int              @default(0) @map("downvotes")
+  voters          String           @default("{}") @map("voters")
+  status          SuggestionStatus @default(PENDING) @map("status")
+  staffResponse   String?          @map("staff_response")
+  staffResponderId String?         @map("staff_responder_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  guild  Guild @relation(fields: [guildId], references: [id])
+  author User  @relation(fields: [authorId], references: [id])
+
+  @@index([guildId, status])
+  @@map("suggestions")
+}
+
+/// Configuration du message de bienvenue
+model WelcomeSettings {
+  id                     String   @id @default(cuid()) @map("id")
+  guildId                String   @unique @map("guild_id")
+  enabled                Boolean  @default(true) @map("enabled")
+  welcomeChannelId       String?  @map("welcome_channel_id")
+  welcomeMessage         String?  @map("welcome_message")
+  welcomeEmbed           Boolean  @default(true) @map("welcome_embed")
+  welcomeEmbedColor      String   @default("#e0e0e0") @map("welcome_embed_color")
+  welcomeEmbedTitle      String?  @map("welcome_embed_title")
+  welcomeEmbedDescription String? @map("welcome_embed_description")
+  welcomeEmbedFooter     String?  @map("welcome_embed_footer")
+  welcomeEmbedImage      String?  @map("welcome_embed_image")
+  welcomeDM              Boolean  @default(false) @map("welcome_dm")
+  welcomeDMMessage       String?  @map("welcome_dm_message")
+  goodbyeEnabled         Boolean  @default(true) @map("goodbye_enabled")
+  goodbyeChannelId       String?  @map("goodbye_channel_id")
+  goodbyeMessage         String?  @map("goodbye_message")
+  goodbyeEmbed           Boolean  @default(true) @map("goodbye_embed")
+  goodbyeEmbedColor      String   @default("#888888") @map("goodbye_embed_color")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@map("welcome_settings")
+}
+
+/// Configuration des rôles automatiques
+model AutoroleSettings {
+  id         String   @id @default(cuid()) @map("id")
+  guildId    String   @unique @map("guild_id")
+  enabled    Boolean  @default(true) @map("enabled")
+  onJoin     Boolean  @default(true) @map("on_join")
+  onLevelUp  Boolean  @default(false) @map("on_level_up")
+  onReaction Boolean  @default(false) @map("on_reaction")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  guild  Guild           @relation(fields: [guildId], references: [id])
+  entries AutoroleEntry[]
+
+  @@map("autorole_settings")
+}
+
+/// Entrée de rôle automatique
+model AutoroleEntry {
+  id                String       @id @default(cuid()) @map("id")
+  settingsId        String       @map("settings_id")
+  guildId           String       @map("guild_id")
+  roleId            String       @map("role_id")
+  type              AutoroleType @map("type")
+  levelRequired     Int?         @map("level_required")
+  reactionChannelId String?      @map("reaction_channel_id")
+  reactionEmoji     String?      @map("reaction_emoji")
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  settings AutoroleSettings @relation(fields: [settingsId], references: [id])
+  guild    Guild            @relation(fields: [guildId], references: [id])
+
+  @@index([guildId, type])
+  @@map("autorole_entries")
+}
+
+/// Embed sauvegardé
+model SavedEmbed {
+  id          String   @id @default(cuid()) @map("id")
+  guildId     String   @map("guild_id")
+  name        String   @map("name")
+  title       String?  @map("title")
+  description String?  @map("description")
+  color       String   @default("#e0e0e0") @map("color")
+  fields      String   @default("[]") @map("fields")
+  footer      String?  @map("footer")
+  image       String?  @map("image")
+  thumbnail   String?  @map("thumbnail")
+  authorName  String?  @map("author_name")
+  authorIcon  String?  @map("author_icon")
+  timestamp   Boolean  @default(true) @map("timestamp")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@index([guildId])
+  @@map("saved_embeds")
+}
+
+/// Plan d'abonnement premium
+model PremiumPlan {
+  id          String   @id @default(cuid()) @map("id")
+  name        String   @unique @map("name")
+  description String   @map("description")
+  price       Int      @map("price")
+  maxGuilds   Int      @default(1) @map("max_guilds")
+  features    String   @default("[]") @map("features")
+  active      Boolean  @default(true) @map("active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  subscriptions PremiumSubscription[]
+
+  @@map("premium_plans")
+}
+
+/// Abonnement premium d'un utilisateur
+model PremiumSubscription {
+  id          String             @id @default(cuid()) @map("id")
+  userId      String             @unique @map("user_id")
+  guildId     String?            @unique @map("guild_id")
+  planId      String             @map("plan_id")
+  status      SubscriptionStatus @default(ACTIVE) @map("status")
+  startedAt   DateTime           @default(now()) @map("started_at")
+  expiresAt   DateTime?          @map("expires_at")
+  cancelledAt DateTime?          @map("cancelled_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id])
+  guild Guild? @relation(fields: [guildId], references: [id])
+  plan  PremiumPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([guildId])
+  @@map("premium_subscriptions")
+}
+
+/// Indicateurs de fonctionnalités premium
+model PremiumFeatureFlag {
+  id          String   @id @default(cuid()) @map("id")
+  key         String   @unique @map("key")
+  name        String   @map("name")
+  description String?  @map("description")
+  enabled     Boolean  @default(true) @map("enabled")
+  minTier     String   @default("FREE") @map("min_tier")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("premium_feature_flags")
+}
+
+/// Utilisateur blacklisté
+model BlacklistUser {
+  id          String   @id @default(cuid()) @map("id")
+  targetId    String   @unique @map("target_id")
+  reason      String   @map("reason")
+  moderatorId String   @map("moderator_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([targetId])
+  @@map("blacklist_users")
+}
+
+/// Serveur blacklisté
+model BlacklistGuild {
+  id          String   @id @default(cuid()) @map("id")
+  guildId     String   @unique @map("guild_id")
+  reason      String   @map("reason")
+  moderatorId String   @map("moderator_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@index([guildId])
+  @@map("blacklist_guilds")
+}
+
+/// Journal des modifications (changelog)
+model Changelog {
+  id        String   @id @default(cuid()) @map("id")
+  title     String   @map("title")
+  content   String   @map("content")
+  version   String   @map("version")
+  published Boolean  @default(true) @map("published")
+  authorId  String   @map("author_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([createdAt])
+  @@map("changelogs")
+}
+
+/// Déploiement
+model Deployment {
+  id            String           @id @default(cuid()) @map("id")
+  version       String           @map("version")
+  releasePath   String           @map("release_path")
+  status        DeploymentStatus @default(PENDING) @map("status")
+  log           String?          @map("log")
+  triggeredById String           @map("triggered_by_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  startedAt     DateTime         @default(now()) @map("started_at")
+  completedAt   DateTime?        @map("completed_at")
+
+  releases DeploymentRelease[]
+
+  @@index([createdAt])
+  @@index([status])
+  @@map("deployments")
+}
+
+/// Version de déploiement précédente (pour rollback)
+model DeploymentRelease {
+  id           String           @id @default(cuid()) @map("id")
+  version      String           @map("version")
+  releasePath  String           @map("release_path")
+  deploymentId String?          @map("deployment_id")
+  status       DeploymentStatus @map("status")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  deployment Deployment? @relation(fields: [deploymentId], references: [id])
+
+  @@index([createdAt])
+  @@map("deployment_releases")
+}
+
+/// Journal d'audit
+model AuditLog {
+  id        String      @id @default(cuid()) @map("id")
+  guildId   String?     @map("guild_id")
+  userId    String?     @map("user_id")
+  action    AuditAction @map("action")
+  details   String?     @map("details")
+  ip        String?     @map("ip")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  guild Guild? @relation(fields: [guildId], references: [id])
+  user  User?  @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([guildId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+/// Journal d'activité des propriétaires
+model OwnerLog {
+  id        String   @id @default(cuid()) @map("id")
+  userId    String   @map("user_id")
+  action    String   @map("action")
+  details   String?  @map("details")
+  ip        String   @map("ip")
+  userAgent String?  @map("user_agent")
+  success   Boolean  @default(true) @map("success")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("owner_logs")
+}
+
+/// Instantané de métriques système
+model SystemMetricsSnapshot {
+  id             String   @id @default(cuid()) @map("id")
+  cpuUsage       Float    @map("cpu_usage")
+  ramUsage       Float    @map("ram_usage")
+  ramTotal       Float    @map("ram_total")
+  uptimeSeconds  Int      @map("uptime_seconds")
+  guildCount     Int      @map("guild_count")
+  userCount      Int      @map("user_count")
+  commandCount   Int      @map("command_count")
+  messagesToday  Int      @map("messages_today")
+  activeChannels Int      @map("active_channels")
+  onlineMembers  Int      @map("online_members")
+  timestamp      DateTime @default(now()) @map("timestamp")
+
+  @@index([timestamp])
+  @@map("system_metrics_snapshots")
+}
+
+/// Interrupteur global de fonctionnalités
+model FeatureFlag {
+  id          String   @id @default(cuid()) @map("id")
+  key         String   @unique @map("key")
+  name        String   @map("name")
+  description String?  @map("description")
+  enabled     Boolean  @default(false) @map("enabled")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("feature_flags")
+}

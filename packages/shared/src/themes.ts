@@ -1,0 +1,253 @@
+import { ThemeName } from './enums';
+
+export interface ThemeColors {
+  background: string;
+  surface: string;
+  surfaceAlt: string;
+  border: string;
+  text: string;
+  textSecondary: string;
+  accent: string;
+  accentHover: string;
+  success: string;
+  warning: string;
+  error: string;
+  info: string;
+  sidebar: string;
+  sidebarActive: string;
+  header: string;
+}
+
+export interface ThemeConfig {
+  name: ThemeName;
+  label: string;
+  colors: ThemeColors;
+  isDark: boolean;
+}
+
+export const themes: Record<ThemeName, ThemeConfig> = {
+  [ThemeName.OLED]: {
+    name: ThemeName.OLED,
+    label: 'OLED',
+    colors: {
+      background: '#000000',
+      surface: '#0d0d0d',
+      surfaceAlt: '#1a1a1a',
+      border: '#1f1f1f',
+      text: '#f5f5f5',
+      textSecondary: '#888888',
+      accent: '#e0e0e0',
+      accentHover: '#ffffff',
+      success: '#22c55e',
+      warning: '#f59e0b',
+      error: '#ef4444',
+      info: '#3b82f6',
+      sidebar: '#050505',
+      sidebarActive: '#1a1a1a',
+      header: '#050505',
+    },
+    isDark: true,
+  },
+  [ThemeName.DARK]: {
+    name: ThemeName.DARK,
+    label: 'Sombre',
+    colors: {
+      background: '#111111',
+      surface: '#1a1a1a',
+      surfaceAlt: '#242424',
+      border: '#2a2a2a',
+      text: '#e5e5e5',
+      textSecondary: '#888888',
+      accent: '#ffffff',
+      accentHover: '#cccccc',
+      success: '#22c55e',
+      warning: '#f59e0b',
+      error: '#ef4444',
+      info: '#3b82f6',
+      sidebar: '#0d0d0d',
+      sidebarActive: '#242424',
+      header: '#0d0d0d',
+    },
+    isDark: true,
+  },
+  [ThemeName.LIGHT]: {
+    name: ThemeName.LIGHT,
+    label: 'Clair',
+    colors: {
+      background: '#f5f5f5',
+      surface: '#ffffff',
+      surfaceAlt: '#f0f0f0',
+      border: '#e0e0e0',
+      text: '#111111',
+      textSecondary: '#666666',
+      accent: '#000000',
+      accentHover: '#333333',
+      success: '#16a34a',
+      warning: '#d97706',
+      error: '#dc2626',
+      info: '#2563eb',
+      sidebar: '#ffffff',
+      sidebarActive: '#e8e8e8',
+      header: '#ffffff',
+    },
+    isDark: false,
+  },
+  [ThemeName.CATPPUCCIN]: {
+    name: ThemeName.CATPPUCCIN,
+    label: 'Catppuccin',
+    colors: {
+      background: '#1e1e2e',
+      surface: '#181825',
+      surfaceAlt: '#1e1e2e',
+      border: '#313244',
+      text: '#cdd6f4',
+      textSecondary: '#6c7086',
+      accent: '#cba6f7',
+      accentHover: '#b4befe',
+      success: '#a6e3a1',
+      warning: '#f9e2af',
+      error: '#f38ba8',
+      info: '#89b4fa',
+      sidebar: '#11111b',
+      sidebarActive: '#313244',
+      header: '#11111b',
+    },
+    isDark: true,
+  },
+  [ThemeName.NORD]: {
+    name: ThemeName.NORD,
+    label: 'Nord',
+    colors: {
+      background: '#2e3440',
+      surface: '#3b4252',
+      surfaceAlt: '#434c5e',
+      border: '#4c566a',
+      text: '#eceff4',
+      textSecondary: '#81a1c1',
+      accent: '#88c0d0',
+      accentHover: '#8fbcbb',
+      success: '#a3be8c',
+      warning: '#ebcb8b',
+      error: '#bf616a',
+      info: '#5e81ac',
+      sidebar: '#2e3440',
+      sidebarActive: '#434c5e',
+      header: '#2e3440',
+    },
+    isDark: true,
+  },
+  [ThemeName.DRACULA]: {
+    name: ThemeName.DRACULA,
+    label: 'Dracula',
+    colors: {
+      background: '#282a36',
+      surface: '#21222c',
+      surfaceAlt: '#282a36',
+      border: '#44475a',
+      text: '#f8f8f2',
+      textSecondary: '#6272a4',
+      accent: '#bd93f9',
+      accentHover: '#ff79c6',
+      success: '#50fa7b',
+      warning: '#f1fa8c',
+      error: '#ff5555',
+      info: '#8be9fd',
+      sidebar: '#1c1d26',
+      sidebarActive: '#44475a',
+      header: '#1c1d26',
+    },
+    isDark: true,
+  },
+  [ThemeName.GRUVBOX]: {
+    name: ThemeName.GRUVBOX,
+    label: 'Gruvbox',
+    colors: {
+      background: '#282828',
+      surface: '#1d2021',
+      surfaceAlt: '#282828',
+      border: '#3c3836',
+      text: '#ebdbb2',
+      textSecondary: '#928374',
+      accent: '#fabd2f',
+      accentHover: '#fe8019',
+      success: '#b8bb26',
+      warning: '#fabd2f',
+      error: '#fb4934',
+      info: '#83a598',
+      sidebar: '#1b1b1b',
+      sidebarActive: '#3c3836',
+      header: '#1b1b1b',
+    },
+    isDark: true,
+  },
+  [ThemeName.TOKYO_NIGHT]: {
+    name: ThemeName.TOKYO_NIGHT,
+    label: 'Tokyo Night',
+    colors: {
+      background: '#1a1b26',
+      surface: '#1f2335',
+      surfaceAlt: '#24283b',
+      border: '#2f3346',
+      text: '#c0caf5',
+      textSecondary: '#565f89',
+      accent: '#7aa2f7',
+      accentHover: '#bb9af7',
+      success: '#9ece6a',
+      warning: '#e0af68',
+      error: '#f7768e',
+      info: '#73daca',
+      sidebar: '#13141f',
+      sidebarActive: '#2f3346',
+      header: '#13141f',
+    },
+    isDark: true,
+  },
+  [ThemeName.ROSE_PINE]: {
+    name: ThemeName.ROSE_PINE,
+    label: 'Rose Pine',
+    colors: {
+      background: '#191724',
+      surface: '#1f1d2e',
+      surfaceAlt: '#26233a',
+      border: '#2a273f',
+      text: '#e0def4',
+      textSecondary: '#908caa',
+      accent: '#eb6f92',
+      accentHover: '#f6c177',
+      success: '#9ccfd8',
+      warning: '#f6c177',
+      error: '#eb6f92',
+      info: '#31748f',
+      sidebar: '#13111e',
+      sidebarActive: '#26233a',
+      header: '#13111e',
+    },
+    isDark: true,
+  },
+  [ThemeName.MONOKAI]: {
+    name: ThemeName.MONOKAI,
+    label: 'Monokai',
+    colors: {
+      background: '#272822',
+      surface: '#1e1f1c',
+      surfaceAlt: '#272822',
+      border: '#3e3d32',
+      text: '#f8f8f2',
+      textSecondary: '#75715e',
+      accent: '#a6e22e',
+      accentHover: '#66d9ef',
+      success: '#a6e22e',
+      warning: '#e6db74',
+      error: '#f92672',
+      info: '#66d9ef',
+      sidebar: '#1b1c18',
+      sidebarActive: '#3e3d32',
+      header: '#1b1c18',
+    },
+    isDark: true,
+  },
+};
+
+export function getTheme(themeName: ThemeName): ThemeConfig {
+  return themes[themeName];
+}

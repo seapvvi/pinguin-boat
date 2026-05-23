@@ -1,0 +1,56 @@
+{
+  "apps": [
+    {
+      "name": "pinguin-api",
+      "script": "apps/api/dist/index.js",
+      "cwd": "/opt/pinguinboat/current",
+      "instances": 1,
+      "exec_mode": "fork",
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "error_file": "/opt/pinguinboat/shared/logs/api-error.log",
+      "out_file": "/opt/pinguinboat/shared/logs/api-out.log",
+      "log_file": "/opt/pinguinboat/shared/logs/api-combined.log",
+      "merge_logs": true,
+      "max_restarts": 10,
+      "restart_delay": 5000,
+      "max_memory_restart": "500M"
+    },
+    {
+      "name": "pinguin-bot",
+      "script": "apps/bot/dist/index.js",
+      "cwd": "/opt/pinguinboat/current",
+      "instances": 1,
+      "exec_mode": "fork",
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "error_file": "/opt/pinguinboat/shared/logs/bot-error.log",
+      "out_file": "/opt/pinguinboat/shared/logs/bot-out.log",
+      "log_file": "/opt/pinguinboat/shared/logs/bot-combined.log",
+      "merge_logs": true,
+      "max_restarts": 10,
+      "restart_delay": 5000,
+      "max_memory_restart": "800M"
+    },
+    {
+      "name": "pinguin-web",
+      "script": "apps/web/server.js",
+      "cwd": "/opt/pinguinboat/current",
+      "instances": 2,
+      "exec_mode": "cluster",
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": 3000
+      },
+      "error_file": "/opt/pinguinboat/shared/logs/web-error.log",
+      "out_file": "/opt/pinguinboat/shared/logs/web-out.log",
+      "log_file": "/opt/pinguinboat/shared/logs/web-combined.log",
+      "merge_logs": true,
+      "max_restarts": 10,
+      "restart_delay": 5000,
+      "max_memory_restart": "500M"
+    }
+  ]
+}

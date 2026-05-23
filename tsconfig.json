@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@pinguin/shared": ["./packages/shared/src"],
+      "@pinguin/shared/*": ["./packages/shared/src/*"],
+      "@pinguin/config": ["./packages/config/src"],
+      "@pinguin/db": ["./packages/db/src"],
+      "@pinguin/db/*": ["./packages/db/src/*"],
+      "@pinguin/ui": ["./packages/ui/src"],
+      "@pinguin/ui/*": ["./packages/ui/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next"]
+}

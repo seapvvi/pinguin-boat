@@ -1,0 +1,49 @@
+import { SlashCommandBuilder, ChatInputCommandInteraction, Client, GuildMember } from 'discord.js';
+import { errorEmbed, successEmbed, infoEmbed } from '../../services/embed';
+import { getState, saveQueueToDb, LoopMode } from '../../services/music';
+
+export const data = new SlashCommandBuilder()
+  .setName('loop')
+  .setDescription('Configurer le mode de répétition')
+  .addStringOption((opt) =>
+    opt.setName('mode')
+      .setDescription('Mode de répétition')
+      .setRequired(true)
+      .addChoices(
+        { name: 'Désactivé', value: 'none' },
+        { name: 'Répéter la musique', value: 'track' },
+        { name: 'Répéter la file', value: 'queue' }
+      )
+  );
+
+export const module = 'music';
+
+export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
+  const member = interaction.member as GuildMember;
+  if (!member.voice.channel) {
+    await interaction.reply({ embeds: [errorEmbed('Erreur', 'Vous devez être dans un salon vocal.')], ephemeral: true });
+    return;
+  }
+
+  const mode = interaction.options.get('mode')?.value as string;
+
+  if (!interaction.guild) return;
+  const state = getState(interaction.guild.id);
+
+  const modeMap: Record<string, LoopMode> = {
+    none: LoopMode.NONE,
+    track: LoopMode.TRACK,
+    queue: LoopMode.QUEUE,
+  };
+
+  state.loopMode = modeMap[mode];
+  await saveQueueToDb(interaction.guild.id);
+
+  const labels: Record<string, string> = {
+    none: 'Désactivé',
+    track: 'Répéter la musique',
+    queue: 'Répéter la file',
+  };
+
+  await interaction.reply({ embeds: [successEmbed('Mode de répétition', `Le mode de répétition est maintenant : **${labels[mode]}**.`)] });
+}
