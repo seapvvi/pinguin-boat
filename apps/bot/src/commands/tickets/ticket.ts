@@ -11,8 +11,8 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub.setName('open')
       .setDescription('Ouvrir un ticket')
-      .addStringOption((opt) => opt.setName('category').setDescription('Catégorie du ticket'))
       .addStringOption((opt) => opt.setName('subject').setDescription('Sujet du ticket').setRequired(true))
+      .addStringOption((opt) => opt.setName('category').setDescription('Catégorie du ticket'))
       .addStringOption((opt) => opt.setName('description').setDescription('Description du ticket'))
   )
   .addSubcommand((sub) =>
