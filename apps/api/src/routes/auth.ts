@@ -18,7 +18,7 @@ export async function authRoutes(app: FastifyInstance) {
     url.searchParams.set('scope', 'identify email guilds');
     url.searchParams.set('prompt', 'none');
 
-    reply.send(success({ url: url.toString() }));
+    reply.redirect(url.toString());
   });
 
   const callbackQuerySchema = z.object({

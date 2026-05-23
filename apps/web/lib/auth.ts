@@ -1,7 +1,26 @@
 import type { AuthCallbackDTO, APIResponse } from '@pinguin/shared';
 import { api } from './api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const SESSION_KEY = 'pinguin_session_token';
+
+export function setSessionToken(token: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(SESSION_KEY, token);
+  }
+}
+
+export function getSessionToken(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem(SESSION_KEY);
+  }
+  return null;
+}
+
+export function clearSessionToken(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(SESSION_KEY);
+  }
+}
 
 export interface User {
   id: string;
@@ -15,11 +34,11 @@ export interface User {
 }
 
 export function getLoginUrl(): string {
-  return `${API_URL}/api/auth/login`;
+  return '/api/auth/login';
 }
 
 export async function handleCallback(code: string): Promise<AuthCallbackDTO> {
-  const data = await api.post<APIResponse<AuthCallbackDTO>>('/api/auth/callback', { code });
+  const data = await api.get<APIResponse<AuthCallbackDTO>>(`/api/auth/callback?code=${encodeURIComponent(code)}`);
   if (!data.success || !data.data) {
     throw new Error(data.error || 'Échec de l\'authentification');
   }
@@ -27,7 +46,11 @@ export async function handleCallback(code: string): Promise<AuthCallbackDTO> {
 }
 
 export async function logout(): Promise<void> {
-  await api.post('/api/auth/logout');
+  try {
+    await api.post('/api/auth/logout');
+  } finally {
+    clearSessionToken();
+  }
 }
 
 export async function getUser(): Promise<User | null> {

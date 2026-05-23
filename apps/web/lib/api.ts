@@ -20,16 +20,21 @@ import type {
   SystemMetricsDTO,
 } from '@pinguin/shared';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
 interface FetchOptions extends RequestInit {
   params?: Record<string, string>;
+}
+
+function getBearerToken(): string | null {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('pinguin_session_token');
+  }
+  return null;
 }
 
 async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
   const { params, ...fetchOptions } = options;
 
-  let url = `${API_URL}${endpoint}`;
+  let url = endpoint;
   if (params) {
     const searchParams = new URLSearchParams(params);
     url += `?${searchParams.toString()}`;
@@ -37,9 +42,17 @@ async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promis
 
   fetchOptions.credentials = 'include';
 
-  fetchOptions.headers = {
+  const token = getBearerToken();
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...fetchOptions.headers,
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  fetchOptions.headers = {
+    ...headers,
+    ...(fetchOptions.headers as Record<string, string>),
   };
 
   const response = await fetch(url, fetchOptions);

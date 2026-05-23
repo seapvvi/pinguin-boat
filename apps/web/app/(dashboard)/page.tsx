@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   Server, Users, Terminal, Clock, Cpu,
@@ -21,6 +22,7 @@ interface OverviewData {
 }
 
 export default function OverviewPage() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,19 +32,23 @@ export default function OverviewPage() {
     setLoading(true);
     setError(null);
     try {
-      const [u, statsRes, changelogsRes, xpRes, guildsRes] = await Promise.all([
-        getUser(),
+      const u = await getUser();
+      setUser(u);
+      if (!u) {
+        router.replace('/auth/login');
+        return;
+      }
+      const [statsRes, changelogsRes, xpRes, guildsRes] = await Promise.allSettled([
         fetchBotStats(),
         fetchChangelogs({ page: '1', limit: '5' }),
         fetchXPLeaderboard('global', { page: '1', limit: '10' }),
         fetchGuilds(),
       ]);
-      setUser(u);
       setData({
-        stats: statsRes.data ?? null,
-        changelogs: changelogsRes.data?.entries ?? [],
-        topXP: xpRes.data?.entries ?? [],
-        topGuilds: guildsRes.data?.guilds?.slice(0, 5) ?? [],
+        stats: statsRes.status === 'fulfilled' ? statsRes.value.data ?? null : null,
+        changelogs: changelogsRes.status === 'fulfilled' ? changelogsRes.value.data?.entries ?? [] : [],
+        topXP: xpRes.status === 'fulfilled' ? xpRes.value.data?.entries ?? [] : [],
+        topGuilds: guildsRes.status === 'fulfilled' ? guildsRes.value.data?.guilds?.slice(0, 5) ?? [] : [],
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');

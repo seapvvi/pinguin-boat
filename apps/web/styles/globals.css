@@ -19,6 +19,27 @@
 }
 
 @layer base {
+  :root {
+    --bg-primary: #000000;
+    --bg-surface: #0d0d0d;
+    --bg-surface-alt: #1a1a1a;
+    --bg-sidebar: #050505;
+    --bg-sidebar-active: #1a1a1a;
+    --bg-header: #050505;
+    --border-color: #1f1f1f;
+    --text-primary: #f5f5f5;
+    --text-secondary: #888888;
+    --accent: #e0e0e0;
+    --accent-hover: #ffffff;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --info: #3b82f6;
+    --radius: 4px;
+    --radius-sm: 2px;
+    --radius-lg: 8px;
+  }
+
   * {
     box-sizing: border-box;
   }

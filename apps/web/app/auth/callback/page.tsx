@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { handleCallback } from '@/lib/auth';
+import { handleCallback, setSessionToken } from '@/lib/auth';
 
 function CallbackContent() {
   const router = useRouter();
@@ -18,8 +18,9 @@ function CallbackContent() {
     }
 
     handleCallback(code)
-      .then(() => {
-        router.replace('/dashboard');
+      .then((data) => {
+        setSessionToken(data.token);
+        router.replace('/');
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Erreur d\'authentification');
