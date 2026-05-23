@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFla
 import { prisma } from '@pinguin/db';
 import { errorEmbed, successEmbed, infoEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
+import { ensureUser } from '../../services/user';
 
 const durationMap: Record<string, { seconds: number; label: string }> = {
   '60s': { seconds: 60, label: '60 secondes' },
@@ -82,6 +83,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     const expiresAt = new Date(Date.now() + duration.seconds * 1000);
     await member.timeout(duration.seconds * 1000, `Muté par ${interaction.user.tag}: ${reason}`);
 
+    await ensureUser(user.id, user.username, user.avatar);
     await prisma.moderationCase.create({
       data: {
         guildId: interaction.guild.id,

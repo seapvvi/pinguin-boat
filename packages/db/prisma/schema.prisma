@@ -349,7 +349,7 @@ model ModerationCase {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   guild Guild @relation(fields: [guildId], references: [id])
-  user  User  @relation(fields: [userId], references: [id])
+  user  User  @relation(fields: [userId], references: [discordId])
 
   @@index([guildId, userId])
   @@index([guildId, moderatorId])
@@ -389,9 +389,9 @@ model Ticket {
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
   guild    Guild           @relation(fields: [guildId], references: [id])
-  creator  User            @relation("TicketCreator", fields: [creatorId], references: [id])
+  creator  User            @relation("TicketCreator", fields: [creatorId], references: [discordId])
   category TicketCategory? @relation(fields: [categoryId], references: [id])
-  claimedBy User?          @relation("TicketClaims", fields: [claimedById], references: [id])
+  claimedBy User?          @relation("TicketClaims", fields: [claimedById], references: [discordId])
   claims   TicketClaim[]
 
   @@index([guildId, status])
@@ -407,7 +407,7 @@ model TicketClaim {
   claimedAt DateTime @default(now()) @map("claimed_at")
 
   ticket Ticket @relation(fields: [ticketId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
+  user  User  @relation(fields: [userId], references: [discordId])
 
   @@unique([ticketId, userId])
   @@map("ticket_claims")
@@ -498,7 +498,7 @@ model XPProfile {
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   guild Guild @relation(fields: [guildId], references: [id])
-  user  User  @relation(fields: [userId], references: [id])
+  user  User  @relation(fields: [userId], references: [discordId])
 
   @@unique([guildId, userId])
   @@index([guildId, xp])
@@ -534,7 +534,7 @@ model EconomyWallet {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   guild Guild @relation(fields: [guildId], references: [id])
-  user  User  @relation(fields: [userId], references: [id])
+  user  User  @relation(fields: [userId], references: [discordId])
 
   @@unique([guildId, userId])
   @@map("economy_wallets")
@@ -685,7 +685,7 @@ model Suggestion {
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
   guild  Guild @relation(fields: [guildId], references: [id])
-  author User  @relation(fields: [authorId], references: [id])
+  author User  @relation(fields: [authorId], references: [discordId])
 
   @@index([guildId, status])
   @@map("suggestions")

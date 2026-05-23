@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFla
 import { prisma } from '@pinguin/db';
 import { errorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
+import { ensureUser } from '../../services/user';
 
 export const data = new SlashCommandBuilder()
   .setName('warn')
@@ -36,6 +37,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       },
     });
 
+    await ensureUser(user.id, user.username, user.avatar);
     await prisma.moderationCase.create({
       data: {
         guildId: interaction.guild.id,

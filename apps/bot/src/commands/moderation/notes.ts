@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFla
 import { prisma } from '@pinguin/db';
 import { infoEmbed, errorEmbed, successEmbed } from '../../services/embed';
 import { createEmbed } from '../../services/embed';
+import { ensureUser } from '../../services/user';
 
 export const data = new SlashCommandBuilder()
   .setName('notes')
@@ -59,6 +60,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Vous devez fournir une note.')] });
         return;
       }
+      await ensureUser(user.id, user.username, user.avatar);
       await prisma.moderationCase.create({
         data: {
           guildId: interaction.guild.id,

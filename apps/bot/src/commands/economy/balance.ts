@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { ensureUser } from '../../services/user';
 import { infoEmbed, errorEmbed, createEmbed } from '../../services/embed';
 
 export const data = new SlashCommandBuilder()
@@ -17,6 +18,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   if (!interaction.guild) return;
 
   try {
+    await ensureUser(targetUser.id, targetUser.username, targetUser.displayAvatarURL());
+
     let wallet = await prisma.economyWallet.findUnique({
       where: { guildId_userId: { guildId: interaction.guild.id, userId: targetUser.id } },
     });

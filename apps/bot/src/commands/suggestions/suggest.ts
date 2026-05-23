@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { ensureUser } from '../../services/user';
 import { infoEmbed, errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 
@@ -20,6 +21,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   try {
     const settings = await prisma.guildSettings.findUnique({ where: { guildId: interaction.guild.id } });
     const suggestionChannelId = settings?.modLogChannel;
+
+    await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
 
     const suggestion = await prisma.suggestion.create({
       data: {

@@ -1,4 +1,5 @@
 import { prisma } from '@pinguin/db';
+import { ensureUser } from './user';
 
 export function calculateLevel(xp: number): number {
   return Math.floor(0.1 * Math.sqrt(xp));
@@ -23,6 +24,8 @@ export function randomVoiceXp(): number {
 
 export async function addMessageXp(guildId: string, userId: string): Promise<{ xp: number; level: number; leveledUp: boolean }> {
   const now = new Date();
+
+  await ensureUser(userId);
 
   let profile = await prisma.xPProfile.findUnique({
     where: { guildId_userId: { guildId, userId } },
@@ -64,6 +67,8 @@ export async function addMessageXp(guildId: string, userId: string): Promise<{ x
 
 export async function addVoiceXp(guildId: string, userId: string, minutes: number): Promise<{ xp: number; level: number; leveledUp: boolean }> {
   const now = new Date();
+
+  await ensureUser(userId);
 
   let profile = await prisma.xPProfile.findUnique({
     where: { guildId_userId: { guildId, userId } },

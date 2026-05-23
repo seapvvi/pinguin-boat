@@ -43,6 +43,19 @@ export async function guildRoutes(app: FastifyInstance) {
     }
   });
 
+  const MODULE_FIELDS = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds'] as const;
+  const MODULE_DEFAULTS: Record<string, boolean> = {
+    moderation: true, protection: true, tickets: false, logs: true,
+    levels: true, economy: false, music: true, giveaways: true,
+    polls: true, suggestions: true, welcome: true, autoroles: true, embeds: true,
+  };
+
+  function computeDisabledModules(modulesEnabled: any): string[] {
+    return MODULE_FIELDS
+      .filter(f => modulesEnabled ? !modulesEnabled[f] : !MODULE_DEFAULTS[f])
+      .map(f => f.toUpperCase());
+  }
+
   app.get('/:guildId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
@@ -55,7 +68,41 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       if (!guild) return reply.status(404).send(error('Serveur introuvable'));
-      reply.send(success({ guild }));
+      const payload = { ...guild, disabledModules: computeDisabledModules(guild.modulesEnabled) };
+      reply.send(success({ guild: payload }));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message || 'Erreur'));
+    }
+  });
+
+  app.put('/:guildId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+
+      if (Array.isArray(body.disabledModules)) {
+        const data: Record<string, boolean> = {};
+        for (const f of MODULE_FIELDS) {
+          data[f] = !body.disabledModules.map((m: string) => m.toLowerCase()).includes(f);
+        }
+        await prisma.moduleEnabled.upsert({
+          where: { guildId },
+          update: data,
+          create: { guildId, ...data },
+        });
+      }
+
+      const guild = await prisma.guild.findUnique({
+        where: { id: guildId },
+        include: {
+          settings: true, modulesEnabled: true, logSettings: true,
+          xpSettings: true, welcomeSettings: true,
+          autoroleSettings: { include: { entries: true } },
+        },
+      });
+      if (!guild) return reply.status(404).send(error('Serveur introuvable'));
+      const payload = { ...guild, disabledModules: computeDisabledModules(guild.modulesEnabled) };
+      reply.send(success({ guild: payload }));
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur'));
     }
@@ -136,7 +183,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const q = request.query as any;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const [cases, total] = await Promise.all([
+      const [modCases, total] = await Promise.all([
         prisma.moderationCase.findMany({
           where: { guildId }, orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit, take: limit,
@@ -144,11 +191,20 @@ export async function guildRoutes(app: FastifyInstance) {
         }),
         prisma.moderationCase.count({ where: { guildId } }),
       ]);
-      reply.send(paginated(cases, total, page, limit));
+      reply.send(success({
+        cases: modCases,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      }));
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur'));
     }
   });
+
+  async function ensureUser(discordId: string) {
+    const existing = await prisma.user.findUnique({ where: { discordId } });
+    if (existing) return existing;
+    return prisma.user.create({ data: { discordId } });
+  }
 
   app.post('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -156,6 +212,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const body = request.body as any;
       if (!body.type || !body.userId || !body.reason)
         return reply.status(400).send(error('Type, utilisateur et raison requis'));
+      await ensureUser(body.userId);
       const modCase = await prisma.moderationCase.create({
         data: {
           guildId, userId: body.userId, moderatorId: request.user!.id,

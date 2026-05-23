@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFlagsBits, ChannelType, TextChannel, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, CategoryChannel } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { ensureUser } from '../../services/user';
 import { infoEmbed, errorEmbed, successEmbed, createEmbed, warningEmbed } from '../../services/embed';
 
 export const data = new SlashCommandBuilder()
@@ -98,6 +99,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       }
 
       await interaction.deferReply();
+
+      await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
 
       const ticketChannel = await guild.channels.create({
         name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`,

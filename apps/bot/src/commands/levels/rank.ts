@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { ensureUser } from '../../services/user';
 import { infoEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { calculateLevel, calculateXpForNextLevel } from '../../services/xp';
 
@@ -18,6 +19,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   if (!interaction.guild) return;
 
   try {
+    await ensureUser(targetUser.id, targetUser.username, targetUser.displayAvatarURL());
+
     let profile = await prisma.xPProfile.findUnique({
       where: { guildId_userId: { guildId: interaction.guild.id, userId: targetUser.id } },
     });
