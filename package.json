@@ -17,6 +17,7 @@
     "db:generate": "pnpm --filter @pinguin/db db:generate",
     "db:push": "pnpm --filter @pinguin/db db:push",
     "db:migrate": "pnpm --filter @pinguin/db db:migrate",
+    "db:migrate:prod": "pnpm --filter @pinguin/db db:migrate:prod",
     "db:studio": "pnpm --filter @pinguin/db db:studio",
     "db:seed": "pnpm --filter @pinguin/db db:seed",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",

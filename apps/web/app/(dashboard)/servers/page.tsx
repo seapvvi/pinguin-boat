@@ -116,7 +116,7 @@ export default function ServersPage() {
                 </a>
               ) : (
                 <a
-                  href={`https://discord.com/oauth2/authorize?client_id=1320932385427947605&permissions=8&scope=bot&guild_id=${g.id}`}
+                  href={`https://discord.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&permissions=8&scope=bot&guild_id=${g.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border text-[var(--text-primary)] border-[var(--border-color)] hover:bg-[var(--bg-surface-alt)] no-underline"
