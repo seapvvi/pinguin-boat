@@ -39,38 +39,37 @@ async function main() {
 
   try {
     await addLog('Mise à jour démarrée');
-
     await addLog('Récupération du code depuis GitHub...');
 
     let remoteUrl = '';
     const token = process.env.GITHUB_TOKEN;
     if (token) {
       remoteUrl = execWithOutput('git remote get-url origin');
-      const authedUrl = remoteUrl.replace('https://', `https://x-access-token:${token}@`);
-      exec(`git remote set-url origin ${authedUrl}`);
+      if (remoteUrl.startsWith('https://')) {
+        const authedUrl = remoteUrl.replace('https://', `https://x-access-token:${token}@`);
+        exec(`git remote set-url origin ${authedUrl}`);
+      } else {
+        await addLog('URL GitHub non HTTPS détectée, le token ne sera pas injecté automatiquement.');
+      }
     }
 
     exec(`git fetch origin ${branch}`);
     exec(`git reset --hard origin/${branch}`);
 
-    if (token && remoteUrl) {
+    if (token && remoteUrl.startsWith('https://')) {
       exec(`git remote set-url origin ${remoteUrl}`);
     }
 
     await addLog('Code mis à jour');
-
     await addLog('Installation des dépendances...');
     exec('pnpm install --no-frozen-lockfile');
     await addLog('Dépendances installées');
-
     await addLog('Génération Prisma...');
     exec('pnpm db:generate');
     await addLog('Prisma généré');
-
     await addLog('Build du projet...');
     exec('pnpm build');
     await addLog('Build terminé');
-
     await addLog('Migration de la base de données...');
     exec('pnpm db:migrate:prod');
     await addLog('Migrations appliquées');
@@ -79,11 +78,9 @@ async function main() {
       where: { id: deploymentId },
       data: { status: 'SUCCESS', completedAt: new Date(), log: logs.join('\n') },
     });
-
     await addLog('Mise à jour terminée ! Redémarre le serveur (pnpm dev) pour appliquer les changements.');
   } catch (err: any) {
     await addLog(`ERREUR: ${err.message || 'Erreur inconnue'}`);
-
     await prisma.deployment.update({
       where: { id: deploymentId },
       data: { status: 'FAILED', completedAt: new Date(), log: logs.join('\n') },

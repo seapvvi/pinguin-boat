@@ -41,6 +41,7 @@ export default function OwnerDeployPage() {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showDeployConfirm, setShowDeployConfirm] = useState(false);
   const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -69,21 +70,29 @@ export default function OwnerDeployPage() {
 
   const handleDeploy = async () => {
     setActionLoading(true);
+    setActionError(null);
     try {
       const res = await triggerDeploy();
       setShowDeployConfirm(false);
+      if (!res?.success) throw new Error(res?.message || 'Déploiement déclenché impossible');
       if (res?.data?.id) setDeployId(res.data.id);
-      load();
-    } catch { /* ignore */ } finally { setActionLoading(false); }
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Erreur lors du déploiement');
+    } finally { setActionLoading(false); }
   };
 
   const handleRollback = async () => {
     setActionLoading(true);
+    setActionError(null);
     try {
-      await triggerRollback();
+      const res = await triggerRollback();
+      if (!res?.success) throw new Error(res?.message || 'Rollback impossible');
       setShowRollbackConfirm(false);
-      load();
-    } catch { /* ignore */ } finally { setActionLoading(false); }
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Erreur lors du rollback');
+    } finally { setActionLoading(false); }
   };
 
   const currentDeployment = deployments[0] ?? null;
@@ -103,6 +112,11 @@ export default function OwnerDeployPage() {
         <div>
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">Déploiement</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les déploiements et mises à jour.</p>
+          {actionError && (
+            <div className="mt-3 rounded-[var(--radius-sm)] border border-[var(--error)] bg-[var(--error)]/10 p-3 text-sm text-[var(--error)]">
+              {actionError}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" disabled={!previousDeployment} onClick={() => setShowRollbackConfirm(true)}>

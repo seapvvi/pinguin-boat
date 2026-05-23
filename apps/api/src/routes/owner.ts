@@ -10,6 +10,7 @@ import { getSystemMetrics, getGlobalStats } from '../services/metrics';
 import * as TwoFA from '../services/owner2fa';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as SystemService from '../services/system';
 
 const config = getConfig();
 const ownerPre = { preHandler: [authenticate, requireOwner] };
@@ -176,6 +177,76 @@ export async function ownerRoutes(app: FastifyInstance) {
         }, {}),
         disk: { free: 0, total: 0 },
       }));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.get('/services', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const services = SystemService.listServices();
+      reply.send(success({ services }));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message || 'Erreur lors de la récupération des services'));
+    }
+  });
+
+  app.post('/services/:service/:action', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { service, action } = request.params as any;
+      const validServices = ['bot', 'api', 'web'];
+      const validActions = ['start', 'stop', 'restart'];
+      if (!validServices.includes(service)) {
+        return reply.status(400).send(error(`Service invalide. Valides: ${validServices.join(', ')}`));
+      }
+      if (!validActions.includes(action)) {
+        return reply.status(400).send(error(`Action invalide. Valides: ${validActions.join(', ')}`));
+      }
+
+      if (action === 'stop') {
+        SystemService.stopService(service);
+      } else if (action === 'start') {
+        SystemService.startService(service);
+      } else if (action === 'restart') {
+        const detached = service === 'api';
+        if (detached) {
+          reply.send(success({ service, action, status: 'restarting' }, `Redémarrage de ${service} initié`));
+          setImmediate(() => SystemService.restartService(service, true));
+          await logOwnerAction(request, 'SERVICE_RESTART', { service });
+          return;
+        }
+        SystemService.restartService(service);
+      }
+
+      await logOwnerAction(request, `SERVICE_${action.toUpperCase()}`, { service });
+      reply.send(success({ service, action, status: 'ok' }, `Service ${service} ${action}é avec succès`));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message || 'Erreur d’action service'));
+    }
+  });
+
+  app.post('/services/restart/:service', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { service } = request.params as any;
+      const validServices = ['bot', 'api', 'web'];
+      if (!validServices.includes(service))
+        return reply.status(400).send(error(`Service invalide. Valides: ${validServices.join(', ')}`));
+      const detached = service === 'api';
+      if (detached) {
+        reply.send(success({ service, status: 'restarting' }, `Redémarrage de ${service} initié`));
+        setImmediate(() => SystemService.restartService(service, true));
+        await logOwnerAction(request, 'SERVICE_RESTART', { service });
+        return;
+      }
+      SystemService.restartService(service);
+      await logOwnerAction(request, 'SERVICE_RESTART', { service });
+      reply.send(success({ service, status: 'restarting' }, `Redémarrage de ${service} initié`));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.post('/services/restart-all', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await logOwnerAction(request, 'SERVICE_RESTART_ALL', { services: ['bot', 'api', 'web'] });
+      reply.send(success({ services: ['bot', 'api', 'web'], status: 'restarting' }, 'Redémarrage de tous les services initié'));
+      setImmediate(() => SystemService.restartAllServices(true));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 

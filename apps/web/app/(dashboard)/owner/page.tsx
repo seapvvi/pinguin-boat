@@ -45,6 +45,7 @@ const statusVariant: Record<string, 'success' | 'warning' | 'error' | 'info'> = 
 export default function OwnerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -73,14 +74,18 @@ export default function OwnerDashboardPage() {
 
   const handleAction = async (action: string, fn: () => Promise<any>) => {
     setActionLoading(action);
+    setActionError(null);
     try {
       const res = await fn();
       if (action === 'deploy' && res?.data?.id) {
         setDeployId(res.data.id);
       }
-      load();
-    } catch {
-      /* ignore */
+      if (!res?.success) {
+        throw new Error(res?.message || 'Action échouée');
+      }
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Erreur lors de l’action');
     } finally {
       setActionLoading(null);
     }
@@ -116,6 +121,11 @@ export default function OwnerDashboardPage() {
         <p className="text-sm text-[var(--text-secondary)] mt-1">
           Administration et gestion avancée de Pinguin BOAT.
         </p>
+        {actionError && (
+          <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--error)] bg-[var(--error)]/10 p-3 text-sm text-[var(--error)]">
+            {actionError}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">

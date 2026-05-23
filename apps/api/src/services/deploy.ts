@@ -55,14 +55,18 @@ async function runDeploymentInline(deploymentId: string) {
     let remoteUrl = '';
     if (config.GITHUB_TOKEN) {
       remoteUrl = execWithOutput('git remote get-url origin');
-      const authedUrl = remoteUrl.replace('https://', `https://x-access-token:${config.GITHUB_TOKEN}@`);
-      exec(`git remote set-url origin ${authedUrl}`);
+      if (remoteUrl.startsWith('https://')) {
+        const authedUrl = remoteUrl.replace('https://', `https://x-access-token:${config.GITHUB_TOKEN}@`);
+        exec(`git remote set-url origin ${authedUrl}`);
+      } else {
+        await addLog('URL GitHub non HTTPS détectée, le token ne sera pas injecté automatiquement.');
+      }
     }
 
     exec(`git fetch origin ${branch}`);
     exec(`git reset --hard origin/${branch}`);
 
-    if (config.GITHUB_TOKEN && remoteUrl) {
+    if (config.GITHUB_TOKEN && remoteUrl.startsWith('https://')) {
       exec(`git remote set-url origin ${remoteUrl}`);
     }
 
@@ -96,26 +100,51 @@ async function runDeploymentInline(deploymentId: string) {
 }
 
 async function runDeploymentWorker(deploymentId: string) {
-  const workerPath = path.resolve(__dirname, 'deploy-worker.ts');
+  const workerTsPath = path.resolve(__dirname, 'deploy-worker.ts');
+  const workerJsPath = path.resolve(__dirname, 'deploy-worker.js');
 
-  if (!fs.existsSync(workerPath)) {
-    return runDeploymentInline(deploymentId);
+  if (fs.existsSync(workerJsPath)) {
+    const child = spawn(process.execPath, [workerJsPath, deploymentId], {
+      detached: true,
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        DEPLOY_BRANCH: config.GITHUB_BRANCH || undefined,
+        GITHUB_TOKEN: config.GITHUB_TOKEN || undefined,
+      },
+    });
+    child.unref();
+    return;
   }
 
-  const child = spawn(process.execPath, ['--import', require.resolve('tsx'), workerPath, deploymentId], {
-    detached: true,
-    stdio: 'ignore',
-    env: {
-      ...process.env,
-      DEPLOY_BRANCH: config.GITHUB_BRANCH || undefined,
-      GITHUB_TOKEN: config.GITHUB_TOKEN || undefined,
-    },
-  });
+  if (fs.existsSync(workerTsPath)) {
+    try {
+      const tsxPath = require.resolve('tsx');
+      const child = spawn(process.execPath, ['--import', tsxPath, workerTsPath, deploymentId], {
+        detached: true,
+        stdio: 'ignore',
+        env: {
+          ...process.env,
+          DEPLOY_BRANCH: config.GITHUB_BRANCH || undefined,
+          GITHUB_TOKEN: config.GITHUB_TOKEN || undefined,
+        },
+      });
+      child.unref();
+      return;
+    } catch {
+      // fallback to inline if tsx is not available
+    }
+  }
 
-  child.unref();
+  return runDeploymentInline(deploymentId);
 }
 
 export async function startDeployment(triggeredById: string): Promise<{ id: string; version: string }> {
+  const existing = await prisma.deployment.findFirst({ where: { status: DeploymentStatus.RUNNING } });
+  if (existing) {
+    throw new Error(`Un déploiement est déjà en cours (${existing.version})`);
+  }
+
   const version = `v${Date.now()}`;
 
   const deployment = await prisma.deployment.create({

@@ -67,10 +67,15 @@ export default function OwnerServicesPage() {
   const handleAction = async (service: Service, action: 'start' | 'stop' | 'restart') => {
     const key = `${service.name}_${action}`;
     setActionLoading(key);
+    setError(null);
     try {
       await serviceAction(service.name, action);
-      load();
-    } catch { /* ignore */ } finally { setActionLoading(key); }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de l’action service');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   if (error) {
@@ -86,6 +91,11 @@ export default function OwnerServicesPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[var(--text-primary)]">Gestion des services</h1>
         <p className="text-sm text-[var(--text-secondary)] mt-1">Surveillez et gérez les services de Pinguin BOAT.</p>
+        {error && (
+          <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--error)] bg-[var(--error)]/10 p-3 text-sm text-[var(--error)]">
+            {error}
+          </div>
+        )}
       </div>
 
       {loading ? (
