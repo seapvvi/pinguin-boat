@@ -39,6 +39,20 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       data: { active: false },
     });
 
+    try {
+      const user = await client.users.fetch(warning.userId).catch(() => null);
+      if (user) {
+        await user.send({
+          embeds: [{
+            title: 'Avertissement retiré',
+            description: `Votre avertissement sur **${interaction.guild.name}** a été retiré.\nRaison : ${reason}`,
+            color: 0x00FF00,
+            timestamp: new Date().toISOString(),
+          }],
+        });
+      }
+    } catch {}
+
     log({ level: 'info', message: `Unwarn: ${warnId} par ${interaction.user.tag}`, guildId: interaction.guild.id });
 
     await interaction.editReply({

@@ -209,6 +209,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         data: { status: 'CLAIMED', claimedById: interaction.user.id },
       });
 
+      await (interaction.channel as TextChannel)?.setName(`claimed-${ticket.subject.slice(0, 24).toLowerCase().replace(/[^a-z0-9]/g, '-')}`).catch(() => {});
       await interaction.reply({ embeds: [successEmbed('Ticket claim', `Ticket claim par ${interaction.user}.`)] });
       break;
     }
@@ -235,6 +236,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         data: { status: 'OPEN', claimedById: null },
       });
 
+      await (interaction.channel as TextChannel)?.setName(`ticket-${ticket.subject.slice(0, 24).toLowerCase().replace(/[^a-z0-9]/g, '-')}`).catch(() => {});
       await interaction.reply({ embeds: [successEmbed('Ticket unclaim', 'Ce ticket a été unclaim.')] });
       break;
     }

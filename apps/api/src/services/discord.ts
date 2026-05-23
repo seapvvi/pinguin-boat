@@ -145,6 +145,125 @@ export function hasDiscordPermission(
   return (perms & requiredPermission) === requiredPermission;
 }
 
+export async function sendDM(userId: string, content: { embeds?: any[], content?: string }): Promise<void> {
+  const dm = await discordFetch<{ id: string }>(`/users/${userId}/channels`, {
+    method: 'POST',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify({ recipient_id: userId }),
+  });
+  await discordFetch(`/channels/${dm.id}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify(content),
+  });
+}
+
+export async function timeoutMember(guildId: string, userId: string, durationMs: number | null): Promise<void> {
+  await discordFetch(`/guilds/${guildId}/members/${userId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify({
+      communication_disabled_until: durationMs ? new Date(Date.now() + durationMs).toISOString() : null,
+    }),
+  });
+}
+
+export async function kickMember(guildId: string, userId: string, reason: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/guilds/${guildId}/members/${userId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text();
+    throw new Error(`Discord kick error ${res.status}: ${text.slice(0, 200)}`);
+  }
+}
+
+export async function banMember(guildId: string, userId: string, reason: string, deleteMessageDays = 0): Promise<void> {
+  const res = await fetch(`${API_BASE}/guilds/${guildId}/bans/${userId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bot ${config.DISCORD_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ reason, delete_message_seconds: deleteMessageDays * 86400 }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Discord ban error ${res.status}: ${text.slice(0, 200)}`);
+  }
+}
+
+export async function unbanMember(guildId: string, userId: string, reason: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/guilds/${guildId}/bans/${userId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text();
+    throw new Error(`Discord unban error ${res.status}: ${text.slice(0, 200)}`);
+  }
+}
+
+export async function sendChannelMessage(channelId: string, content: any): Promise<any> {
+  return discordFetch(`/channels/${channelId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify(content),
+  });
+}
+
+export async function editMessage(channelId: string, messageId: string, content: any): Promise<any> {
+  return discordFetch(`/channels/${channelId}/messages/${messageId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify(content),
+  });
+}
+
+export async function addMessageReaction(channelId: string, messageId: string, emoji: string): Promise<void> {
+  const encoded = encodeURIComponent(emoji);
+  const res = await fetch(`${API_BASE}/channels/${channelId}/messages/${messageId}/reactions/${encoded}/@me`, {
+    method: 'PUT',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Discord reaction error ${res.status}: ${text.slice(0, 200)}`);
+  }
+}
+
+export async function createGuildChannel(guildId: string, options: { name: string; type?: number; parent_id?: string; permission_overwrites?: any[]; topic?: string }): Promise<any> {
+  return discordFetch(`/guilds/${guildId}/channels`, {
+    method: 'POST',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify(options),
+  });
+}
+
+export async function deleteChannel(channelId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/channels/${channelId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+  });
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text();
+    throw new Error(`Discord delete channel error ${res.status}: ${text.slice(0, 200)}`);
+  }
+}
+
+export async function editChannel(channelId: string, options: any): Promise<void> {
+  await discordFetch(`/channels/${channelId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify(options),
+  });
+}
+
+export const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+
 export const DISCORD_PERMISSIONS = {
   ADMINISTRATOR: 1n << 3n,
   MANAGE_GUILD: 1n << 5n,

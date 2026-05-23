@@ -21,16 +21,25 @@ export async function execute(message: Message, client: Client): Promise<void> {
 
   const result = await addMessageXp(message.guild.id, message.author.id);
 
-  if (result.leveledUp && settings?.announcementChannelId) {
-    const channel = message.guild.channels.cache.get(settings.announcementChannelId);
-    if (channel?.isTextBased()) {
-      const msg = settings.announcementMessage
-        ? settings.announcementMessage
-            .replace('{user}', message.author.toString())
-            .replace('{level}', result.level.toString())
-        : `Bravo ${message.author}, tu as atteint le niveau **${result.level}** !`;
-
-      await channel.send(msg);
+  if (result.leveledUp) {
+    const rewards = await prisma.xPRoleReward.findMany({
+      where: { guildId: message.guild.id, levelRequired: { lte: result.level } },
+    });
+    for (const reward of rewards) {
+      if (message.member && !message.member.roles.cache.has(reward.roleId)) {
+        try { await message.member.roles.add(reward.roleId); } catch {}
+      }
+    }
+    if (settings?.announcementChannelId) {
+      const channel = message.guild.channels.cache.get(settings.announcementChannelId);
+      if (channel?.isTextBased()) {
+        const msg = settings.announcementMessage
+          ? settings.announcementMessage
+              .replace('{user}', message.author.toString())
+              .replace('{level}', result.level.toString())
+          : `Bravo ${message.author}, tu as atteint le niveau **${result.level}** !`;
+        await channel.send(msg);
+      }
     }
   }
 }

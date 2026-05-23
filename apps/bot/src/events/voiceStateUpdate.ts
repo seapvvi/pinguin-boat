@@ -1,4 +1,4 @@
-import { VoiceState, Client } from 'discord.js';
+import { VoiceState, Client, GuildMember } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { addVoiceXp } from '../services/xp';
 import { isModuleEnabled } from '../guards/module';
@@ -31,7 +31,29 @@ export async function execute(oldState: VoiceState, newState: VoiceState, client
     if (timer) {
       const minutes = Math.floor((Date.now() - timer.startTime) / 60000);
       if (minutes >= 1) {
-        await addVoiceXp(guildId, userId, minutes);
+        const result = await addVoiceXp(guildId, userId, minutes);
+        if (result.leveledUp && newState.member) {
+          const rewards = await prisma.xPRoleReward.findMany({
+            where: { guildId, levelRequired: { lte: result.level } },
+          });
+          for (const reward of rewards) {
+            if (!newState.member.roles.cache.has(reward.roleId)) {
+              try { await newState.member.roles.add(reward.roleId); } catch {}
+            }
+          }
+          const settings = await prisma.xPSettings.findUnique({ where: { guildId } });
+          if (settings?.announcementChannelId) {
+            const channel = newState.guild.channels.cache.get(settings.announcementChannelId);
+            if (channel?.isTextBased()) {
+              const msg = settings.announcementMessage
+                ? settings.announcementMessage
+                    .replace('{user}', `<@${userId}>`)
+                    .replace('{level}', result.level.toString())
+                : `Bravo <@${userId}>, tu as atteint le niveau **${result.level}** !`;
+              await channel.send(msg);
+            }
+          }
+        }
       }
       voiceTimers.delete(key);
     }

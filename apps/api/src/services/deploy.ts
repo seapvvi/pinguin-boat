@@ -73,6 +73,7 @@ async function runDeploymentInline(deploymentId: string) {
     await addLog('Génération Prisma...');
     exec('pnpm db:generate');
     await addLog('Prisma généré');
+
     await addLog('Build du projet...');
     exec('pnpm build');
     await addLog('Build terminé');

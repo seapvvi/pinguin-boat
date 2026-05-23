@@ -114,12 +114,38 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         return;
       }
 
+      const entries = await prisma.giveawayEntry.findMany({ where: { giveawayId: giveaway.id } });
+      const userIds = entries.map(e => e.userId);
+      const shuffled = userIds.sort(() => Math.random() - 0.5);
+      const winners = shuffled.slice(0, giveaway.winnerCount);
+      const winnersStr = winners.length > 0 ? winners.map(w => `<@${w}>`).join(', ') : 'Aucun participant';
+
+      try {
+        const channel = await interaction.guild.channels.fetch(giveaway.channelId);
+        if (channel?.isTextBased()) {
+          const msg = await channel.messages.fetch(messageId).catch(() => null);
+          if (msg) {
+            await msg.edit({
+              embeds: [{
+                title: '🎉 Giveaway terminé',
+                description: `**${giveaway.prize}**\n\n**Gagnant(s) :** ${winnersStr}`,
+                color: 0x00FF00,
+              }],
+              components: [],
+            });
+            if (winners.length > 0) {
+              await channel.send(`Félicitations ${winnersStr}! Vous avez gagné **${giveaway.prize}**!`);
+            }
+          }
+        }
+      } catch {}
+
       await prisma.giveaway.update({
         where: { id: giveaway.id },
-        data: { status: 'ENDED', endsAt: new Date() },
+        data: { status: 'ENDED', endsAt: new Date(), winners: JSON.stringify(winners) },
       });
 
-      await interaction.editReply({ embeds: [successEmbed('Giveaway terminé', 'Le giveaway a été terminé.')] });
+      await interaction.editReply({ embeds: [successEmbed('Giveaway terminé', `Le giveaway a été terminé. Gagnant(s) : ${winnersStr}`)] });
       break;
     }
 
