@@ -190,7 +190,7 @@ model User {
   avatar          String?  @map("avatar")
   email           String?  @map("email")
   locale          String   @default("fr") @map("locale")
-  theme           String   @default("OLED") @map("theme")
+  theme           String   @default("DARK") @map("theme")
   snowflakes      Boolean  @default(true) @map("snowflakes")
 
   premiumSubscription PremiumSubscription?

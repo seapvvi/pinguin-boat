@@ -10,6 +10,7 @@ import {
 } from '@pinguin/ui';
 import { fetchDeployments, triggerDeploy, triggerRollback } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import DeploymentProgressModal from '@/components/DeploymentProgressModal';
 
 interface Deployment {
   id: string;
@@ -44,6 +45,7 @@ export default function OwnerDeployPage() {
   const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedDeploy, setSelectedDeploy] = useState<Deployment | null>(null);
+  const [deployId, setDeployId] = useState<string | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
@@ -68,8 +70,9 @@ export default function OwnerDeployPage() {
   const handleDeploy = async () => {
     setActionLoading(true);
     try {
-      await triggerDeploy();
+      const res = await triggerDeploy();
       setShowDeployConfirm(false);
+      if (res?.data?.id) setDeployId(res.data.id);
       load();
     } catch { /* ignore */ } finally { setActionLoading(false); }
   };
@@ -217,6 +220,8 @@ export default function OwnerDeployPage() {
           <Button variant="danger" size="sm" loading={actionLoading} onClick={handleRollback}>Rollback</Button>
         </div>
       </Modal>
+
+      <DeploymentProgressModal deploymentId={deployId} onClose={() => setDeployId(null)} />
     </motion.div>
   );
 }

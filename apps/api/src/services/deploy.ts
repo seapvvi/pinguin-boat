@@ -16,32 +16,30 @@ interface DeployStatus {
   lastDeployment: Date | null;
 }
 
-export async function startDeployment(
-  triggeredById: string
-): Promise<{ id: string; version: string }> {
-  const version = `v${Date.now()}`;
-  const releaseDir = path.join(config.DEPLOY_RELEASES_PATH, version);
-  const sharedDir = config.DEPLOY_SHARED_PATH;
-  const currentLink = config.DEPLOY_CURRENT_LINK;
-
-  const deployment = await prisma.deployment.create({
-    data: {
-      id: randomUUID(),
-      version,
-      releasePath: releaseDir,
-      status: DeploymentStatus.RUNNING,
-      triggeredById,
-      startedAt: new Date(),
-      log: '',
-    },
+async function updateDeploymentLog(deploymentId: string, logs: string[]) {
+  await prisma.deployment.update({
+    where: { id: deploymentId },
+    data: { log: logs.join('\n') },
   });
+}
 
+async function runDeployment(
+  deploymentId: string,
+  triggeredById: string,
+  version: string,
+  releaseDir: string,
+) {
   const logs: string[] = [];
 
-  try {
-    logs.push(`[${new Date().toISOString()}] Déploiement ${version} démarré`);
+  const addLog = async (msg: string) => {
+    logs.push(`[${new Date().toISOString()}] ${msg}`);
+    await updateDeploymentLog(deploymentId, logs);
+  };
 
-    logs.push('Clonage du dépôt...');
+  try {
+    await addLog(`Déploiement ${version} démarré`);
+
+    await addLog('📥 Téléchargement depuis GitHub...');
     if (!config.GITHUB_REPO) {
       throw new Error('GITHUB_REPO non configuré dans .env');
     }
@@ -53,45 +51,48 @@ export async function startDeployment(
       '--single-branch',
       '--depth', '1',
     ]);
-    logs.push('Dépôt cloné');
+    await addLog('✅ Code source téléchargé');
 
+    const sharedDir = config.DEPLOY_SHARED_PATH;
     const sharedPaths = ['node_modules', '.env', 'prisma'];
     for (const p of sharedPaths) {
       const src = path.join(sharedDir, p);
       const dest = path.join(releaseDir, p);
       if (fs.existsSync(src)) {
         fs.symlinkSync(src, dest, 'junction');
-        logs.push(`Lien symbolique créé: ${p}`);
+        await addLog(`🔗 Fichier partagé lié: ${p}`);
+      } else {
+        await addLog(`⚠️ Fichier partagé introuvable: ${p} (ignoré)`);
       }
     }
 
-    logs.push('Installation des dépendances...');
+    await addLog('📦 Installation des dépendances...');
     execSync('pnpm install --frozen-lockfile --prod', {
       cwd: releaseDir,
       stdio: 'pipe',
     });
-    logs.push('Dépendances installées');
+    await addLog('✅ Dépendances installées');
 
-    logs.push('Build du projet...');
+    await addLog('🔨 Build du projet...');
     execSync('pnpm build', { cwd: releaseDir, stdio: 'pipe' });
-    logs.push('Build terminé');
+    await addLog('✅ Build terminé');
 
-    logs.push('Génération Prisma...');
+    await addLog('🗄️ Génération Prisma...');
     execSync('pnpm db:generate', {
       cwd: releaseDir,
       stdio: 'pipe',
     });
-    logs.push('Prisma généré');
+    await addLog('✅ Prisma généré');
 
-    logs.push('Migration de la base de données...');
+    await addLog('🔄 Migration de la base de données...');
     execSync('pnpm db:migrate', {
       cwd: releaseDir,
       stdio: 'pipe',
     });
-    logs.push('Migrations appliquées');
+    await addLog('✅ Migrations appliquées');
 
     const healthUrl = config.API_URL.replace(/\/$/, '') + '/api/health';
-    logs.push('Vérification de santé...');
+    await addLog('🔍 Vérification de santé...');
     let healthy = false;
     for (let i = 0; i < 10; i++) {
       try {
@@ -109,8 +110,9 @@ export async function startDeployment(
     if (!healthy) {
       throw new Error('La vérification de santé a échoué');
     }
-    logs.push('Vérification de santé réussie');
+    await addLog('✅ Vérification de santé réussie');
 
+    const currentLink = config.DEPLOY_CURRENT_LINK;
     if (fs.existsSync(currentLink)) {
       const oldTarget = fs.readlinkSync(currentLink);
       await prisma.deploymentRelease.create({
@@ -119,11 +121,11 @@ export async function startDeployment(
           version: `rollback-${version}`,
           releasePath: oldTarget,
           status: DeploymentStatus.ROLLED_BACK,
-          deploymentId: deployment.id,
+          deploymentId,
           createdAt: new Date(),
         },
       });
-      logs.push(`Ancienne version sauvegardée: ${oldTarget}`);
+      await addLog(`💾 Ancienne version sauvegardée: ${oldTarget}`);
     }
 
     const tmpLink = currentLink + '.tmp';
@@ -132,40 +134,56 @@ export async function startDeployment(
     }
     fs.symlinkSync(releaseDir, tmpLink, 'junction');
     fs.renameSync(tmpLink, currentLink);
-    logs.push('Lien symbolique mis à jour');
+    await addLog('✅ Lien symbolique mis à jour');
 
     await prisma.deployment.update({
-      where: { id: deployment.id },
+      where: { id: deploymentId },
       data: {
         status: DeploymentStatus.SUCCESS,
         completedAt: new Date(),
         log: logs.join('\n'),
       },
     });
-
-    return { id: deployment.id, version };
   } catch (err: any) {
-    logs.push(
-      `[${new Date().toISOString()}] ERREUR: ${err.message || 'Erreur inconnue'}`
-    );
+    await addLog(`❌ ERREUR: ${err.message || 'Erreur inconnue'}`);
 
     if (fs.existsSync(releaseDir)) {
       fs.rmSync(releaseDir, { recursive: true, force: true });
+      await addLog('🧹 Dossier de release nettoyé');
     }
 
     await prisma.deployment.update({
-      where: { id: deployment.id },
+      where: { id: deploymentId },
       data: {
         status: DeploymentStatus.FAILED,
         completedAt: new Date(),
         log: logs.join('\n'),
       },
     });
-
-    throw new Error(
-      `Déploiement échoué: ${err.message || 'Erreur inconnue'}`
-    );
   }
+}
+
+export async function startDeployment(
+  triggeredById: string
+): Promise<{ id: string; version: string }> {
+  const version = `v${Date.now()}`;
+  const releaseDir = path.join(config.DEPLOY_RELEASES_PATH, version);
+
+  const deployment = await prisma.deployment.create({
+    data: {
+      id: randomUUID(),
+      version,
+      releasePath: releaseDir,
+      status: DeploymentStatus.RUNNING,
+      triggeredById,
+      startedAt: new Date(),
+      log: '',
+    },
+  });
+
+  runDeployment(deployment.id, triggeredById, version, releaseDir);
+
+  return { id: deployment.id, version };
 }
 
 export async function rollback(

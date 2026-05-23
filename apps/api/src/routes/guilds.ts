@@ -203,7 +203,7 @@ export async function guildRoutes(app: FastifyInstance) {
   async function ensureUser(discordId: string) {
     const existing = await prisma.user.findUnique({ where: { discordId } });
     if (existing) return existing;
-    return prisma.user.create({ data: { discordId } });
+    return prisma.user.create({ data: { discordId, username: discordId } });
   }
 
   app.post('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {

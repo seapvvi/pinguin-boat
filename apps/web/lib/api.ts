@@ -164,6 +164,17 @@ export async function fetchDeployments(params?: Record<string, string>): Promise
   return api.get<APIResponse<DeploymentListDTO>>('/api/owner/deployments', params);
 }
 
+export async function fetchDeploymentStatus(id: string): Promise<APIResponse<{
+  id: string;
+  version: string;
+  status: string;
+  log: string[];
+  startedAt: string;
+  completedAt: string | null;
+}>> {
+  return api.get(`/api/deploy/status/${id}`);
+}
+
 export async function fetchChangelogs(params?: Record<string, string>): Promise<APIResponse<ChangelogListDTO>> {
   return api.get<APIResponse<ChangelogListDTO>>('/api/changelogs', params);
 }
@@ -214,16 +225,16 @@ export async function toggleAlphaMode(enabled: boolean): Promise<APIResponse<{ s
   return api.post<APIResponse<{ success: boolean }>>('/api/owner/alpha-mode', { enabled });
 }
 
-export async function triggerDeploy(): Promise<APIResponse<{ deployment: any }>> {
-  return api.post<APIResponse<{ deployment: any }>>('/api/deploy/start', { confirm: true });
+export async function triggerDeploy(): Promise<APIResponse<{ id: string; version: string }>> {
+  return api.post<APIResponse<{ id: string; version: string }>>('/api/deploy/start', { confirm: true });
 }
 
-export async function triggerRollback(version?: string): Promise<APIResponse<{ deployment: any }>> {
-  return api.post<APIResponse<{ deployment: any }>>('/api/deploy/rollback', { version, confirm: true });
+export async function triggerRollback(version?: string): Promise<APIResponse<{ success: boolean }>> {
+  return api.post<APIResponse<{ success: boolean }>>('/api/deploy/rollback', { version, confirm: true });
 }
 
 export async function triggerBackup(): Promise<APIResponse<{ success: boolean }>> {
-  return api.post<APIResponse<{ success: boolean }>>('/api/owner/backup');
+  return api.post<APIResponse<{ success: boolean }>>('/api/owner/backup', {});
 }
 
 export async function triggerRestart(service?: string): Promise<APIResponse<{ success: boolean }>> {

@@ -11,6 +11,7 @@ import {
 } from '@pinguin/ui';
 import { fetchBotStats, fetchOwnerLogs, triggerBackup, triggerRestart, triggerDeploy, triggerRollback } from '@/lib/api';
 import { formatNumber, formatDuration, formatDate } from '@/lib/utils';
+import DeploymentProgressModal from '@/components/DeploymentProgressModal';
 
 interface SystemService {
   name: string;
@@ -47,6 +48,7 @@ export default function OwnerDashboardPage() {
   const [stats, setStats] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [deployId, setDeployId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -72,7 +74,10 @@ export default function OwnerDashboardPage() {
   const handleAction = async (action: string, fn: () => Promise<any>) => {
     setActionLoading(action);
     try {
-      await fn();
+      const res = await fn();
+      if (action === 'deploy' && res?.data?.id) {
+        setDeployId(res.data.id);
+      }
       load();
     } catch {
       /* ignore */
@@ -234,6 +239,8 @@ export default function OwnerDashboardPage() {
           </div>
         )}
       </Card>
+
+      <DeploymentProgressModal deploymentId={deployId} onClose={() => setDeployId(null)} />
     </motion.div>
   );
 }
