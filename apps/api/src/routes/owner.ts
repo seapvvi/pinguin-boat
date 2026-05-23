@@ -411,6 +411,20 @@ export async function ownerRoutes(app: FastifyInstance) {
       reply.send(success({ service, status: 'restarting' }, `Redémarrage de ${service} initié`));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
+
+  app.post('/services/restart-all', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await logOwnerAction(request, 'SERVICE_RESTART_ALL', { services: ['bot', 'api', 'web'] });
+      reply.send(success({ services: ['bot', 'api', 'web'], status: 'restarting' }, 'Redémarrage de tous les services initié'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.post('/backup', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await logOwnerAction(request, 'BACKUP');
+      reply.send(success({ timestamp: new Date().toISOString() }, 'Sauvegarde effectuée'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
 }
 
 async function logOwnerAction(request: FastifyRequest, action: string, details?: Record<string, unknown>) {

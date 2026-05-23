@@ -10,7 +10,7 @@ interface ThemeState {
 }
 
 export function useTheme(): ThemeState {
-  const [current, setCurrent] = useState<ThemeName>(ThemeName.OLED);
+  const [current, setCurrent] = useState<ThemeName>(ThemeName.DARK);
 
   useEffect(() => {
     const stored = localStorage.getItem('pinguin-theme') as ThemeName | null;
@@ -18,7 +18,7 @@ export function useTheme(): ThemeState {
       setCurrent(stored);
       applyTheme(getTheme(stored));
     } else {
-      applyTheme(getTheme(ThemeName.OLED));
+      applyTheme(getTheme(ThemeName.DARK));
     }
   }, []);
 

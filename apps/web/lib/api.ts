@@ -215,11 +215,11 @@ export async function toggleAlphaMode(enabled: boolean): Promise<APIResponse<{ s
 }
 
 export async function triggerDeploy(): Promise<APIResponse<{ deployment: any }>> {
-  return api.post<APIResponse<{ deployment: any }>>('/api/owner/deploy', { confirm: true });
+  return api.post<APIResponse<{ deployment: any }>>('/api/deploy/start', { confirm: true });
 }
 
 export async function triggerRollback(version?: string): Promise<APIResponse<{ deployment: any }>> {
-  return api.post<APIResponse<{ deployment: any }>>('/api/owner/rollback', { version, confirm: true });
+  return api.post<APIResponse<{ deployment: any }>>('/api/deploy/rollback', { version, confirm: true });
 }
 
 export async function triggerBackup(): Promise<APIResponse<{ success: boolean }>> {
@@ -227,7 +227,7 @@ export async function triggerBackup(): Promise<APIResponse<{ success: boolean }>
 }
 
 export async function triggerRestart(service?: string): Promise<APIResponse<{ success: boolean }>> {
-  return api.post<APIResponse<{ success: boolean }>>('/api/owner/restart', { service });
+  return api.post<APIResponse<{ success: boolean }>>(service ? `/api/owner/services/restart/${service}` : '/api/owner/services/restart-all');
 }
 
 export async function createChangelog(data: { title: string; content: string; version: string }): Promise<APIResponse<{ changelog: any }>> {
