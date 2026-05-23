@@ -2,18 +2,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import {
-  DoorOpen, MessageCircle, Image, Palette,
-  Mail, LogOut, Eye
-} from 'lucide-react';
-import { Card, Toggle, Input, Button, Badge, Select, Skeleton } from '@pinguin/ui';
+import { DoorOpen, Image, Mail, LogOut, Eye } from 'lucide-react';
+import { Card, Toggle, Input, Button, Badge, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
-import type { GuildConfig, WelcomeSettings } from '@pinguin/shared';
+import type { WelcomeSettings } from '@pinguin/shared';
 
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [config, setConfig] = useState<GuildConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -43,8 +39,6 @@ export default function WelcomePage() {
           goodbyeChannelId: null,
           goodbyeMessage: 'Au revoir {user} !',
           goodbyeEmbed: false,
-          // Champs alignés avec le backend / types
-          welcomeEmbedUrl: undefined,
         };
 
 

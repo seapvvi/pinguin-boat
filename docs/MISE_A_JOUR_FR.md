@@ -202,7 +202,7 @@ pm2 stop pinguin-api pinguin-bot pinguin-web
 pm2 start /opt/pinguinboat/current/deploy/pm2.config.json
 
 # Vérification manuelle
-node /opt/pinguinboat/current/apps/api/dist/index.js
+node /opt/pinguinboat/current/apps/api/dist/apps/api/src/index.js
 ```
 
 ### 4.4 Procédure d'urgence

@@ -2,7 +2,7 @@
   "apps": [
     {
       "name": "pinguin-api",
-      "script": "apps/api/dist/index.js",
+      "script": "apps/api/dist/apps/api/src/index.js",
       "cwd": "/opt/pinguinboat/current",
       "instances": 1,
       "exec_mode": "fork",

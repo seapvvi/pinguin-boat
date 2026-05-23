@@ -251,7 +251,7 @@ Chaque script doit être :
 ### 9.1 Configuration
 
 - [ ] `deploy/pm2.config.json` est valide (vérifier avec `pm2 start --no-daemon`)
-- [ ] `pinguin-api` : script `apps/api/dist/index.js`, mode fork, 1 instance
+- [ ] `pinguin-api` : script `apps/api/dist/apps/api/src/index.js`, mode fork, 1 instance
 - [ ] `pinguin-bot` : script `apps/bot/dist/index.js`, mode fork, 1 instance
 - [ ] `pinguin-web` : script `apps/web/server.js`, mode cluster, 2 instances
 
