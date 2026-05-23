@@ -889,6 +889,44 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
   });
 
+  // Envoi d'un embed depuis le dashboard (UI) vers un salon.
+  // Endpoint attendu par le frontend: POST /api/guilds/:guildId/embeds/send
+  app.post('/:guildId/embeds/send', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      const channelId = body.channelId as string | undefined;
+      const embedPreset = body.embed as any;
+
+      if (!channelId) return reply.status(400).send(error('channelId requis'));
+      if (!embedPreset) return reply.status(400).send(error('embed requis'));
+
+      // Normalisation des champs attendus par discord.js EmbedBuilder
+      const fields = Array.isArray(embedPreset.fields) ? embedPreset.fields : [];
+
+      await sendChannelMessage(channelId, {
+        embeds: [{
+          title: embedPreset.title ?? undefined,
+          description: embedPreset.description ?? undefined,
+          color: typeof embedPreset.color === 'string' ? parseInt(embedPreset.color.replace('#', ''), 16) : embedPreset.color,
+          fields: fields.map((f: any) => ({
+            name: String(f.name ?? ''),
+            value: String(f.value ?? ''),
+            inline: Boolean(f.inline),
+          })),
+          footer: embedPreset.footer ? { text: String(embedPreset.footer) } : undefined,
+          thumbnail: embedPreset.thumbnail ? { url: String(embedPreset.thumbnail) } : undefined,
+          image: embedPreset.image ? { url: String(embedPreset.image) } : undefined,
+          timestamp: embedPreset.timestamp ? new Date().toISOString() : undefined,
+        }],
+      });
+
+      reply.send(success(null, 'Embed envoyé'));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message || 'Erreur lors de l\'envoi d\'embed'));
+    }
+  });
+
   app.post('/:guildId/embeds', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;

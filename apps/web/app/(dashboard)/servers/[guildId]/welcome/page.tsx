@@ -18,8 +18,9 @@ export default function WelcomePage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [local, setLocal] = useState<WelcomeSettings | null>(null);
-  const [welcomeEmbedColor, setWelcomeEmbedColor] = useState('#5865F2');
-  const [goodbyeEmbedColor, setGoodbyeEmbedColor] = useState('#5865F2');
+  // Les couleurs d’embed ne sont pas (actuellement) stockées dans `WelcomeSettings`.
+  // Elles sont donc retirées pour éviter d’envoyer des champs non supportés au backend.
+
   const [welcomePreview, setWelcomePreview] = useState('');
   const [goodbyePreview, setGoodbyePreview] = useState('');
 
@@ -35,15 +36,17 @@ export default function WelcomePage() {
           welcomeChannelId: null,
           welcomeMessage: 'Bienvenue {user} sur {server} !',
           welcomeEmbed: false,
-          welcomeEmbedUrl: null,
           dmWelcome: false,
+          dmWelcomeMessage: null,
           welcomeImageUrl: null,
+
           goodbyeChannelId: null,
           goodbyeMessage: 'Au revoir {user} !',
           goodbyeEmbed: false,
-          goodbyeEmbedUrl: null,
-          goodbyeImageUrl: null,
+          // Champs alignés avec le backend / types
+          welcomeEmbedUrl: undefined,
         };
+
 
         const w = res.data.guild.welcome ?? defaultWelcome;
         setLocal({ ...defaultWelcome, ...w });
@@ -78,6 +81,7 @@ export default function WelcomePage() {
   const updateGoodbyePreview = (msg: string) => {
     setGoodbyePreview(msg.replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
   };
+
 
   if (error) {
     return (
@@ -163,14 +167,11 @@ export default function WelcomePage() {
                 <Toggle checked={local.dmWelcome} onChange={(v) => setLocal({ ...local, dmWelcome: v })} />
               </div>
               {local.welcomeEmbed && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Palette size={14} className="text-[var(--text-secondary)]" />
-                    <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">Embed</span>
-                  </div>
-                  <Input label="Couleur" type="color" value={welcomeEmbedColor} onChange={(e) => setWelcomeEmbedColor(e.target.value)} className="h-10" />
+                <div className="text-xs text-[var(--text-secondary)]">
+                  L’édition des paramètres d’embed n’est pas (encore) gérée côté backend pour cette version.
                 </div>
               )}
+
               <div className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
                 <div className="flex items-center gap-2">
                   <Image size={14} />

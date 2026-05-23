@@ -33,7 +33,11 @@ export default function LevelsPage() {
       ]);
       if (settingsRes.success && settingsRes.data) {
         setConfig(settingsRes.data.guild);
-        setLocal({ ...settingsRes.data.guild.levels });
+        const levels = settingsRes.data.guild.levels;
+        setLocal({
+          ...levels,
+          roleRewards: levels?.roleRewards ?? [],
+        });
       }
       if (lbRes.success && lbRes.data) setLeaderboard(lbRes.data.entries);
     } catch (e) {
@@ -58,14 +62,20 @@ export default function LevelsPage() {
 
   const addReward = () => {
     if (!local) return;
-    setLocal({ ...local, roleRewards: [...local.roleRewards, { level: newReward.level, roleId: newReward.roleId }] });
+    setLocal({
+      ...local,
+      roleRewards: [...(local.roleRewards ?? []), { level: newReward.level, roleId: newReward.roleId }],
+    });
     setNewReward({ level: 1, roleId: '' });
     setRewardModal(false);
   };
 
   const removeReward = (index: number) => {
     if (!local) return;
-    setLocal({ ...local, roleRewards: local.roleRewards.filter((_, i) => i !== index) });
+    setLocal({
+      ...local,
+      roleRewards: (local.roleRewards ?? []).filter((_, i) => i !== index),
+    });
   };
 
   const lbColumns: Column<LeaderboardEntry>[] = [
@@ -141,7 +151,7 @@ export default function LevelsPage() {
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">Récompenses de rôles</h2>
               <Button variant="secondary" size="sm" onClick={() => setRewardModal(true)}><Plus size={12} /> Ajouter</Button>
             </div>
-            {local.roleRewards.length === 0 ? (
+            {(local.roleRewards ?? []).length === 0 ? (
               <span className="text-xs text-[var(--text-secondary)]">Aucune récompense définie.</span>
             ) : (
               <div className="space-y-2">
