@@ -6,36 +6,45 @@ import { useTheme, useSnowflakes, useMediaQuery, Snowflakes } from '@pinguin/ui'
 export function Providers({ children }: { children: ReactNode }) {
   const prefersReduced = useMediaQuery('(prefers-reduced-motion: reduce)');
 
-  useEffect(() => {
-    if (prefersReduced) return;
-  }, [prefersReduced]);
-
+  // This file is always client-side; the crash you saw likely comes from
+  // a hook inside @pinguin/ui. We must never block rendering the app.
   return (
-    <ThemeWrapper>
-      <SnowflakesWrapper>
+    <SafeTheme>
+      <SafeSnowflakes disabled={prefersReduced}>
         {children}
-      </SnowflakesWrapper>
-    </ThemeWrapper>
+      </SafeSnowflakes>
+    </SafeTheme>
   );
 }
 
-function ThemeWrapper({ children }: { children: ReactNode }) {
-  const { current, isDark } = useTheme();
+function SafeTheme({ children }: { children: ReactNode }) {
+  try {
+    const { isDark } = useTheme();
 
-  useEffect(() => {
-    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
-  }, [isDark]);
+    useEffect(() => {
+      document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+    }, [isDark]);
 
-  return <>{children}</>;
+    return <>{children}</>;
+  } catch {
+    // Fail open: still render children.
+    return <>{children}</>;
+  }
 }
 
-function SnowflakesWrapper({ children }: { children: ReactNode }) {
-  const { enabled } = useSnowflakes();
+function SafeSnowflakes({ children, disabled }: { children: ReactNode; disabled: boolean }) {
+  try {
+    const { enabled } = useSnowflakes();
 
-  return (
-    <>
-      <Snowflakes enabled={enabled} count={35} />
-      {children}
-    </>
-  );
+    // Fail open: if enabled logic breaks, still render children.
+    return (
+      <>
+        {!disabled && <Snowflakes enabled={enabled} count={35} />}
+        {children}
+      </>
+    );
+  } catch {
+    return <>{children}</>;
+  }
 }
+
