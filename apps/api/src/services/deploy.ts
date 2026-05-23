@@ -1,13 +1,19 @@
 import { getConfig } from '@pinguin/config';
 import { prisma } from '@pinguin/db';
 import { DeploymentStatus } from '@pinguin/db';
-import simpleGit from 'simple-git';
 import { randomUUID } from 'crypto';
-import { execSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
+import { execSync, spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs';
 
 const config = getConfig();
+
+let repoDir: string;
+try {
+  repoDir = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).toString().trim();
+} catch {
+  repoDir = process.cwd();
+}
 
 interface DeployStatus {
   running: boolean;
@@ -16,164 +22,106 @@ interface DeployStatus {
   lastDeployment: Date | null;
 }
 
-async function updateDeploymentLog(deploymentId: string, logs: string[]) {
-  await prisma.deployment.update({
-    where: { id: deploymentId },
-    data: { log: logs.join('\n') },
-  });
-}
-
-async function runDeployment(
-  deploymentId: string,
-  triggeredById: string,
-  version: string,
-  releaseDir: string,
-) {
+async function runDeploymentInline(deploymentId: string) {
   const logs: string[] = [];
-
   const addLog = async (msg: string) => {
     logs.push(`[${new Date().toISOString()}] ${msg}`);
-    await updateDeploymentLog(deploymentId, logs);
+    await prisma.deployment.update({ where: { id: deploymentId }, data: { log: logs.join('\n') } });
+  };
+
+  const exec = (cmd: string) => {
+    try {
+      execSync(cmd, { cwd: repoDir, encoding: 'utf8', timeout: 600000 });
+    } catch (err: any) {
+      const details = (err.stderr || err.stdout || err.message || 'Erreur inconnue').toString().trim().split('\n').slice(-10).join('\n');
+      throw new Error(details);
+    }
+  };
+
+  const execWithOutput = (cmd: string): string => {
+    try {
+      return execSync(cmd, { cwd: repoDir, encoding: 'utf8', timeout: 600000 }).toString().trim();
+    } catch (err: any) {
+      const details = (err.stderr || err.stdout || err.message || 'Erreur inconnue').toString().trim().split('\n').slice(-10).join('\n');
+      throw new Error(details);
+    }
   };
 
   try {
-    await addLog(`Déploiement ${version} démarré`);
+    await addLog('Mise à jour démarrée');
+    await addLog('Récupération du code depuis GitHub...');
+    const branch = config.GITHUB_BRANCH || execWithOutput('git rev-parse --abbrev-ref HEAD');
 
-    await addLog('📥 Téléchargement depuis GitHub...');
-    if (!config.GITHUB_REPO) {
-      throw new Error('GITHUB_REPO non configuré dans .env');
-    }
-    const cloneUrl = config.GITHUB_TOKEN
-      ? `https://x-access-token:${config.GITHUB_TOKEN}@github.com/${config.GITHUB_REPO}.git`
-      : `https://github.com/${config.GITHUB_REPO}.git`;
-    await simpleGit().clone(cloneUrl, releaseDir, [
-      '--branch', config.GITHUB_BRANCH,
-      '--single-branch',
-      '--depth', '1',
-    ]);
-    await addLog('✅ Code source téléchargé');
-
-    const sharedDir = config.DEPLOY_SHARED_PATH;
-    const sharedPaths = ['node_modules', '.env', 'prisma'];
-    for (const p of sharedPaths) {
-      const src = path.join(sharedDir, p);
-      const dest = path.join(releaseDir, p);
-      if (fs.existsSync(src)) {
-        fs.symlinkSync(src, dest, 'junction');
-        await addLog(`🔗 Fichier partagé lié: ${p}`);
-      } else {
-        await addLog(`⚠️ Fichier partagé introuvable: ${p} (ignoré)`);
-      }
+    let remoteUrl = '';
+    if (config.GITHUB_TOKEN) {
+      remoteUrl = execWithOutput('git remote get-url origin');
+      const authedUrl = remoteUrl.replace('https://', `https://x-access-token:${config.GITHUB_TOKEN}@`);
+      exec(`git remote set-url origin ${authedUrl}`);
     }
 
-    await addLog('📦 Installation des dépendances...');
-    execSync('pnpm install --frozen-lockfile --prod', {
-      cwd: releaseDir,
-      stdio: 'pipe',
-    });
-    await addLog('✅ Dépendances installées');
+    exec(`git fetch origin ${branch}`);
+    exec(`git reset --hard origin/${branch}`);
 
-    await addLog('🔨 Build du projet...');
-    execSync('pnpm build', { cwd: releaseDir, stdio: 'pipe' });
-    await addLog('✅ Build terminé');
-
-    await addLog('🗄️ Génération Prisma...');
-    execSync('pnpm db:generate', {
-      cwd: releaseDir,
-      stdio: 'pipe',
-    });
-    await addLog('✅ Prisma généré');
-
-    await addLog('🔄 Migration de la base de données...');
-    execSync('pnpm db:migrate', {
-      cwd: releaseDir,
-      stdio: 'pipe',
-    });
-    await addLog('✅ Migrations appliquées');
-
-    const healthUrl = config.API_URL.replace(/\/$/, '') + '/api/health';
-    await addLog('🔍 Vérification de santé...');
-    let healthy = false;
-    for (let i = 0; i < 10; i++) {
-      try {
-        const res = await fetch(healthUrl);
-        if (res.ok) {
-          healthy = true;
-          break;
-        }
-      } catch {
-        // retry
-      }
-      await new Promise((r) => setTimeout(r, 2000));
+    if (config.GITHUB_TOKEN && remoteUrl) {
+      exec(`git remote set-url origin ${remoteUrl}`);
     }
 
-    if (!healthy) {
-      throw new Error('La vérification de santé a échoué');
-    }
-    await addLog('✅ Vérification de santé réussie');
-
-    const currentLink = config.DEPLOY_CURRENT_LINK;
-    if (fs.existsSync(currentLink)) {
-      const oldTarget = fs.readlinkSync(currentLink);
-      await prisma.deploymentRelease.create({
-        data: {
-          id: randomUUID(),
-          version: `rollback-${version}`,
-          releasePath: oldTarget,
-          status: DeploymentStatus.ROLLED_BACK,
-          deploymentId,
-          createdAt: new Date(),
-        },
-      });
-      await addLog(`💾 Ancienne version sauvegardée: ${oldTarget}`);
-    }
-
-    const tmpLink = currentLink + '.tmp';
-    if (fs.existsSync(tmpLink)) {
-      fs.unlinkSync(tmpLink);
-    }
-    fs.symlinkSync(releaseDir, tmpLink, 'junction');
-    fs.renameSync(tmpLink, currentLink);
-    await addLog('✅ Lien symbolique mis à jour');
+    await addLog('Code mis à jour');
+    await addLog('Installation des dépendances...');
+    exec('pnpm install --no-frozen-lockfile');
+    await addLog('Dépendances installées');
+    await addLog('Génération Prisma...');
+    exec('pnpm db:generate');
+    await addLog('Prisma généré');
+    await addLog('Build du projet...');
+    exec('pnpm build');
+    await addLog('Build terminé');
+    await addLog('Migration de la base de données...');
+    exec('pnpm db:migrate:prod');
+    await addLog('Migrations appliquées');
 
     await prisma.deployment.update({
       where: { id: deploymentId },
-      data: {
-        status: DeploymentStatus.SUCCESS,
-        completedAt: new Date(),
-        log: logs.join('\n'),
-      },
+      data: { status: DeploymentStatus.SUCCESS, completedAt: new Date(), log: logs.join('\n') },
     });
+    await addLog('Mise à jour terminée ! Redémarre le serveur (pnpm dev) pour appliquer les changements.');
   } catch (err: any) {
-    await addLog(`❌ ERREUR: ${err.message || 'Erreur inconnue'}`);
-
-    if (fs.existsSync(releaseDir)) {
-      fs.rmSync(releaseDir, { recursive: true, force: true });
-      await addLog('🧹 Dossier de release nettoyé');
-    }
-
+    await addLog(`ERREUR: ${err.message || 'Erreur inconnue'}`);
     await prisma.deployment.update({
       where: { id: deploymentId },
-      data: {
-        status: DeploymentStatus.FAILED,
-        completedAt: new Date(),
-        log: logs.join('\n'),
-      },
+      data: { status: DeploymentStatus.FAILED, completedAt: new Date(), log: logs.join('\n') },
     });
   }
 }
 
-export async function startDeployment(
-  triggeredById: string
-): Promise<{ id: string; version: string }> {
+async function runDeploymentWorker(deploymentId: string) {
+  const workerPath = path.resolve(__dirname, 'deploy-worker.ts');
+
+  if (!fs.existsSync(workerPath)) {
+    return runDeploymentInline(deploymentId);
+  }
+
+  const child = spawn(process.execPath, ['--import', require.resolve('tsx'), workerPath, deploymentId], {
+    detached: true,
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      DEPLOY_BRANCH: config.GITHUB_BRANCH || undefined,
+      GITHUB_TOKEN: config.GITHUB_TOKEN || undefined,
+    },
+  });
+
+  child.unref();
+}
+
+export async function startDeployment(triggeredById: string): Promise<{ id: string; version: string }> {
   const version = `v${Date.now()}`;
-  const releaseDir = path.join(config.DEPLOY_RELEASES_PATH, version);
 
   const deployment = await prisma.deployment.create({
     data: {
       id: randomUUID(),
       version,
-      releasePath: releaseDir,
+      releasePath: repoDir,
       status: DeploymentStatus.RUNNING,
       triggeredById,
       startedAt: new Date(),
@@ -181,56 +129,33 @@ export async function startDeployment(
     },
   });
 
-  runDeployment(deployment.id, triggeredById, version, releaseDir);
+  runDeploymentWorker(deployment.id).catch((err) => {
+    console.error('Deploy worker launch failed:', err);
+  });
 
   return { id: deployment.id, version };
 }
 
-export async function rollback(
-  triggeredById: string,
-  targetVersion?: string
-): Promise<void> {
-  const releasesDir = config.DEPLOY_RELEASES_PATH;
-  const currentLink = config.DEPLOY_CURRENT_LINK;
+export async function rollback(triggeredById: string, targetVersion?: string): Promise<void> {
+  const lastSuccess = await prisma.deployment.findFirst({
+    where: { status: DeploymentStatus.SUCCESS },
+    orderBy: { completedAt: 'desc' },
+  });
 
-  if (!fs.existsSync(releasesDir)) {
-    throw new Error('Aucune release disponible');
+  if (!lastSuccess) {
+    throw new Error('Aucune version précédente réussie pour rollback');
   }
-
-  const releases = fs
-    .readdirSync(releasesDir)
-    .filter((d) => d.startsWith('v'))
-    .sort()
-    .reverse();
-
-  if (releases.length < 2) {
-    throw new Error('Pas assez de versions pour effectuer un rollback');
-  }
-
-  const target = targetVersion || releases[1];
-  const targetPath = path.join(releasesDir, target);
-
-  if (!fs.existsSync(targetPath)) {
-    throw new Error(`Version ${target} introuvable`);
-  }
-
-  const tmpLink = currentLink + '.tmp';
-  if (fs.existsSync(tmpLink)) {
-    fs.unlinkSync(tmpLink);
-  }
-  fs.symlinkSync(targetPath, tmpLink, 'junction');
-  fs.renameSync(tmpLink, currentLink);
 
   await prisma.deployment.create({
     data: {
       id: randomUUID(),
-      version: `rollback-to-${target}`,
-      releasePath: targetPath,
+      version: `rollback-to-${lastSuccess.version}`,
+      releasePath: lastSuccess.releasePath,
       status: DeploymentStatus.ROLLED_BACK,
       triggeredById,
       startedAt: new Date(),
       completedAt: new Date(),
-      log: `Rollback vers ${target} effectué`,
+      log: `Rollback vers ${lastSuccess.version} effectu\u00e9. Red\u00e9marre le serveur (pnpm dev) pour appliquer.`,
     },
   });
 }
@@ -254,10 +179,7 @@ export async function getDeployStatus(): Promise<DeployStatus> {
   };
 }
 
-export async function getDeployHistory(
-  page: number = 1,
-  limit: number = 20
-) {
+export async function getDeployHistory(page: number = 1, limit: number = 20) {
   const [deployments, total] = await Promise.all([
     prisma.deployment.findMany({
       orderBy: { startedAt: 'desc' },
@@ -268,35 +190,4 @@ export async function getDeployHistory(
   ]);
 
   return { deployments, total };
-}
-
-export async function getReleases() {
-  const releasesDir = config.DEPLOY_RELEASES_PATH;
-
-  if (!fs.existsSync(releasesDir)) {
-    return [];
-  }
-
-  const dirs = fs.readdirSync(releasesDir).filter((d) => d.startsWith('v'));
-  const currentLink = config.DEPLOY_CURRENT_LINK;
-  let currentTarget: string | null = null;
-
-  try {
-    currentTarget = fs.readlinkSync(currentLink);
-  } catch {
-    // no current link
-  }
-
-  return dirs
-    .map((dir) => {
-      const fullPath = path.join(releasesDir, dir);
-      const stat = fs.statSync(fullPath);
-      return {
-        version: dir,
-        path: fullPath,
-        createdAt: stat.birthtime,
-        isCurrent: currentTarget === fullPath,
-      };
-    })
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }

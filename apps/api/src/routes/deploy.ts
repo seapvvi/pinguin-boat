@@ -65,13 +65,4 @@ export async function deployRoutes(app: FastifyInstance) {
       reply.status(500).send(error(err.message || 'Erreur d\'historique'));
     }
   });
-
-  app.get('/releases', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const releases = await DeployService.getReleases();
-      reply.send(success({ releases }));
-    } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur de récupération des releases'));
-    }
-  });
 }
