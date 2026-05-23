@@ -30,10 +30,26 @@ export default function WelcomePage() {
       const res = await fetchGuildSettings(guildId);
       if (res.success && res.data) {
         setConfig(res.data.guild);
-        const w = res.data.guild.welcome;
-        setLocal({ ...w });
-        setWelcomePreview((w.welcomeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
-        setGoodbyePreview((w.goodbyeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
+        const defaultWelcome: WelcomeSettings = {
+          enabled: true,
+          welcomeChannelId: null,
+          welcomeMessage: 'Bienvenue {user} sur {server} !',
+          welcomeEmbed: false,
+          welcomeEmbedUrl: null,
+          dmWelcome: false,
+          welcomeImageUrl: null,
+          goodbyeChannelId: null,
+          goodbyeMessage: 'Au revoir {user} !',
+          goodbyeEmbed: false,
+          goodbyeEmbedUrl: null,
+          goodbyeImageUrl: null,
+        };
+
+        const w = res.data.guild.welcome ?? defaultWelcome;
+        setLocal({ ...defaultWelcome, ...w });
+
+        setWelcomePreview(((w as WelcomeSettings).welcomeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
+        setGoodbyePreview(((w as WelcomeSettings).goodbyeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
