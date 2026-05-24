@@ -76,6 +76,9 @@ export const api = {
   put: <T>(endpoint: string, body?: unknown) =>
     apiFetch<T>(endpoint, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
 
+  patch: <T>(endpoint: string, body?: unknown) =>
+    apiFetch<T>(endpoint, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
+
   delete: <T>(endpoint: string) =>
     apiFetch<T>(endpoint, { method: 'DELETE' }),
 };
@@ -291,6 +294,17 @@ export async function disable2FA(code: string): Promise<APIResponse<{ success: b
 
 export async function fetchServices(): Promise<APIResponse<{ services: any[] }>> {
   return api.get<APIResponse<{ services: any[] }>>('/api/owner/services');
+}
+
+export async function toggleModule(
+  guildId: string,
+  moduleKey: string,
+  enabled: boolean
+): Promise<{ success: boolean; moduleKey: string; enabled: boolean }> {
+  return api.patch<{ success: boolean; moduleKey: string; enabled: boolean }>(
+    `/api/guilds/${guildId}/modules/${moduleKey}`,
+    { enabled }
+  );
 }
 
 export async function fetchAuditLogs(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: any[]; pagination: any }>> {

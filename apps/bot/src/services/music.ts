@@ -1,6 +1,10 @@
-import { Client, Guild, VoiceChannel, TextChannel, Snowflake } from 'discord.js';
+import { GuildMember, VoiceChannel, TextChannel } from 'discord.js';
+import {
+  joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus,
+  VoiceConnectionStatus, entersState, NoSubscriberBehavior,
+  AudioPlayer, VoiceConnection,
+} from '@discordjs/voice';
 import type { TrackInfo } from '@pinguin/shared';
-import { getConfig } from '@pinguin/config';
 import { prisma } from '@pinguin/db';
 
 export enum LoopMode {
@@ -18,8 +22,8 @@ interface GuildMusicState {
   volume: number;
   voiceChannelId: string | null;
   textChannelId: string | null;
-  player: any | null;
-  connection: any | null;
+  player: AudioPlayer | null;
+  connection: VoiceConnection | null;
   destroyed: boolean;
 }
 
@@ -29,17 +33,10 @@ export function getState(guildId: string): GuildMusicState {
   let state = states.get(guildId);
   if (!state) {
     state = {
-      queue: [],
-      currentTrack: null,
-      position: 0,
-      loopMode: LoopMode.NONE,
-      autoplay: false,
-      volume: 50,
-      voiceChannelId: null,
-      textChannelId: null,
-      player: null,
-      connection: null,
-      destroyed: false,
+      queue: [], currentTrack: null, position: 0,
+      loopMode: LoopMode.NONE, autoplay: false, volume: 50,
+      voiceChannelId: null, textChannelId: null,
+      player: null, connection: null, destroyed: false,
     };
     states.set(guildId, state);
   }
@@ -50,9 +47,188 @@ export function destroyState(guildId: string): void {
   const state = states.get(guildId);
   if (state) {
     state.destroyed = true;
-    try { state.player?.stop(); } catch {}
-    try { state.connection?.destroy(); } catch {}
+    state.player?.stop();
+    state.connection?.destroy();
     states.delete(guildId);
+  }
+}
+
+export function getPlayer(guildId: string): AudioPlayer {
+  const state = getState(guildId);
+  if (!state.player) {
+    state.player = createAudioPlayer({
+      behaviors: { noSubscriber: NoSubscriberBehavior.Play },
+    });
+    state.player.on('stateChange', (oldState: any, newState: any) => {
+      if (newState.status === AudioPlayerStatus.Idle && oldState.status !== AudioPlayerStatus.Idle) {
+        playNext(guildId).catch(() => {});
+      }
+    });
+    state.player.on('error', (err: Error) => {
+      console.error(`[Music] Player error in ${guildId}:`, err.message);
+      playNext(guildId).catch(() => {});
+    });
+  }
+  return state.player;
+}
+
+async function playNext(guildId: string): Promise<void> {
+  const state = getState(guildId);
+  if (state.destroyed) return;
+
+  if (state.loopMode === LoopMode.TRACK && state.currentTrack) {
+    state.queue.unshift(state.currentTrack);
+  }
+
+  if (state.queue.length === 0) {
+    state.currentTrack = null;
+    state.player?.stop();
+    saveQueueToDb(guildId);
+    return;
+  }
+
+  if (state.loopMode === LoopMode.QUEUE && state.currentTrack) {
+    state.queue.push(state.currentTrack);
+  }
+
+  state.currentTrack = state.queue.shift()!;
+  state.position = 0;
+  saveQueueToDb(guildId);
+  await playTrack(guildId, state.currentTrack);
+}
+
+async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
+  const state = getState(guildId);
+  if (state.destroyed || !state.connection) return;
+
+  try {
+    const playdl = await import('play-dl');
+    const stream = track.source === 'YOUTUBE'
+      ? await playdl.stream(track.url, { quality: 2 })
+      : await playdl.stream(track.url);
+    const resource = createAudioResource(stream.stream, {
+      inputType: stream.type as any,
+      inlineVolume: true,
+    });
+    resource.volume?.setVolume(state.volume / 100);
+    state.player = getPlayer(guildId);
+    state.player.play(resource);
+    state.connection.subscribe(state.player);
+
+    await prisma.musicHistoryEntry.create({
+      data: {
+        guildId,
+        trackTitle: track.title,
+        trackUrl: track.url,
+        duration: track.duration,
+        requestedById: 'internal',
+        playedAt: new Date(),
+      },
+    }).catch(() => {});
+  } catch (err: any) {
+    console.error(`[Music] Error playing ${track.title}:`, err.message);
+    playNext(guildId).catch(() => {});
+  }
+}
+
+export async function play(guildId: string, query: string, requester: GuildMember, textChannel: TextChannel): Promise<TrackInfo | null> {
+  const state = getState(guildId);
+  const voiceChannel = requester.voice.channel as VoiceChannel;
+  if (!voiceChannel) throw new Error('Tu dois être dans un salon vocal.');
+
+  const playdl = await import('play-dl');
+  const searchResult = await playdl.search(query, { limit: 1 });
+  if (!searchResult.length) throw new Error('Aucun résultat trouvé.');
+  const r = searchResult[0];
+  const track: TrackInfo = {
+    title: (r as any).title ?? 'Inconnu',
+    url: (r as any).url ?? r.url,
+    duration: (r as any).durationInSec ?? 0,
+    thumbnail: (r as any).thumbnails?.[0]?.url ?? (r as any).thumbnail ?? '',
+    author: r.channel?.name ?? 'Inconnu',
+    source: r.url.includes('youtube') || r.url.includes('youtu.be') ? 'YOUTUBE' : 'OTHER',
+  };
+
+  const botMember = voiceChannel.guild.members.me!;
+  if (!voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
+    throw new Error('Je n\'ai pas la permission de rejoindre ce salon vocal.');
+  }
+
+  if (!state.connection || state.connection.state.status !== VoiceConnectionStatus.Ready) {
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: voiceChannel.guild.id,
+      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+    });
+    connection.on('stateChange', (_oldState: any, newState: any) => {
+      if (newState.status === VoiceConnectionStatus.Disconnected) {
+        destroyState(guildId);
+      }
+    });
+    try {
+      await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+    } catch {
+      connection.destroy();
+      throw new Error('Impossible de se connecter au salon vocal.');
+    }
+    state.connection = connection;
+  }
+
+  state.voiceChannelId = voiceChannel.id;
+  state.textChannelId = textChannel.id;
+
+  if (state.currentTrack) {
+    state.queue.push(track);
+    saveQueueToDb(guildId);
+    return track;
+  }
+
+  state.currentTrack = track;
+  state.player = getPlayer(guildId);
+  state.connection.subscribe(state.player);
+  saveQueueToDb(guildId);
+  await playTrack(guildId, track);
+  return track;
+}
+
+export async function skip(guildId: string): Promise<TrackInfo | null> {
+  const state = getState(guildId);
+  state.player?.stop();
+  if (state.loopMode === LoopMode.TRACK) state.loopMode = LoopMode.NONE;
+  return state.currentTrack;
+}
+
+export async function stop(guildId: string): Promise<void> {
+  const state = getState(guildId);
+  state.queue = [];
+  state.currentTrack = null;
+  state.player?.stop();
+  destroyState(guildId);
+  await saveQueueToDb(guildId);
+}
+
+export async function pause(guildId: string): Promise<void> {
+  getState(guildId).player?.pause();
+}
+
+export async function resume(guildId: string): Promise<void> {
+  getState(guildId).player?.unpause();
+}
+
+export function setVolume(guildId: string, vol: number): void {
+  const state = getState(guildId);
+  state.volume = Math.max(0, Math.min(100, vol));
+}
+
+export function setLoop(guildId: string, mode: LoopMode): void {
+  getState(guildId).loopMode = mode;
+}
+
+export function toggleShuffle(guildId: string): void {
+  const state = getState(guildId);
+  for (let i = state.queue.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [state.queue[i], state.queue[j]] = [state.queue[j], state.queue[i]];
   }
 }
 
@@ -92,7 +268,6 @@ export async function loadQueueFromDb(guildId: string): Promise<void> {
   try {
     const data = await prisma.musicQueue.findUnique({ where: { guildId } });
     if (!data) return;
-
     const state = getState(guildId);
     state.queue = JSON.parse(data.tracks);
     state.currentTrack = data.currentTrack ? JSON.parse(data.currentTrack) : null;
@@ -107,6 +282,20 @@ export async function loadQueueFromDb(guildId: string): Promise<void> {
   }
 }
 
+export function getQueueState(guildId: string) {
+  const state = getState(guildId);
+  return {
+    tracks: state.queue,
+    currentTrack: state.currentTrack,
+    position: state.position,
+    loopMode: state.loopMode,
+    autoplay: state.autoplay,
+    volume: state.volume,
+    playing: state.player?.state.status === AudioPlayerStatus.Playing,
+    paused: state.player?.state.status === AudioPlayerStatus.Paused,
+  };
+}
+
 export function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -114,5 +303,3 @@ export function formatDuration(seconds: number): string {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
-
-

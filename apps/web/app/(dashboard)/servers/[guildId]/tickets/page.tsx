@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/utils';
 import type { TicketData } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { TicketStatus } from '@pinguin/shared';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 const statusLabels: Record<string, string> = {
   OPEN: 'Ouvert',
@@ -119,6 +120,10 @@ export default function TicketsPage() {
           <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les tickets de support.</p>
         </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={14} /> Nouveau ticket</Button>
+      </div>
+
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="tickets" label="Tickets" />
       </div>
 
       <Card padding={false}>

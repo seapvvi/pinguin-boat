@@ -12,6 +12,7 @@ import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
 import type { GuildConfig, MusicSettings, TrackInfo } from '@pinguin/shared';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function MusicPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -111,6 +112,8 @@ export default function MusicPage() {
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
       </div>
+
+      <div className="mb-4"><ModuleToggle guildId={guildId} moduleKey="music" label="Musique" /></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2 space-y-6">

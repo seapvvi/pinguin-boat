@@ -8,12 +8,13 @@ import {
 } from 'lucide-react';
 import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchModCases, api } from '@/lib/api';
+import { fetchModCases, fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { ModCase } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModerationCaseType } from '@pinguin/shared';
 import { Trash2 } from 'lucide-react';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 const caseTypeLabels: Record<string, string> = {
   WARN: 'Avertissement',
@@ -152,6 +153,10 @@ export default function ModerationPage() {
           <Button variant="ghost" size="sm" onClick={() => quickAction(ModerationCaseType.BAN)}><Ban size={14} /> Ban</Button>
           <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={14} /> Nouveau cas</Button>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="moderation" label="Modération" />
       </div>
 
       <Card padding={false}>

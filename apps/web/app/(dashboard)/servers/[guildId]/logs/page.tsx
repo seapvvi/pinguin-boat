@@ -11,6 +11,7 @@ import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
 import type { GuildConfig, LogSettings } from '@pinguin/shared';
 import { LogEventType } from '@pinguin/shared';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 const eventCategories: { label: string; icon: React.ReactNode; events: { value: LogEventType; label: string }[] }[] = [
   {
@@ -157,6 +158,10 @@ export default function LogsPage() {
           <p className="text-sm text-[var(--text-secondary)] mt-1">Configurez les événements à journaliser.</p>
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
+      </div>
+
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="logs" label="Logs" />
       </div>
 
       <div className="space-y-6">

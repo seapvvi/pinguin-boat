@@ -10,6 +10,7 @@ import { Card, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pingui
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import type { GuildConfig, EmbedPreset, EmbedField } from '@pinguin/shared';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function EmbedsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -134,6 +135,10 @@ export default function EmbedsPage() {
           <p className="text-sm text-[var(--text-secondary)] mt-1">Créez et gérez vos embeds personnalisés.</p>
         </div>
         <Button size="sm" onClick={() => openCreate()}><Plus size={14} /> Nouvel embed</Button>
+      </div>
+
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="embeds" label="Embeds" />
       </div>
 
       {loading ? (

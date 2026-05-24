@@ -12,6 +12,7 @@ import { fetchSuggestions, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Suggestion } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 const statusLabels: Record<string, string> = {
   PENDING: 'En attente',
@@ -101,6 +102,10 @@ export default function SuggestionsPage() {
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">Suggestions</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les suggestions des membres.</p>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="suggestions" label="Suggestions" />
       </div>
 
       <Card padding={false}>

@@ -12,6 +12,7 @@ import { fetchPolls, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Poll } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function PollsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -123,6 +124,8 @@ export default function PollsPage() {
         </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={14} /> Nouveau sondage</Button>
       </div>
+
+      <div className="mb-4"><ModuleToggle guildId={guildId} moduleKey="polls" label="Sondages" /></div>
 
       <Card padding={false}>
         {loading ? (

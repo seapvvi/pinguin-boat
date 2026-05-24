@@ -7,6 +7,7 @@ import { Card, Toggle, Input, Select, Button, Badge, Skeleton } from '@pinguin/u
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
 import type { GuildConfig, ProtectionSettings } from '@pinguin/shared';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function ProtectionPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -76,6 +77,10 @@ export default function ProtectionPage() {
           <p className="text-sm text-[var(--text-secondary)] mt-1">Protégez votre serveur contre les raids et les abus.</p>
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
+      </div>
+
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="protection" label="Protection" />
       </div>
 
       <div className="space-y-6">

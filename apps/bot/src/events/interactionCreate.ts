@@ -12,6 +12,15 @@ export async function execute(interaction: Interaction, client: Client): Promise
     return;
   }
 
+  if (interaction.isButton()) {
+    if (interaction.customId.startsWith('ticket_')) {
+      const { handleTicketButton } = await import('../commands/tickets/ticket-button');
+      await handleTicketButton(interaction, client);
+      return;
+    }
+    return;
+  }
+
   if (!interaction.isCommand()) return;
 
   const command = client.commands.get(interaction.commandName);

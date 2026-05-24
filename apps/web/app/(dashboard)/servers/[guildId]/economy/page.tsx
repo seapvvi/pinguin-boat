@@ -12,6 +12,7 @@ import { fetchGuildSettings, fetchEconomyLeaderboard, updateGuildSettings } from
 import { formatNumber } from '@/lib/utils';
 import type { GuildConfig, EconomySettings } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 interface EconomyEntry {
   rank: number;
@@ -104,6 +105,8 @@ export default function EconomyPage() {
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
       </div>
+
+      <div className="mb-4"><ModuleToggle guildId={guildId} moduleKey="economy" label="Économie" /></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="space-y-6">

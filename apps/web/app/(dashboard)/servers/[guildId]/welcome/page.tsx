@@ -7,6 +7,7 @@ import { Card, Toggle, Input, Button, Badge, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
 import type { WelcomeSettings } from '@pinguin/shared';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -108,6 +109,10 @@ export default function WelcomePage() {
           <p className="text-sm text-[var(--text-secondary)] mt-1">Personnalisez les messages d&apos;accueil et de départ.</p>
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
+      </div>
+
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="welcome" label="Bienvenue" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

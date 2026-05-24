@@ -11,6 +11,7 @@ import { fetchGuildSettings, fetchXPLeaderboard, updateGuildSettings } from '@/l
 import { formatNumber } from '@/lib/utils';
 import type { GuildConfig, LevelSettings, LeaderboardEntry, RoleReward } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function LevelsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -116,6 +117,10 @@ export default function LevelsPage() {
           <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez le système d&apos;XP et de niveaux.</p>
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
+      </div>
+
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="levels" label="Niveaux" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

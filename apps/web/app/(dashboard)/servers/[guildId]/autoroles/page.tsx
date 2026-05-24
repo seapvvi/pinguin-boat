@@ -10,6 +10,7 @@ import { Card, Toggle, Input, Button, Badge, Modal, Skeleton, EmptyState } from 
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
 import type { GuildConfig, AutoroleSettings, RoleReward } from '@pinguin/shared';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function AutorolesPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -114,6 +115,10 @@ export default function AutorolesPage() {
           <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les rôles automatiques.</p>
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
+      </div>
+
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="autoroles" label="Rôles automatiques" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

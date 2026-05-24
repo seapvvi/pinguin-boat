@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client, GuildMember } from 'discord.js';
-import { errorEmbed, successEmbed, infoEmbed } from '../../services/embed';
-import { getState, saveQueueToDb, LoopMode } from '../../services/music';
+import { errorEmbed, successEmbed } from '../../services/embed';
+import { setLoop, saveQueueToDb, LoopMode } from '../../services/music';
 
 export const data = new SlashCommandBuilder()
   .setName('loop')
@@ -28,7 +28,6 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   const mode = interaction.options.get('mode')?.value as string;
 
   if (!interaction.guild) return;
-  const state = getState(interaction.guild.id);
 
   const modeMap: Record<string, LoopMode> = {
     none: LoopMode.NONE,
@@ -36,7 +35,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     queue: LoopMode.QUEUE,
   };
 
-  state.loopMode = modeMap[mode];
+  setLoop(interaction.guild.id, modeMap[mode]);
   await saveQueueToDb(interaction.guild.id);
 
   const labels: Record<string, string> = {

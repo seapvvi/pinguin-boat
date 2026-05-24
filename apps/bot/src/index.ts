@@ -4,6 +4,7 @@ import { Client, GatewayIntentBits, Partials, Collection } from 'discord.js';
 import { registerCommands } from './utils/register';
 import { loadEvents } from './events/_loader';
 import { loadCommands } from './commands/_loader';
+import { startInternalBotApi } from './internal/bot-api';
 
 const config = getConfig();
 
@@ -37,6 +38,9 @@ async function start() {
 
     await client.login(config.DISCORD_TOKEN);
     console.log('[Bot] Connecté à Discord');
+
+    startInternalBotApi(client);
+    console.log('[Bot] API interne démarrée');
   } catch (error) {
     console.error('[Bot] Erreur de démarrage:', error);
     process.exit(1);

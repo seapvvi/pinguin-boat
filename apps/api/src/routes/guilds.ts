@@ -4,6 +4,7 @@ import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
 import { validateParams } from '../middleware/validate';
 import { success, error } from '../utils/response';
+import { getQueueState, botControl, botPlay } from '../services/bot-proxy';
 import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
 
@@ -188,6 +189,21 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur'));
     }
+  });
+
+  app.patch('/:guildId/modules/:moduleKey', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, moduleKey } = request.params as any;
+      const { enabled } = request.body as any;
+      const validModules = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds'];
+      if (!validModules.includes(moduleKey)) return reply.status(400).send(error('Module inconnu'));
+      await prisma.moduleEnabled.upsert({
+        where: { guildId },
+        update: { [moduleKey]: enabled },
+        create: { guildId, [moduleKey]: enabled },
+      });
+      reply.send(success({ moduleKey, enabled }, 'Module mis à jour'));
+    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
   });
 
   app.get('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -385,22 +401,30 @@ export async function guildRoutes(app: FastifyInstance) {
       const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, guildId } });
       if (!ticket) return reply.status(404).send(error('Ticket introuvable'));
       const upd: any = {};
-      if (body.status) upd.status = body.status;
-      if (body.claimedById !== undefined) upd.claimedById = body.claimedById;
-      if (body.status === 'CLOSED') { upd.closedAt = new Date(); upd.closedById = request.user!.id; }
+      const action = body.action || (body.status ? 'status' : null);
+      if (action === 'close' || action === 'CLOSED') {
+        upd.status = 'CLOSED'; upd.closedAt = new Date(); upd.closedById = request.user!.id;
+      } else if (action === 'claim' || action === 'CLAIMED') {
+        upd.status = 'CLAIMED'; upd.claimedById = body.claimedById || request.user!.id;
+      } else if (action === 'unclaim') {
+        upd.status = 'OPEN'; upd.claimedById = null;
+      } else if (body.status) {
+        upd.status = body.status;
+      }
+      if (body.claimedById !== undefined && !upd.claimedById) upd.claimedById = body.claimedById;
       const updated = await prisma.ticket.update({ where: { id: ticketId }, data: upd });
-      if (body.status === 'CLOSED' && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
+      if (upd.status === 'CLOSED' && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
         await sendChannelMessage(ticket.channelId, {
           embeds: [{ title: 'Ticket fermé', description: `Ce ticket a été fermé par <@${request.user!.id}>.`, color: 0xFF0000, timestamp: new Date().toISOString() }],
         }).catch(() => {});
       }
-      if (body.claimedById && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
+      if (upd.claimedById && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
         await editChannel(ticket.channelId, { name: `claimed-${ticket.subject.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 24)}` }).catch(() => {});
         await sendChannelMessage(ticket.channelId, {
-          embeds: [{ title: 'Ticket réclamé', description: `Ce ticket a été réclamé par <@${body.claimedById}>.`, color: 0x00FF00, timestamp: new Date().toISOString() }],
+          embeds: [{ title: 'Ticket réclamé', description: `Ce ticket a été réclamé par <@${upd.claimedById}>.`, color: 0x00FF00, timestamp: new Date().toISOString() }],
         }).catch(() => {});
       }
-      if (body.claimedById === null && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
+      if (upd.claimedById === null && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
         await editChannel(ticket.channelId, { name: `ticket-${ticket.subject.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 24)}` }).catch(() => {});
         await sendChannelMessage(ticket.channelId, {
           embeds: [{ title: 'Ticket non réclamé', description: `Ce ticket n'est plus réclamé.`, color: 0xFFA500, timestamp: new Date().toISOString() }],
@@ -1022,6 +1046,42 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.auditLog.count({ where: { guildId } }),
       ]);
       reply.send(success({ entries: logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
+    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+  });
+
+  // --- Music routes (proxy to bot internal API) ---
+
+  app.get('/:guildId/music/queue', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const data = await getQueueState(guildId);
+      reply.send(success(data));
+    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+  });
+
+  app.post('/:guildId/music/control', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      await botControl(guildId, body.action, body.value);
+      reply.send(success({ action: body.action }));
+    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+  });
+
+  app.get('/:guildId/music/history', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const q = request.query as any;
+      const page = Math.max(1, parseInt(q.page) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 20));
+      const [entries, total] = await Promise.all([
+        prisma.musicHistoryEntry.findMany({
+          where: { guildId }, orderBy: { playedAt: 'desc' },
+          skip: (page - 1) * limit, take: limit,
+        }),
+        prisma.musicHistoryEntry.count({ where: { guildId } }),
+      ]);
+      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
   });
 }

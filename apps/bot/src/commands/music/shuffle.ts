@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, CommandInteraction, Client, GuildMember } from 'discord.js';
 import { errorEmbed, successEmbed } from '../../services/embed';
-import { getState, saveQueueToDb } from '../../services/music';
+import { toggleShuffle, getState, saveQueueToDb } from '../../services/music';
 
 export const data = new SlashCommandBuilder()
   .setName('shuffle')
@@ -23,11 +23,7 @@ export async function execute(interaction: CommandInteraction, client: Client): 
     return;
   }
 
-  for (let i = state.queue.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [state.queue[i], state.queue[j]] = [state.queue[j], state.queue[i]];
-  }
-
+  toggleShuffle(interaction.guild.id);
   await saveQueueToDb(interaction.guild.id);
 
   await interaction.reply({ embeds: [successEmbed('File mélangée', `La file d'attente de **${state.queue.length}** musiques a été mélangée.`)] });

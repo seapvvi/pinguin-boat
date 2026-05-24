@@ -1,6 +1,6 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, Client, GuildMember, VoiceChannel } from 'discord.js';
-import { infoEmbed, errorEmbed, successEmbed, createEmbed } from '../../services/embed';
-import { getState, formatDuration, LoopMode, saveQueueToDb } from '../../services/music';
+import { SlashCommandBuilder, ChatInputCommandInteraction, Client, GuildMember, TextChannel } from 'discord.js';
+import { errorEmbed, successEmbed } from '../../services/embed';
+import { play, formatDuration } from '../../services/music';
 
 export const data = new SlashCommandBuilder()
   .setName('play')
@@ -17,35 +17,25 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   const voiceChannel = member.voice.channel;
 
   if (!voiceChannel) {
-    await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Vous devez être dans un salon vocal pour utiliser cette commande.')] });
+    await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Tu dois être dans un salon vocal.')] });
     return;
   }
 
   if (!interaction.guild) return;
+  const botMember = interaction.guild.members.me!;
+  if (!voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
+    await interaction.editReply({ embeds: [errorEmbed('Permission refusée', 'Je n\'ai pas la permission de rejoindre ce salon vocal.')] });
+    return;
+  }
 
-  const state = getState(interaction.guild.id);
-  state.voiceChannelId = voiceChannel.id;
-  state.textChannelId = interaction.channelId;
-
-  const track: import('@pinguin/shared').TrackInfo = {
-    title: query,
-    url: query.startsWith('http') ? query : `ytsearch:${query}`,
-    duration: 0,
-    thumbnail: '',
-    author: 'Inconnu',
-    source: 'OTHER',
-  };
-
-  state.queue.push(track);
-  await saveQueueToDb(interaction.guild.id);
-
-  const embed = createEmbed('music')
-    .setTitle('Ajouté à la file d\'attente')
-    .setDescription(`**${track.title}** a été ajouté à la file d'attente.`)
-    .addFields(
-      { name: 'Position', value: `${state.queue.length}`, inline: true },
-      { name: 'Durée', value: track.duration > 0 ? formatDuration(track.duration) : 'Inconnue', inline: true }
-    );
-
-  await interaction.editReply({ embeds: [embed] });
+  try {
+    const track = await play(interaction.guild.id, query, member, interaction.channel as TextChannel);
+    if (track) {
+      await interaction.editReply({
+        embeds: [successEmbed('🎵 Ajouté', `**${track.title}** — ${formatDuration(track.duration)}`)]
+      });
+    }
+  } catch (err: any) {
+    await interaction.editReply({ embeds: [errorEmbed('Erreur', err.message)] });
+  }
 }

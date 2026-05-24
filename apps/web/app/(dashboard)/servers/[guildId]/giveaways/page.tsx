@@ -12,6 +12,7 @@ import { fetchGiveaways, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Giveaway } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 const statusLabels: Record<string, string> = {
   RUNNING: 'En cours',
@@ -130,6 +131,8 @@ export default function GiveawaysPage() {
         </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={14} /> Nouveau giveaway</Button>
       </div>
+
+      <div className="mb-4"><ModuleToggle guildId={guildId} moduleKey="giveaways" label="Giveaways" /></div>
 
       <Card padding={false}>
         {loading ? (
