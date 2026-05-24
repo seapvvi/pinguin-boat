@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/utils';
 import type { ModCase } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModerationCaseType } from '@pinguin/shared';
+import { Trash2 } from 'lucide-react';
 
 const caseTypeLabels: Record<string, string> = {
   WARN: 'Avertissement',
@@ -48,6 +49,20 @@ export default function ModerationPage() {
   const [form, setForm] = useState({ userId: '', type: ModerationCaseType.WARN, reason: '', duration: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/api/guilds/${guildId}/moderation/${deleteTarget}`);
+      setDeleteTarget(null);
+      load(page);
+    } catch { /* ignore */ } finally {
+      setDeleting(false);
+    }
+  };
 
   const load = async (p: number) => {
     setLoading(true);
@@ -108,6 +123,11 @@ export default function ModerationPage() {
     { key: 'reason', label: 'Raison', render: (c) => <span className="text-xs truncate max-w-[200px] block">{c.reason}</span> },
     { key: 'createdAt', label: 'Date', sortable: true, render: (c) => <span className="text-xs text-[var(--text-secondary)]">{formatDate(c.createdAt)}</span> },
     { key: 'duration', label: 'Durée', render: (c) => <span className="text-xs">{c.duration ? `${c.duration}m` : '—'}</span> },
+    { key: 'actions', label: '', render: (c) => (
+      <button onClick={() => setDeleteTarget(c.id)} className="text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors" title="Supprimer">
+        <Trash2 size={14} />
+      </button>
+    )},
   ];
 
   if (error) {
@@ -171,6 +191,17 @@ export default function ModerationPage() {
             <Button variant="secondary" onClick={() => setCreateOpen(false)}>Annuler</Button>
             <Button loading={submitting} onClick={handleCreate}>Créer le cas</Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Confirmer la suppression">
+        <p className="text-sm text-[var(--text-secondary)] mb-4">
+          Êtes-vous sûr de vouloir supprimer ce cas de modération ?<br />
+          Cette action est réversible (soft-delete).
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setDeleteTarget(null)}>Annuler</Button>
+          <Button variant="danger" size="sm" loading={deleting} onClick={handleDelete}>Supprimer</Button>
         </div>
       </Modal>
     </motion.div>

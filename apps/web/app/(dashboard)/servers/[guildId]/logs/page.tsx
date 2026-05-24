@@ -88,35 +88,36 @@ export default function LogsPage() {
 
   const toggleEvent = (event: LogEventType) => {
     if (!local) return;
-    const enabled = local.enabledEvents.includes(event);
+    const enabledEvents = local.enabledEvents ?? [];
+    const enabled = enabledEvents.includes(event);
     setLocal({
       ...local,
       enabledEvents: enabled
-        ? local.enabledEvents.filter((e) => e !== event)
-        : [...local.enabledEvents, event],
+        ? enabledEvents.filter((e) => e !== event)
+        : [...enabledEvents, event],
     });
   };
 
   const addIgnoreChannel = () => {
     if (!local || !ignoreChannelsInput.trim()) return;
-    setLocal({ ...local, ignoreChannels: [...local.ignoreChannels, ignoreChannelsInput.trim()] });
+    setLocal({ ...local, ignoreChannels: [...(local.ignoreChannels ?? []), ignoreChannelsInput.trim()] });
     setIgnoreChannelsInput('');
   };
 
   const addIgnoreRole = () => {
     if (!local || !ignoreRolesInput.trim()) return;
-    setLocal({ ...local, ignoreUsers: [...local.ignoreUsers, ignoreRolesInput.trim()] });
+    setLocal({ ...local, ignoreUsers: [...(local.ignoreUsers ?? []), ignoreRolesInput.trim()] });
     setIgnoreRolesInput('');
   };
 
   const removeIgnoreChannel = (id: string) => {
     if (!local) return;
-    setLocal({ ...local, ignoreChannels: local.ignoreChannels.filter((c) => c !== id) });
+    setLocal({ ...local, ignoreChannels: (local.ignoreChannels ?? []).filter((c) => c !== id) });
   };
 
   const removeIgnoreRole = (id: string) => {
     if (!local) return;
-    setLocal({ ...local, ignoreUsers: local.ignoreUsers.filter((u) => u !== id) });
+    setLocal({ ...local, ignoreUsers: (local.ignoreUsers ?? []).filter((u) => u !== id) });
   };
 
   const handleSave = async () => {
@@ -192,7 +193,7 @@ export default function LogsPage() {
                     <label key={evt.value} className="flex items-center gap-2 p-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] cursor-pointer hover:bg-[var(--bg-surface)] transition-colors">
                       <input
                         type="checkbox"
-                        checked={local.enabledEvents.includes(evt.value)}
+                        checked={(local.enabledEvents ?? []).includes(evt.value)}
                         onChange={() => toggleEvent(evt.value)}
                         className="accent-[var(--accent)]"
                       />
@@ -212,14 +213,14 @@ export default function LogsPage() {
             <Button variant="secondary" size="sm" onClick={addIgnoreChannel}>Ajouter</Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {local.ignoreChannels.map((id) => (
+            {(local.ignoreChannels ?? []).map((id) => (
               <span key={id} onClick={() => removeIgnoreChannel(id)} className="cursor-pointer inline-flex">
                 <Badge variant="default">
                   {id.slice(0, 8)}… <span className="ml-1">×</span>
                 </Badge>
               </span>
             ))}
-            {local.ignoreChannels.length === 0 && (
+            {(local.ignoreChannels ?? []).length === 0 && (
               <span className="text-xs text-[var(--text-secondary)]">Aucun salon ignoré</span>
             )}
           </div>
@@ -232,14 +233,14 @@ export default function LogsPage() {
             <Button variant="secondary" size="sm" onClick={addIgnoreRole}>Ajouter</Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {local.ignoreUsers.map((id) => (
+            {(local.ignoreUsers ?? []).map((id) => (
               <span key={id} onClick={() => removeIgnoreRole(id)} className="cursor-pointer inline-flex">
                 <Badge variant="default">
                   {id.slice(0, 8)}… <span className="ml-1">×</span>
                 </Badge>
               </span>
             ))}
-            {local.ignoreUsers.length === 0 && (
+            {(local.ignoreUsers ?? []).length === 0 && (
               <span className="text-xs text-[var(--text-secondary)]">Aucun utilisateur ignoré</span>
             )}
           </div>

@@ -14,6 +14,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
+    "kill-ports": "bash scripts/force-kill-ports.sh",
+    "dev:clean": "bash scripts/force-kill-ports.sh && pnpm dev",
     "db:generate": "pnpm --filter @pinguin/db db:generate",
     "db:push": "pnpm --filter @pinguin/db db:push",
     "db:migrate": "pnpm --filter @pinguin/db db:migrate",

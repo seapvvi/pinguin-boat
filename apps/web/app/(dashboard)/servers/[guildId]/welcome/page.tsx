@@ -26,7 +26,6 @@ export default function WelcomePage() {
     try {
       const res = await fetchGuildSettings(guildId);
       if (res.success && res.data) {
-        setConfig(res.data.guild);
         const defaultWelcome: WelcomeSettings = {
           enabled: true,
           welcomeChannelId: null,
@@ -62,7 +61,7 @@ export default function WelcomePage() {
     setSaving(true);
     try {
       const res = await updateGuildSettings(guildId, { welcome: local });
-      if (res.success && res.data) setConfig(res.data.guild);
+      if (res.success && res.data) setLocal(res.data.guild.welcome ?? local);
     } catch { /* ignore */ } finally {
       setSaving(false);
     }

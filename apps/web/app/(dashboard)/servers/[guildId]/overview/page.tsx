@@ -9,7 +9,7 @@ import {
 import { Card, KPICard, Skeleton, Badge, Toggle } from '@pinguin/ui';
 import { EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, fetchModCases, updateGuildSettings } from '@/lib/api';
+import { fetchGuildSettings, fetchModCases, updateGuildSettings, fetchAuditLogs } from '@/lib/api';
 import { formatNumber, formatDate } from '@/lib/utils';
 import type { GuildConfig, ModCase } from '@pinguin/shared';
 import { ModuleName } from '@pinguin/shared';
@@ -21,17 +21,29 @@ export default function GuildOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [memberCount, setMemberCount] = useState<number>(0);
+  const [channelCount, setChannelCount] = useState<number>(0);
+  const [roleCount, setRoleCount] = useState<number>(0);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [settingsRes, casesRes] = await Promise.all([
+      const [settingsRes, casesRes, auditRes] = await Promise.all([
         fetchGuildSettings(guildId),
         fetchModCases(guildId, { page: '1', limit: '5' }),
+        fetchAuditLogs(guildId, { page: '1', limit: '10' }),
       ]);
-      if (settingsRes.success && settingsRes.data) setConfig(settingsRes.data.guild);
-      if (casesRes.success && casesRes.data) setCases(casesRes.data.cases);
+      if (settingsRes.success && settingsRes.data) {
+        const guild = settingsRes.data.guild;
+        setConfig(guild);
+        setMemberCount((guild as any).memberCount ?? 0);
+        setChannelCount((guild as any).channelCount ?? 0);
+        setRoleCount((guild as any).roleCount ?? 0);
+      }
+      if (casesRes.success && casesRes.data) setCases(casesRes.data.cases ?? []);
+      if (auditRes.success && auditRes.data) setRecentActivity(auditRes.data.entries ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
@@ -97,11 +109,11 @@ export default function GuildOverviewPage() {
           ))
         ) : (
           <>
-            <KPICard icon={<Users size={20} />} label="Membres" value={formatNumber(250)} />
-            <KPICard icon={<Hash size={20} />} label="Salons" value="12" />
-            <KPICard icon={<Shield size={20} />} label="Rôles" value="8" />
+            <KPICard icon={<Users size={20} />} label="Membres" value={formatNumber(memberCount || 0)} />
+            <KPICard icon={<Hash size={20} />} label="Salons" value={String(channelCount || 0)} />
+            <KPICard icon={<Shield size={20} />} label="Rôles" value={String(roleCount || 0)} />
             <KPICard icon={<Scale size={20} />} label="Cas de modération" value={formatNumber(cases.length)} />
-            <KPICard icon={<Activity size={20} />} label="Activité" value="Élevée" />
+            <KPICard icon={<Activity size={20} />} label="Activité" value={recentActivity.length > 0 ? 'Récente' : 'Aucune'} />
           </>
         )}
       </div>
@@ -177,20 +189,17 @@ export default function GuildOverviewPage() {
               <Skeleton key={i} className="h-12 w-full rounded-[var(--radius-sm)]" />
             ))}
           </div>
+        ) : recentActivity.length === 0 ? (
+          <span className="text-xs text-[var(--text-secondary)]">Aucune activité récente.</span>
         ) : (
           <div className="space-y-2">
-            {[
-              { action: 'Message supprimé', user: '123456', time: '2 min' },
-              { action: 'Membre rejoint', user: '789012', time: '5 min' },
-              { action: 'Cas de modération créé', user: '345678', time: '10 min' },
-              { action: 'Salon créé', user: 'Système', time: '15 min' },
-            ].map((act, i) => (
-              <div key={i} className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
+            {recentActivity.map((act: any, i: number) => (
+              <div key={act.id ?? i} className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
                 <div className="flex items-center gap-2">
                   <Activity size={14} className="text-[var(--text-secondary)]" />
-                  <span className="text-sm text-[var(--text-primary)]">{act.action}</span>
+                  <span className="text-sm text-[var(--text-primary)]">{act.action ?? 'Action'}</span>
                 </div>
-                <span className="text-xs text-[var(--text-secondary)]">Il y a {act.time}</span>
+                <span className="text-xs text-[var(--text-secondary)]">{act.createdAt ? formatDate(act.createdAt) : ''}</span>
               </div>
             ))}
           </div>

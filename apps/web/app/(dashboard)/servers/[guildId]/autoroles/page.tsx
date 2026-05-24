@@ -32,7 +32,7 @@ export default function AutorolesPage() {
       if (res.success && res.data) {
         setConfig(res.data.guild);
         setLocal({ ...res.data.guild.autoroles });
-        setRoleRewards(res.data.guild.levels.roleRewards ?? []);
+        setRoleRewards(res.data.guild.levels?.roleRewards ?? []);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');

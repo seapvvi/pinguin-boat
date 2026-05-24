@@ -4,7 +4,7 @@ import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
 import { validateParams } from '../middleware/validate';
 import { success, error, paginated } from '../utils/response';
-import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, NUMBER_EMOJIS } from '../services/discord';
+import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
 
 const config = getConfig();
@@ -69,7 +69,19 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       if (!guild) return reply.status(404).send(error('Serveur introuvable'));
-      const payload = { ...guild, disabledModules: computeDisabledModules(guild.modulesEnabled) };
+      let channelCount = 0, roleCount = 0;
+      try {
+        const [channels, roles] = await Promise.all([
+          getGuildChannels(guildId),
+          getGuildRoles(guildId),
+        ]);
+        channelCount = channels.length;
+        roleCount = roles.length;
+      } catch {}
+      const payload = {
+        ...guild, disabledModules: computeDisabledModules(guild.modulesEnabled),
+        memberCount: guild.memberCount, channelCount, roleCount,
+      };
       reply.send(success({ guild: payload }));
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur'));
@@ -184,13 +196,14 @@ export async function guildRoutes(app: FastifyInstance) {
       const q = request.query as any;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
+      const where = { guildId, deletedAt: null } as any;
       const [modCases, total] = await Promise.all([
         prisma.moderationCase.findMany({
-          where: { guildId }, orderBy: { createdAt: 'desc' },
+          where, orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit, take: limit,
           include: { user: { select: { username: true, avatar: true } } },
         }),
-        prisma.moderationCase.count({ where: { guildId } }),
+        prisma.moderationCase.count({ where }),
       ]);
       reply.send(success({
         cases: modCases,
@@ -206,6 +219,23 @@ export async function guildRoutes(app: FastifyInstance) {
     if (existing) return existing;
     return prisma.user.create({ data: { discordId, username: discordId } });
   }
+
+  app.delete('/:guildId/moderation/:caseId', { preHandler: [authenticate, validateParams(z.object({ guildId: z.string(), caseId: z.string() }))] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, caseId } = request.params as any;
+      const modCase = await prisma.moderationCase.findFirst({ where: { id: caseId, guildId } });
+      if (!modCase) return reply.status(404).send(error('Cas introuvable'));
+      await prisma.moderationCase.update({ where: { id: caseId }, data: { deletedAt: new Date() } });
+      await prisma.auditLog.create({
+        data: {
+          guildId, action: 'MODERATION_CASE_DELETED',
+          userId: request.user!.id,
+          details: JSON.stringify({ caseId, targetUserId: modCase.userId }),
+        },
+      }).catch(() => {});
+      reply.send(success(null, 'Cas supprimé'));
+    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+  });
 
   app.post('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {

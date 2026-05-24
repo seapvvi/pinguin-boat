@@ -39,7 +39,7 @@ export default function LevelsPage() {
           roleRewards: levels?.roleRewards ?? [],
         });
       }
-      if (lbRes.success && lbRes.data) setLeaderboard(lbRes.data.entries);
+      if (lbRes.success && lbRes.data) setLeaderboard(lbRes.data.entries ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {

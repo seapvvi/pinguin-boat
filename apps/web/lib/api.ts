@@ -293,6 +293,10 @@ export async function fetchServices(): Promise<APIResponse<{ services: any[] }>>
   return api.get<APIResponse<{ services: any[] }>>('/api/owner/services');
 }
 
+export async function fetchAuditLogs(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: any[]; pagination: any }>> {
+  return api.get<APIResponse<{ entries: any[]; pagination: any }>>(`/api/guilds/${guildId}/audit`, params);
+}
+
 export async function serviceAction(service: string, action: 'start' | 'stop' | 'restart'): Promise<APIResponse<{ success: boolean }>> {
   return api.post<APIResponse<{ success: boolean }>>(`/api/owner/services/${service}/${action}`);
 }
