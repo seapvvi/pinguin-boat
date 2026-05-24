@@ -5,7 +5,7 @@ import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
 import { requireOwner } from '../middleware/owner';
 import { validateBody } from '../middleware/validate';
-import { success, error, paginated } from '../utils/response';
+import { success, error } from '../utils/response';
 import { getSystemMetrics, getGlobalStats } from '../services/metrics';
 import * as TwoFA from '../services/owner2fa';
 import * as fs from 'fs';
@@ -37,7 +37,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         }),
         prisma.guild.count(),
       ]);
-      reply.send(paginated(servers, total, page, limit));
+      reply.send(success({ servers, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
@@ -53,7 +53,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         }),
         prisma.user.count(),
       ]);
-      reply.send(paginated(users, total, page, limit));
+      reply.send(success({ users, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
@@ -68,7 +68,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         }),
         prisma.blacklistUser.count(),
       ]);
-      reply.send(paginated(entries, total, page, limit));
+      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
@@ -112,7 +112,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         }),
         prisma.blacklistGuild.count(),
       ]);
-      reply.send(paginated(entries, total, page, limit));
+      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
@@ -273,7 +273,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         }),
         prisma.changelog.count(),
       ]);
-      reply.send(paginated(entries, total, page, limit));
+      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
@@ -408,7 +408,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         }),
         prisma.ownerLog.count(),
       ]);
-      reply.send(paginated(logs, total, page, limit));
+      reply.send(success({ entries: logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
@@ -468,7 +468,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         }),
         prisma.deployment.count(),
       ]);
-      reply.send(paginated(deployments, total, page, limit));
+      reply.send(success({ deployments, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 

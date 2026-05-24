@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '@pinguin/db';
 import { authenticate } from '../middleware/auth';
-import { success, error, paginated } from '../utils/response';
+import { success, error } from '../utils/response';
 
 const auth = { preHandler: [authenticate] };
 
@@ -116,7 +116,7 @@ export async function musicRoutes(app: FastifyInstance) {
         }),
         prisma.musicHistoryEntry.count({ where: { guildId } }),
       ]);
-      reply.send(paginated(entries, total, page, limit));
+      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
   });
 }

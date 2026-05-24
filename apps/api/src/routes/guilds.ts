@@ -3,7 +3,7 @@ import { prisma } from '@pinguin/db';
 import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
 import { validateParams } from '../middleware/validate';
-import { success, error, paginated } from '../utils/response';
+import { success, error } from '../utils/response';
 import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
 
@@ -1021,7 +1021,7 @@ export async function guildRoutes(app: FastifyInstance) {
         }),
         prisma.auditLog.count({ where: { guildId } }),
       ]);
-      reply.send(paginated(logs, total, page, limit));
+      reply.send(success({ entries: logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
   });
 }

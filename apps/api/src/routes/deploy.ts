@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { authenticate } from '../middleware/auth';
 import { requireOwner } from '../middleware/owner';
 import { prisma } from '@pinguin/db';
-import { success, error, paginated } from '../utils/response';
+import { success, error } from '../utils/response';
 import * as DeployService from '../services/deploy';
 
 const ownerPre = { preHandler: [authenticate, requireOwner] };
@@ -60,7 +60,7 @@ export async function deployRoutes(app: FastifyInstance) {
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 10));
       const { deployments, total } = await DeployService.getDeployHistory(page, limit);
-      reply.send(paginated(deployments, total, page, limit));
+      reply.send(success({ deployments, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur d\'historique'));
     }

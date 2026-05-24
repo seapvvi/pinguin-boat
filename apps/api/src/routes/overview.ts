@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '@pinguin/db';
 import { authenticate } from '../middleware/auth';
-import { success, error, paginated } from '../utils/response';
+import { success, error } from '../utils/response';
 import { getSystemMetrics, getGlobalStats } from '../services/metrics';
 
 export async function overviewRoutes(app: FastifyInstance) {
@@ -62,7 +62,7 @@ export async function overviewRoutes(app: FastifyInstance) {
         guildName: e.guild?.name || 'Inconnu',
       }));
 
-      reply.send(paginated(data, total, page, limit));
+      reply.send(success({ entries: data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur lors de la récupération du classement'));
     }
@@ -113,7 +113,7 @@ export async function overviewRoutes(app: FastifyInstance) {
         prisma.changelog.count({ where: { published: true } }),
       ]);
 
-      reply.send(paginated(entries, total, page, limit));
+      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur lors de la récupération des changelogs'));
     }
