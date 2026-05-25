@@ -192,6 +192,16 @@ export default function TicketsPage() {
                 <span className="text-xs text-[var(--text-secondary)]">Créateur</span>
                 <p className="text-sm font-mono">{selectedTicket.creatorId.slice(0, 12)}…</p>
               </div>
+              {selectedTicket.transcriptId && (
+                <div className="col-span-2">
+                  <span className="text-xs text-[var(--text-secondary)]">Transcription</span>
+                  <p className="text-sm">
+                    <a href={selectedTicket.transcriptId} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline">
+                      Voir sur Pastebin
+                    </a>
+                  </p>
+                </div>
+              )}
             </div>
             <div className="flex gap-2">
               {actionError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded w-full">{actionError}</div>}

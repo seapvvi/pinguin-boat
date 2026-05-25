@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { Shield, Swords, Sliders, Users, MessageSquare, Hash, AlertTriangle } from 'lucide-react';
 import { Card, Toggle, Input, Select, Button, Badge, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
+import { fetchGuildSettings, api } from '@/lib/api';
 import type { GuildConfig, ProtectionSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 
@@ -17,6 +17,8 @@ export default function ProtectionPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<ProtectionSettings | null>(null);
+  const [emergencyActive, setEmergencyActive] = useState(false);
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -25,7 +27,9 @@ export default function ProtectionPage() {
       const res = await fetchGuildSettings(guildId);
       if (res.success && res.data) {
         setConfig(res.data.guild);
-        setLocal({ ...res.data.guild.protection });
+        const p = res.data.guild.protection as ProtectionSettings & { emergencyMode?: boolean };
+        setLocal({ ...p });
+        setEmergencyActive(!!p.emergencyMode);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
@@ -46,8 +50,8 @@ export default function ProtectionPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await updateGuildSettings(guildId, { protection: local });
-      if (res.success && res.data) setConfig(res.data.guild);
+      await api.put(`/api/guilds/${guildId}/protection`, local);
+      await load();
     } catch (e: any) {
       setSaveError(e?.message || 'Erreur lors de la sauvegarde');
     } finally {
@@ -214,7 +218,26 @@ export default function ProtectionPage() {
               <span className="text-sm font-medium text-[var(--text-primary)]">Activer le mode urgence</span>
               <p className="text-xs text-[var(--text-secondary)]">Verrouille le serveur en cas d&apos;attaque</p>
             </div>
-            <Button variant="danger" size="sm">Activer</Button>
+            <Button
+              variant={emergencyActive ? 'secondary' : 'danger'}
+              size="sm"
+              loading={emergencyLoading}
+              onClick={async () => {
+                setEmergencyLoading(true);
+                setSaveError(null);
+                try {
+                  const enable = !emergencyActive;
+                  await api.post(`/api/guilds/${guildId}/protection/emergency`, { enable });
+                  setEmergencyActive(enable);
+                } catch (e: any) {
+                  setSaveError(e?.message || 'Erreur mode urgence');
+                } finally {
+                  setEmergencyLoading(false);
+                }
+              }}
+            >
+              {emergencyActive ? 'Désactiver' : 'Activer'}
+            </Button>
           </div>
           <p className="text-xs text-[var(--text-secondary)] mt-3">
             Le mode urgence restreint l&apos;accès à tous les salons et active toutes les protections.

@@ -51,3 +51,11 @@ export function getAvatarUrl(user: { id: string; avatar: string | null; discrimi
 export function classNames(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(' ');
 }
+
+/** ID unique compatible navigateur / SSR (évite crypto.randomUUID absent en HTTP non sécurisé). */
+export function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+}

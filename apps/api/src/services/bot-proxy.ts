@@ -68,3 +68,10 @@ export async function notifyModuleChange(guildId: string, disabledModules: strin
 export async function botSearch(guildId: string, query: string): Promise<any> {
   return botFetch(`/internal/guilds/${guildId}/search?q=${encodeURIComponent(query)}`);
 }
+
+export async function botEmergencyMode(guildId: string, enable: boolean): Promise<any> {
+  return botFetch(`/internal/guilds/${guildId}/emergency`, {
+    method: 'POST',
+    body: { enable },
+  });
+}

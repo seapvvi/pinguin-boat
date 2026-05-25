@@ -148,6 +148,12 @@ export async function getGuildMember(
   });
 }
 
+export async function getGuild(guildId: string): Promise<{ id: string; name: string; owner_id: string }> {
+  return discordFetch(`/guilds/${guildId}`, {
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+  });
+}
+
 export function hasDiscordPermission(
   memberPermissions: string,
   requiredPermission: bigint
@@ -299,14 +305,18 @@ export const DISCORD_PERMISSIONS = {
   SPEAK: 1n << 21n,
 } as const;
 
-export function canManageGuild(permissions: string): boolean {
-  const perms = BigInt(permissions);
-  return (
-    (perms & DISCORD_PERMISSIONS.ADMINISTRATOR) ===
-      DISCORD_PERMISSIONS.ADMINISTRATOR ||
-    (perms & DISCORD_PERMISSIONS.MANAGE_GUILD) ===
-      DISCORD_PERMISSIONS.MANAGE_GUILD
-  );
+export function canManageGuild(permissions: string | number): boolean {
+  const perms = BigInt(String(permissions));
+  if ((perms & DISCORD_PERMISSIONS.ADMINISTRATOR) === DISCORD_PERMISSIONS.ADMINISTRATOR) {
+    return true;
+  }
+  if ((perms & DISCORD_PERMISSIONS.MANAGE_GUILD) === DISCORD_PERMISSIONS.MANAGE_GUILD) {
+    return true;
+  }
+  if ((perms & DISCORD_PERMISSIONS.MANAGE_ROLES) === DISCORD_PERMISSIONS.MANAGE_ROLES) {
+    return true;
+  }
+  return false;
 }
 
 export function isAdmin(permissions: string): boolean {

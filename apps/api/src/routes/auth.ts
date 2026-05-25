@@ -91,8 +91,8 @@ export async function authRoutes(app: FastifyInstance) {
       const manageableGuilds = guilds
         .filter(
           (g: any) =>
-            DiscordService.canManageGuild(g.permissions) ||
-            botGuildIds.has(g.id)
+            g.owner === true ||
+            DiscordService.canManageGuild(g.permissions)
         )
         .map((g: any) => ({
           id: g.id,

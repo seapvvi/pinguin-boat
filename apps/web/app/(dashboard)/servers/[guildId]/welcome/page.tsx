@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { DoorOpen, Image, Mail, LogOut, Eye } from 'lucide-react';
 import { Card, Toggle, Input, Button, Badge, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
+import { fetchGuildSettings, api } from '@/lib/api';
 import type { WelcomeSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 
@@ -63,8 +63,12 @@ export default function WelcomePage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await updateGuildSettings(guildId, { welcome: local });
-      if (res.success && res.data) setLocal(res.data.guild.welcome ?? local);
+      await api.put(`/api/guilds/${guildId}/welcome`, {
+        ...local,
+        welcomeDM: local.dmWelcome,
+        welcomeDMMessage: local.dmWelcomeMessage,
+      });
+      await load();
     } catch (e: any) {
       setSaveError(e?.message || 'Erreur lors de la sauvegarde');
     } finally {

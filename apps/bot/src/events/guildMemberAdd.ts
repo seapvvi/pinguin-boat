@@ -1,9 +1,12 @@
 import { GuildMember, Client, EmbedBuilder } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { handleMemberJoin } from '../services/protection';
 
 export async function execute(member: GuildMember, client: Client): Promise<void> {
   if (member.user.bot) return;
   const guildId = member.guild.id;
+
+  await handleMemberJoin(member);
 
   const welcome = await prisma.welcomeSettings.findUnique({ where: { guildId } });
   if (!welcome || !welcome.enabled) return;

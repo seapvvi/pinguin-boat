@@ -18,9 +18,19 @@ export async function execute(interaction: Interaction, client: Client): Promise
       await handleTicketButton(interaction, client);
       return;
     }
-    if (interaction.customId === 'giveaway_join') {
+    if (interaction.customId === 'giveaway_join' || interaction.customId === 'giveaway_join_api') {
       const { handleGiveawayJoin } = await import('../commands/giveaways/giveaway-join');
-      await handleGiveawayJoin(interaction, client);
+      try {
+        await handleGiveawayJoin(interaction, client);
+      } catch (err) {
+        console.error('[GiveawayJoin]', err);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            embeds: [errorEmbed('Erreur', 'Impossible de traiter votre participation.')],
+            ephemeral: true,
+          }).catch(() => {});
+        }
+      }
       return;
     }
     return;

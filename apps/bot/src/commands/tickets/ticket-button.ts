@@ -1,7 +1,8 @@
-import { ButtonInteraction, Client, TextChannel, PermissionFlagsBits, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
+import { ButtonInteraction, Client, TextChannel, PermissionFlagsBits, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
-import { infoEmbed, errorEmbed, successEmbed, createEmbed } from '../../services/embed';
+import { errorEmbed, successEmbed, createEmbed } from '../../services/embed';
+import { closeTicketViaApi } from '../../services/ticket-close';
 
 export async function handleTicketButton(interaction: ButtonInteraction, client: Client): Promise<void> {
   const { customId, guild, user, channel } = interaction;
@@ -96,18 +97,15 @@ async function handleTicketClose(interaction: ButtonInteraction): Promise<void> 
     return;
   }
 
-  await prisma.ticket.update({
-    where: { id: ticket.id },
-    data: { status: 'CLOSED', closedById: interaction.user.id, closedAt: new Date() },
-  });
-
   const ch = interaction.channel as TextChannel;
   try {
     const member = await interaction.guild!.members.fetch(ticket.creatorId);
     await ch.permissionOverwrites.edit(member, { ViewChannel: false });
   } catch {}
 
-  await interaction.reply({ embeds: [successEmbed('Fermé', 'Ticket fermé.')] });
+  await interaction.reply({ embeds: [successEmbed('Fermé', 'Ticket fermé. Transcription en cours…')] });
+
+  await closeTicketViaApi(ticket.id, interaction.user.id, interaction.guild!.name);
 
   setTimeout(async () => {
     try {

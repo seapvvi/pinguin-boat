@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import { Card, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
+import { fetchGuildSettings, api } from '@/lib/api';
+import { generateId } from '@/lib/utils';
 import type { GuildConfig, EmbedPreset, EmbedField } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 
@@ -87,14 +88,14 @@ export default function EmbedsPage() {
     setSubmitting(true);
     try {
       let updated: EmbedPreset[];
-      const embed = { ...form, id: editingId || crypto.randomUUID() };
+      const embed = { ...form, id: editingId || generateId() };
       if (editingId) {
         updated = embeds.map((e) => e.id === editingId ? embed : e);
       } else {
         updated = [...embeds, embed];
       }
-      const res = await updateGuildSettings(guildId, { embeds: updated } as any);
-      if (res.success && res.data) setEmbeds(updated);
+      await api.put(`/api/guilds/${guildId}/embeds`, { embeds: updated });
+      setEmbeds(updated);
       setCreateOpen(false);
       resetForm();
     } catch (e) {
@@ -107,7 +108,7 @@ export default function EmbedsPage() {
   const handleDelete = async (id: string) => {
     const updated = embeds.filter((e) => e.id !== id);
     try {
-      await updateGuildSettings(guildId, { embeds: updated } as any);
+      await api.put(`/api/guilds/${guildId}/embeds`, { embeds: updated });
       setEmbeds(updated);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la suppression');

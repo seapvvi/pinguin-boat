@@ -109,7 +109,13 @@ export default function GiveawaysPage() {
   const handleAction = async (id: string, action: string) => {
     setActionError(null);
     try {
-      await api.post(`/api/guilds/${guildId}/giveaways/${id}`, { action });
+      if (action === 'end') {
+        await api.put(`/api/guilds/${guildId}/giveaways/${id}`, { status: 'ENDED' });
+      } else if (action === 'cancel') {
+        await api.put(`/api/guilds/${guildId}/giveaways/${id}`, { status: 'CANCELLED' });
+      } else if (action === 'reroll') {
+        await api.put(`/api/guilds/${guildId}/giveaways/${id}`, { status: 'ENDED', reroll: true });
+      }
       load(page);
     } catch (e: any) {
       setActionError(e?.message || 'Erreur lors de l\'action');
@@ -120,7 +126,9 @@ export default function GiveawaysPage() {
     { key: 'prize', label: 'Lot', sortable: true, render: (g) => <span className="text-sm font-medium">{g.prize}</span> },
     { key: 'winnerCount', label: 'Gagnants', render: (g) => <span className="text-xs">{g.winnerCount}</span> },
     { key: 'status', label: 'Statut', sortable: true, render: (g) => <Badge variant={statusVariants[g.status]}>{statusLabels[g.status]}</Badge> },
-    { key: 'entries', label: 'Participants', render: (g) => <span className="text-xs">{g.entries.length}</span> },
+    { key: 'entries', label: 'Participants', render: (g) => (
+      <span className="text-xs">{(g as Giveaway & { entryCount?: number }).entryCount ?? g.entries?.length ?? 0}</span>
+    ) },
     { key: 'endsAt', label: 'Fin', sortable: true, render: (g) => <span className="text-xs text-[var(--text-secondary)]">{formatDate(g.endsAt)}</span> },
     {
       key: 'actions', label: 'Actions', render: (g) => (

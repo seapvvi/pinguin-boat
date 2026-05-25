@@ -770,6 +770,7 @@ model ProtectionSettings {
   verificationLevel  String   @default("NONE") @map("verification_level")
   captchaVerification Boolean @default(false) @map("captcha_verification")
   punishment         String   @default("KICK") @map("punishment")
+  emergencyMode      Boolean  @default(false) @map("emergency_mode")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

@@ -47,6 +47,7 @@ export interface ModerationSettings {
 
 export interface ProtectionSettings {
   enabled: boolean;
+  emergencyMode?: boolean;
   antiRaid: boolean;
   raidThreshold: number;
   raidInterval: number;
@@ -214,6 +215,7 @@ export interface TicketData {
   status: TicketStatus;
   categoryId: string | null;
   claimedById: string | null;
+  transcriptId?: string | null;
   createdAt: string;
   closedAt: string | null;
 }

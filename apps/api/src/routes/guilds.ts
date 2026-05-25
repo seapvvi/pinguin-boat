@@ -6,7 +6,7 @@ import { requireGuildAdmin } from '../middleware/guild-auth';
 import { validateParams, validateBody } from '../middleware/validate';
 import { success, error, sanitizeError } from '../utils/response';
 import { getQueueState, botControl, botPlay, notifyModuleChange } from '../services/bot-proxy';
-import { uploadToPastebin, generateTicketTranscriptHtml } from '../services/pastebin';
+import { closeTicketWithTranscript } from '../services/ticket-close';
 import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, getGuildMember, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
 
@@ -144,7 +144,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const payload = {
         ...guild,
         autoroles: transformAutoroleSettings(guild.autoroleSettings),
-        protection: guild.protectionSettings || { enabled: false, antiRaid: false, raidThreshold: 10, raidInterval: 10, antiSpam: false, spamThreshold: 5, spamInterval: 5, antiMassMention: false, mentionThreshold: 5, antiLink: false, antiAlts: false, altAccountAge: 7, verificationLevel: 'NONE', captchaVerification: false, punishment: 'KICK' },
+        protection: guild.protectionSettings || { enabled: false, emergencyMode: false, antiRaid: false, raidThreshold: 10, raidInterval: 10, antiSpam: false, spamThreshold: 5, spamInterval: 5, antiMassMention: false, mentionThreshold: 5, antiLink: false, antiAlts: false, altAccountAge: 7, verificationLevel: 'NONE', captchaVerification: false, punishment: 'KICK' },
         economy: {
           enabled: es.enabled,
           currencyName: es.currencyName,
@@ -441,6 +441,7 @@ export async function guildRoutes(app: FastifyInstance) {
             verificationLevel: p.verificationLevel ?? undefined,
             captchaVerification: p.captchaVerification ?? undefined,
             punishment: p.punishment ?? undefined,
+            emergencyMode: p.emergencyMode ?? undefined,
           },
           create: { guildId, ...p },
         });
@@ -507,7 +508,7 @@ export async function guildRoutes(app: FastifyInstance) {
           robberyCooldown: es.robberyCooldown, interestRate: es.interestRate,
           interestInterval: es.interestInterval, bankCapacity: es.bankCapacity, shopItems: [],
         },
-        protection: guild.protectionSettings || { enabled: false, antiRaid: false, raidThreshold: 10, raidInterval: 10, antiSpam: false, spamThreshold: 5, spamInterval: 5, antiMassMention: false, mentionThreshold: 5, antiLink: false, antiAlts: false, altAccountAge: 7, verificationLevel: 'NONE', captchaVerification: false, punishment: 'KICK' },
+        protection: guild.protectionSettings || { enabled: false, emergencyMode: false, antiRaid: false, raidThreshold: 10, raidInterval: 10, antiSpam: false, spamThreshold: 5, spamInterval: 5, antiMassMention: false, mentionThreshold: 5, antiLink: false, antiAlts: false, altAccountAge: 7, verificationLevel: 'NONE', captchaVerification: false, punishment: 'KICK' },
         levels: guild.xpSettings ? {
           enabled: guild.xpSettings.enabled, messageXp: guild.xpSettings.messageXp,
           voiceXp: guild.xpSettings.voiceXp, messageCooldown: guild.xpSettings.messageCooldown,
@@ -829,7 +830,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const upd: any = {};
       const action = body.action || (body.status ? 'status' : null);
       if (action === 'close' || action === 'CLOSED') {
-        upd.status = 'CLOSED'; upd.closedAt = new Date(); upd.closedById = request.user!.id;
+        upd.status = 'CLOSED'; upd.closedAt = new Date(); upd.closedById = request.user!.discordId;
       } else if (action === 'claim' || action === 'CLAIMED') {
         upd.status = 'CLAIMED'; upd.claimedById = body.claimedById || request.user!.id;
       } else if (action === 'unclaim') {
@@ -839,31 +840,10 @@ export async function guildRoutes(app: FastifyInstance) {
       }
       if (body.claimedById !== undefined && !upd.claimedById) upd.claimedById = body.claimedById;
       const updated = await prisma.ticket.update({ where: { id: ticketId }, data: upd });
-      if (upd.status === 'CLOSED' && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
-        let transcriptUrl: string | null = null;
-        try {
-          const messages = await getChannelMessages(ticket.channelId, 100);
-          const html = generateTicketTranscriptHtml(messages, ticket.subject);
-          transcriptUrl = await uploadToPastebin(html, `Ticket: ${ticket.subject}`);
-        } catch {}
-        try {
-          const creator = await prisma.user.findUnique({ where: { discordId: ticket.creatorId } });
-          if (transcriptUrl) {
-            await sendDM(ticket.creatorId, {
-              embeds: [{
-                title: '🎫 Ticket fermé',
-                description: `Ton ticket **${ticket.subject}** a été fermé.\n📄 [Transcription](${transcriptUrl})`,
-                color: 0x14B8A6,
-                timestamp: new Date().toISOString(),
-              }],
-            }).catch(() => {});
-          }
-        } catch {}
-        if (transcriptUrl) {
-          await prisma.ticket.update({ where: { id: ticketId }, data: { transcriptId: transcriptUrl } }).catch(() => {});
-        }
-        await sendChannelMessage(ticket.channelId, {
-          embeds: [{ title: 'Ticket fermé', description: `Ce ticket a été fermé par <@${request.user!.id}>.${transcriptUrl ? `\n📄 [Transcription](${transcriptUrl})` : ''}`, color: 0xFF0000, timestamp: new Date().toISOString() }],
+      if (upd.status === 'CLOSED') {
+        const guild = await prisma.guild.findUnique({ where: { id: guildId }, select: { name: true } });
+        await closeTicketWithTranscript(ticketId, request.user!.discordId, {
+          guildName: guild?.name,
         }).catch(() => {});
       }
       if (upd.claimedById && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
@@ -1068,8 +1048,13 @@ export async function guildRoutes(app: FastifyInstance) {
         }),
         prisma.giveaway.count({ where: { guildId } }),
       ]);
+      const data = giveaways.map((g) => ({
+        ...g,
+        entryCount: g._count.entries,
+        entries: [] as string[],
+      }));
       reply.send(success({
-        giveaways,
+        giveaways: data,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
@@ -1094,7 +1079,7 @@ export async function guildRoutes(app: FastifyInstance) {
           }],
           components: [{
             type: 1,
-            components: [{ type: 2, style: 3, custom_id: 'giveaway_join_api', label: '🎉 Participer' }],
+            components: [{ type: 2, style: 3, custom_id: 'giveaway_join', label: '🎉 Participer' }],
           }],
         });
         await addMessageReaction(channelId, msg.id, '🎉').catch(() => {});
@@ -1124,7 +1109,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const g = await prisma.giveaway.findFirst({ where: { id, guildId } });
       if (!g) return reply.status(404).send(error('Giveaway introuvable'));
 
-      if (body.status === 'ENDED' && g.messageId && !g.channelId.startsWith('pending')) {
+      if ((body.status === 'ENDED' || body.reroll) && g.messageId && !g.channelId.startsWith('pending')) {
         const entries = await prisma.giveawayEntry.findMany({ where: { giveawayId: g.id } });
         const userIds = entries.map(e => e.userId);
         const shuffled = [...userIds];
@@ -1212,6 +1197,7 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!body.question || !body.options?.length)
         return reply.status(400).send(error('Question et options requises'));
       const channelId = body.channelId;
+      if (!channelId) return reply.status(400).send(error('channelId requis pour publier le sondage sur Discord'));
 
       let msg: any = null;
       if (channelId) {
@@ -1494,6 +1480,60 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
+  app.get('/:guildId/protection', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      let ps = await prisma.protectionSettings.findUnique({ where: { guildId } });
+      if (!ps) ps = await prisma.protectionSettings.create({ data: { guildId } });
+      reply.send(success({ settings: ps }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.put('/:guildId/protection', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      await prisma.protectionSettings.upsert({
+        where: { guildId },
+        update: {
+          enabled: body.enabled ?? undefined,
+          antiRaid: body.antiRaid ?? undefined,
+          raidThreshold: body.raidThreshold ?? undefined,
+          raidInterval: body.raidInterval ?? undefined,
+          antiSpam: body.antiSpam ?? undefined,
+          spamThreshold: body.spamThreshold ?? undefined,
+          spamInterval: body.spamInterval ?? undefined,
+          antiMassMention: body.antiMassMention ?? undefined,
+          mentionThreshold: body.mentionThreshold ?? undefined,
+          antiLink: body.antiLink ?? undefined,
+          antiAlts: body.antiAlts ?? undefined,
+          altAccountAge: body.altAccountAge ?? undefined,
+          verificationLevel: body.verificationLevel ?? undefined,
+          captchaVerification: body.captchaVerification ?? undefined,
+          punishment: body.punishment ?? undefined,
+        },
+        create: { guildId, ...body },
+      });
+      reply.send(success(null, 'Protection mise à jour'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.post('/:guildId/protection/emergency', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = (request.body as { enable?: boolean }) ?? {};
+      const enable = body.enable !== false;
+      await prisma.protectionSettings.upsert({
+        where: { guildId },
+        update: { emergencyMode: enable, enabled: enable ? true : undefined },
+        create: { guildId, emergencyMode: enable, enabled: true },
+      });
+      const { botEmergencyMode } = await import('../services/bot-proxy');
+      await botEmergencyMode(guildId, enable).catch(() => {});
+      reply.send(success({ emergencyMode: enable }, enable ? 'Mode urgence activé' : 'Mode urgence désactivé'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
   app.put('/:guildId/autoroles', { preHandler: [authenticate, validateParams(guildIdSchema), validateBody(autoroleSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
@@ -1531,6 +1571,39 @@ export async function guildRoutes(app: FastifyInstance) {
       const embeds = await prisma.savedEmbed.findMany({ where: { guildId }, orderBy: { createdAt: 'desc' } });
       const data = embeds.map((e) => ({ ...e, fields: JSON.parse(e.fields) }));
       reply.send(success({ embeds: data }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.put('/:guildId/embeds', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as { embeds?: any[] };
+      if (!Array.isArray(body.embeds)) {
+        return reply.status(400).send(error('embeds (tableau) requis'));
+      }
+      await prisma.$transaction([
+        prisma.savedEmbed.deleteMany({ where: { guildId } }),
+        ...body.embeds.map((e: any) =>
+          prisma.savedEmbed.create({
+            data: {
+              id: e.id ?? undefined,
+              guildId,
+              name: e.name,
+              title: e.title ?? null,
+              description: e.description ?? null,
+              color: e.color ?? '#e0e0e0',
+              fields: Array.isArray(e.fields) ? JSON.stringify(e.fields) : '[]',
+              footer: e.footer ?? null,
+              image: e.image ?? null,
+              thumbnail: e.thumbnail ?? null,
+              authorName: e.authorName ?? null,
+              authorIcon: e.authorIcon ?? null,
+              timestamp: e.timestamp ?? true,
+            },
+          })
+        ),
+      ]);
+      reply.send(success(null, 'Embeds mis à jour'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 

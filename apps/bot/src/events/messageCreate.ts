@@ -2,9 +2,12 @@ import { Message, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { addMessageXp } from '../services/xp';
 import { isModuleEnabled } from '../guards/module';
+import { handleMessage as handleProtectionMessage } from '../services/protection';
 
 export async function execute(message: Message, client: Client): Promise<void> {
   if (message.author.bot || !message.guild) return;
+
+  if (await handleProtectionMessage(message)) return;
 
   const levelsEnabled = await isModuleEnabled(message.guild.id, 'levels');
   if (!levelsEnabled) return;

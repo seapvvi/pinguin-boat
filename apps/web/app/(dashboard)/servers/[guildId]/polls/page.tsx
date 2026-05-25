@@ -6,9 +6,9 @@ import {
   Vote, Plus, BarChart3, X, Plus as PlusIcon,
   ChevronLeft, ChevronRight, Trash2
 } from 'lucide-react';
-import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState, Select } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchPolls, api } from '@/lib/api';
+import { fetchPolls, fetchGuildChannels, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Poll } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -23,7 +23,8 @@ export default function PollsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedPoll, setSelectedPoll] = useState<Poll | null>(null);
-  const [form, setForm] = useState({ question: '', options: ['', ''], duration: 300 });
+  const [form, setForm] = useState({ question: '', options: ['', ''], duration: 300, channelId: '' });
+  const [channels, setChannels] = useState<{ id: string; name: string }[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,12 +46,23 @@ export default function PollsPage() {
 
   useEffect(() => { load(page); }, [guildId, page]);
 
+  useEffect(() => {
+    if (createOpen) {
+      fetchGuildChannels(guildId).then((res) => {
+        if (res.success && res.data) {
+          setChannels(res.data.channels.filter((c: { type: number }) => c.type === 0));
+        }
+      }).catch(() => {});
+    }
+  }, [createOpen, guildId]);
+
   const handleCreate = async () => {
     const errs: Record<string, string> = {};
     if (!form.question.trim()) errs.question = 'Requis';
     const validOptions = form.options.filter((o) => o.trim());
     if (validOptions.length < 2) errs.options = 'Au moins 2 options';
     if (validOptions.length > 9) errs.options = 'Maximum 9 options';
+    if (!form.channelId) errs.channelId = 'Salon requis';
     setFormErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -59,9 +71,10 @@ export default function PollsPage() {
       await api.post(`/api/guilds/${guildId}/polls`, {
         question: form.question.trim(),
         options: validOptions,
+        channelId: form.channelId,
       });
       setCreateOpen(false);
-      setForm({ question: '', options: ['', ''], duration: 300 });
+      setForm({ question: '', options: ['', ''], duration: 300, channelId: '' });
       load(page);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la création');
@@ -171,6 +184,13 @@ export default function PollsPage() {
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Nouveau sondage">
         <div className="space-y-4">
           <Input label="Question" value={form.question} onChange={(e) => setForm({ ...form, question: e.target.value })} error={formErrors.question} placeholder="Votre question" />
+          <Select
+            label="Salon Discord"
+            options={channels.map((c) => ({ value: c.id, label: `#${c.name}` }))}
+            value={form.channelId}
+            onChange={(e) => setForm({ ...form, channelId: e.target.value })}
+          />
+          {formErrors.channelId && <span className="text-xs text-[var(--error)]">{formErrors.channelId}</span>}
           <Input label="Durée (secondes)" type="number" value={String(form.duration)} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })} />
           <div>
             <div className="flex items-center justify-between mb-2">

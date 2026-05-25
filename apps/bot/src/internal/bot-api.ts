@@ -152,6 +152,16 @@ export function startInternalBotApi(client: Client): void {
         return;
       }
 
+      // POST /internal/guilds/:guildId/emergency — lock/unlock guild
+      if (path === `/internal/guilds/${guildId}/emergency` && req.method === 'POST') {
+        const body = await readBody(req);
+        const enable = body.enable !== false;
+        const { setEmergencyMode } = await import('../services/protection');
+        await setEmergencyMode(client, guildId, enable);
+        res.end(JSON.stringify({ success: true, emergencyMode: enable }));
+        return;
+      }
+
       // POST /internal/guilds/:guildId/modules — notify module changes
       if (path === `/internal/guilds/${guildId}/modules` && req.method === 'POST') {
         const body = await readBody(req);

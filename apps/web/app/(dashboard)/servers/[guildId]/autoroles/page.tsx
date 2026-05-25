@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, Toggle, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
+import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import type { GuildConfig, AutoroleSettings, RoleReward } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 
@@ -84,7 +84,14 @@ export default function AutorolesPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      await updateGuildSettings(guildId, { autoroles: local, levels: { ...config?.levels, roleRewards } });
+      await api.put(`/api/guilds/${guildId}/autoroles`, {
+        enabled: local.enabled,
+        roleIds: local.roleIds,
+        botRoles: local.botRoles,
+      });
+      if (roleRewards.length > 0) {
+        await updateGuildSettings(guildId, { levels: { ...config?.levels, roleRewards } });
+      }
       load();
     } catch (e: any) {
       setSaveError(e?.message || 'Erreur lors de la sauvegarde');
