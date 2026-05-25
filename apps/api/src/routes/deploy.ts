@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { authenticate } from '../middleware/auth';
 import { requireOwner } from '../middleware/owner';
 import { prisma } from '@pinguin/db';
-import { success, error } from '../utils/response';
+import { success, error, sanitizeError } from '../utils/response';
 import * as DeployService from '../services/deploy';
 
 const ownerPre = { preHandler: [authenticate, requireOwner] };
@@ -13,7 +13,7 @@ export async function deployRoutes(app: FastifyInstance) {
       const result = await DeployService.startDeployment(request.user!.id);
       reply.send(success(result, 'Déploiement démarré en arrière-plan'));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur de déploiement'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -23,7 +23,7 @@ export async function deployRoutes(app: FastifyInstance) {
       await DeployService.rollback(request.user!.id, body?.version);
       reply.send(success(null, 'Rollback effectué'));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur de rollback'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -41,7 +41,7 @@ export async function deployRoutes(app: FastifyInstance) {
         completedAt: deployment.completedAt,
       }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur de statut'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -50,7 +50,7 @@ export async function deployRoutes(app: FastifyInstance) {
       const status = await DeployService.getDeployStatus();
       reply.send(success(status));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur de statut'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -62,7 +62,7 @@ export async function deployRoutes(app: FastifyInstance) {
       const { deployments, total } = await DeployService.getDeployHistory(page, limit);
       reply.send(success({ deployments, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur d\'historique'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 }

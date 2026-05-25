@@ -1,4 +1,5 @@
 import { getConfig } from '@pinguin/config';
+import { getCache, setCache, invalidateCache } from '../utils/cache';
 
 const config = getConfig();
 const API_BASE = 'https://discord.com/api/v10';
@@ -117,15 +118,25 @@ export async function getBotGuild(id: string): Promise<DiscordBotGuild | null> {
 }
 
 export async function getGuildChannels(guildId: string): Promise<any[]> {
-  return discordFetch<any[]>(`/guilds/${guildId}/channels`, {
+  const cacheKey = `channels:${guildId}`;
+  const cached = getCache<any[]>(cacheKey);
+  if (cached) return cached;
+  const channels = await discordFetch<any[]>(`/guilds/${guildId}/channels`, {
     headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
   });
+  setCache(cacheKey, channels, 60_000);
+  return channels;
 }
 
 export async function getGuildRoles(guildId: string): Promise<any[]> {
-  return discordFetch<any[]>(`/guilds/${guildId}/roles`, {
+  const cacheKey = `roles:${guildId}`;
+  const cached = getCache<any[]>(cacheKey);
+  if (cached) return cached;
+  const roles = await discordFetch<any[]>(`/guilds/${guildId}/roles`, {
     headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
   });
+  setCache(cacheKey, roles, 60_000);
+  return roles;
 }
 
 export async function getGuildMember(
@@ -242,6 +253,7 @@ export async function getChannelMessages(channelId: string, limit = 100): Promis
 }
 
 export async function createGuildChannel(guildId: string, options: { name: string; type?: number; parent_id?: string; permission_overwrites?: any[]; topic?: string }): Promise<any> {
+  invalidateCache(`channels:${guildId}`);
   return discordFetch(`/guilds/${guildId}/channels`, {
     method: 'POST',
     headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
@@ -249,7 +261,8 @@ export async function createGuildChannel(guildId: string, options: { name: strin
   });
 }
 
-export async function deleteChannel(channelId: string): Promise<void> {
+export async function deleteChannel(channelId: string, guildId?: string): Promise<void> {
+  if (guildId) invalidateCache(`channels:${guildId}`);
   const res = await fetch(`${API_BASE}/channels/${channelId}`, {
     method: 'DELETE',
     headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
@@ -260,7 +273,8 @@ export async function deleteChannel(channelId: string): Promise<void> {
   }
 }
 
-export async function editChannel(channelId: string, options: any): Promise<void> {
+export async function editChannel(channelId: string, options: any, guildId?: string): Promise<void> {
+  if (guildId) invalidateCache(`channels:${guildId}`);
   await discordFetch(`/channels/${channelId}`, {
     method: 'PATCH',
     headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },

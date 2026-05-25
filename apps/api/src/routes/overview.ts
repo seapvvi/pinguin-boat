@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '@pinguin/db';
 import { authenticate } from '../middleware/auth';
-import { success, error } from '../utils/response';
+import { success, error, sanitizeError } from '../utils/response';
 import { getSystemMetrics, getGlobalStats } from '../services/metrics';
 
 export async function overviewRoutes(app: FastifyInstance) {
@@ -28,7 +28,7 @@ export async function overviewRoutes(app: FastifyInstance) {
         })
       );
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de la récupération des données'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -64,7 +64,7 @@ export async function overviewRoutes(app: FastifyInstance) {
 
       reply.send(success({ entries: data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de la récupération du classement'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -90,7 +90,7 @@ export async function overviewRoutes(app: FastifyInstance) {
 
       reply.send(success({ guilds }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de la récupération des serveurs'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -115,7 +115,7 @@ export async function overviewRoutes(app: FastifyInstance) {
 
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de la récupération des changelogs'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -142,7 +142,7 @@ export async function overviewRoutes(app: FastifyInstance) {
         })
       );
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de la récupération du statut système'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 }

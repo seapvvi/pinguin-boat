@@ -116,7 +116,11 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
       const entries = await prisma.giveawayEntry.findMany({ where: { giveawayId: giveaway.id } });
       const userIds = entries.map(e => e.userId);
-      const shuffled = userIds.sort(() => Math.random() - 0.5);
+      const shuffled = [...userIds];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
       const winners = shuffled.slice(0, giveaway.winnerCount);
       const winnersStr = winners.length > 0 ? winners.map(w => `<@${w}>`).join(', ') : 'Aucun participant';
 
@@ -171,7 +175,11 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         return;
       }
 
-      const shuffled = entries.sort(() => Math.random() - 0.5);
+      const shuffled = [...entries];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
       const winners = shuffled.slice(0, giveaway.winnerCount);
 
       await interaction.editReply({

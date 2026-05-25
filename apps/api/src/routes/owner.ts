@@ -5,7 +5,7 @@ import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
 import { requireOwner } from '../middleware/owner';
 import { validateBody } from '../middleware/validate';
-import { success, error } from '../utils/response';
+import { success, error, sanitizeError } from '../utils/response';
 import { getSystemMetrics, getGlobalStats } from '../services/metrics';
 import * as TwoFA from '../services/owner2fa';
 import * as fs from 'fs';
@@ -185,7 +185,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       const services = SystemService.listServices();
       reply.send(success({ services }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de la récupération des services'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -494,3 +494,4 @@ async function logOwnerAction(request: FastifyRequest, action: string, details?:
     });
   } catch { }
 }
+

@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '@pinguin/db';
 import { getConfig } from '@pinguin/config';
-import { success, error } from '../utils/response';
+import { success, error, sanitizeError } from '../utils/response';
 import * as DeployService from '../services/deploy';
 
 const config = getConfig();
@@ -31,7 +31,7 @@ export async function webhookRoutes(app: FastifyInstance) {
 
         reply.send(success(result, 'Déploiement automatique démarré'));
       } catch (err: any) {
-        reply.status(500).send(error(err.message || 'Échec du déploiement automatique'));
+        reply.status(500).send(error(sanitizeError(err)));
       }
     } else {
       reply.send(success({ ignored: true, event }));

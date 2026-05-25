@@ -1,7 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '@pinguin/db';
 import { authenticate } from '../middleware/auth';
-import { success, error } from '../utils/response';
+import { success, error, sanitizeError } from '../utils/response';
+import { botControl, getQueueState, botSearch } from '../services/bot-proxy';
 
 const auth = { preHandler: [authenticate] };
 
@@ -9,26 +10,26 @@ export async function musicRoutes(app: FastifyInstance) {
   app.get('/state/:guildId', auth, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
-      const queue = await prisma.musicQueue.findUnique({ where: { guildId } });
-      if (!queue) {
-        return reply.send(success({
-          tracks: [],
-          currentTrack: null,
-          position: 0,
-          loopMode: 'NONE',
-          autoplay: false,
-          volume: 50,
+      try {
+        const state = await getQueueState(guildId);
+        return reply.send(success(state));
+      } catch {
+        // bot offline — fallback DB
+        const queue = await prisma.musicQueue.findUnique({ where: { guildId } });
+        if (!queue) {
+          return reply.send(success({
+            tracks: [], currentTrack: null, position: 0,
+            loopMode: 'NONE', autoplay: false, volume: 50,
+          }));
+        }
+        reply.send(success({
+          tracks: JSON.parse(queue.tracks),
+          currentTrack: queue.currentTrack ? JSON.parse(queue.currentTrack) : null,
+          position: queue.position, loopMode: queue.loopMode,
+          autoplay: queue.autoplay, volume: queue.volume,
         }));
       }
-      reply.send(success({
-        tracks: JSON.parse(queue.tracks),
-        currentTrack: queue.currentTrack ? JSON.parse(queue.currentTrack) : null,
-        position: queue.position,
-        loopMode: queue.loopMode,
-        autoplay: queue.autoplay,
-        volume: queue.volume,
-      }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/play/:guildId', auth, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -36,20 +37,26 @@ export async function musicRoutes(app: FastifyInstance) {
       const { guildId } = request.params as any;
       const body = request.body as any;
       if (!body.track) return reply.status(400).send(error('Track requis'));
+      if (!body.voiceChannelId) return reply.status(400).send(error('voiceChannelId requis'));
+      const result = await botControl(guildId, 'play', { track: body.track, voiceChannelId: body.voiceChannelId });
+      // persist in DB for fallback
       let queue = await prisma.musicQueue.findUnique({ where: { guildId } });
       const tracks = queue ? JSON.parse(queue.tracks) : [];
       tracks.push(body.track);
       if (!queue) {
-        queue = await prisma.musicQueue.create({
+        await prisma.musicQueue.create({
           data: { guildId, tracks: JSON.stringify(tracks), currentTrack: null, volume: 50 },
         });
       } else {
-        queue = await prisma.musicQueue.update({
+        await prisma.musicQueue.update({
           where: { guildId }, data: { tracks: JSON.stringify(tracks) },
         });
       }
-      reply.send(success({ queue }, 'Piste ajoutée'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+      reply.send(success(result || { queue }, 'Piste ajoutée'));
+    } catch (err: any) {
+      if (err.message === 'BOT_OFFLINE') return reply.status(503).send(error('Le bot est hors ligne'));
+      reply.status(500).send(error(sanitizeError(err)));
+    }
   });
 
   app.post('/control/:guildId/:action', auth, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -58,8 +65,20 @@ export async function musicRoutes(app: FastifyInstance) {
       const body = request.body as any;
       const validActions = ['play', 'pause', 'resume', 'skip', 'stop', 'volume', 'shuffle', 'loop'];
       if (!validActions.includes(action)) return reply.status(400).send(error('Action invalide'));
+
+      // Always delegate to bot first
+      try {
+        await botControl(guildId, action, body.value);
+      } catch (e: any) {
+        if (e.message === 'BOT_OFFLINE') {
+          // Still persist state changes in DB for when bot comes back
+        } else throw e;
+      }
+
+      // Persist state in DB for relevant actions
       const queue = await prisma.musicQueue.findUnique({ where: { guildId } });
       if (!queue) return reply.status(404).send(error('Aucune file active'));
+
       if (action === 'volume' && body.value) {
         await prisma.musicQueue.update({ where: { guildId }, data: { volume: parseInt(body.value) || 50 } });
       }
@@ -89,18 +108,25 @@ export async function musicRoutes(app: FastifyInstance) {
         });
       }
       reply.send(success({ action }, `Action ${action} exécutée`));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) {
+      if (err.message === 'BOT_OFFLINE') return reply.status(503).send(error('Le bot est hors ligne'));
+      reply.status(500).send(error(sanitizeError(err)));
+    }
   });
 
   app.get('/search/:guildId/:query', auth, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { query } = request.params as any;
-      reply.send(success({
-        results: [],
-        query,
-        message: 'Recherche musicale disponible uniquement via le bot',
-      }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+      const { guildId, query } = request.params as any;
+      try {
+        const results = await botSearch(guildId, query);
+        reply.send(success(results));
+      } catch (e: any) {
+        if (e.message === 'BOT_OFFLINE') {
+          return reply.status(503).send(error('Le bot est hors ligne, la recherche est indisponible'));
+        }
+        throw e;
+      }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/history/:guildId', auth, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -117,6 +143,6 @@ export async function musicRoutes(app: FastifyInstance) {
         prisma.musicHistoryEntry.count({ where: { guildId } }),
       ]);
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 }

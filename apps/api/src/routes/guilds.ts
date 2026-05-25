@@ -2,9 +2,10 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '@pinguin/db';
 import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
-import { validateParams } from '../middleware/validate';
-import { success, error } from '../utils/response';
-import { getQueueState, botControl, botPlay } from '../services/bot-proxy';
+import { requireGuildAdmin } from '../middleware/guild-auth';
+import { validateParams, validateBody } from '../middleware/validate';
+import { success, error, sanitizeError } from '../utils/response';
+import { getQueueState, botControl, botPlay, notifyModuleChange } from '../services/bot-proxy';
 import { uploadToPastebin, generateTicketTranscriptHtml } from '../services/pastebin';
 import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, getGuildMember, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
@@ -17,6 +18,12 @@ const embedIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(
 const suggestionIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
 const giveawayIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
 const pollIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
+
+const autoroleSchema = z.object({
+  enabled: z.boolean().optional(),
+  roleIds: z.array(z.string()).optional(),
+  botRoles: z.array(z.string()).optional(),
+});
 
 const guildParam = { preHandler: [authenticate, validateParams(guildIdSchema)] };
 
@@ -31,11 +38,14 @@ export async function guildRoutes(app: FastifyInstance) {
         orderBy: [{ botPresent: 'desc' }, { memberCount: 'desc' }],
       });
       const userDiscordId = request.user!.discordId;
-      const guilds = [];
-      for (const g of allGuilds) {
-        const isMember = await getGuildMember(g.id, userDiscordId).then(() => true).catch(() => false);
-        if (isMember) guilds.push(g);
-      }
+      const memberChecks = await Promise.all(
+        allGuilds.map(g =>
+          getGuildMember(g.id, userDiscordId)
+            .then(() => ({ ...g, isMember: true } as typeof g & { isMember: boolean }))
+            .catch(() => ({ ...g, isMember: false } as typeof g & { isMember: boolean }))
+        )
+      );
+      const guilds = memberChecks.filter(g => g.isMember);
       guilds.sort((a, b) => {
         if (a.botPresent !== b.botPresent) return a.botPresent ? -1 : 1;
         return b.memberCount - a.memberCount;
@@ -52,7 +62,7 @@ export async function guildRoutes(app: FastifyInstance) {
       }));
       reply.send(success({ guilds: enriched }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de la récupération'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -184,7 +194,7 @@ export async function guildRoutes(app: FastifyInstance) {
       };
       reply.send(success({ guild: payload }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -194,7 +204,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const channels = await getGuildChannels(guildId);
       reply.send(success({ channels }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -204,11 +214,11 @@ export async function guildRoutes(app: FastifyInstance) {
       const roles = await getGuildRoles(guildId);
       reply.send(success({ roles }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
-  app.put('/:guildId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.put('/:guildId', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
       const body = request.body as any;
@@ -224,6 +234,11 @@ export async function guildRoutes(app: FastifyInstance) {
           update: data,
           create: { guildId, ...data },
         });
+        try {
+          await notifyModuleChange(guildId, body.disabledModules);
+        } catch {
+          // bot offline, DB already updated, bot will reload on next restart
+        }
       }
 
       // -- economy --
@@ -510,7 +525,7 @@ export async function guildRoutes(app: FastifyInstance) {
       };
       reply.send(success({ guild: payload }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -523,7 +538,7 @@ export async function guildRoutes(app: FastifyInstance) {
       }
       reply.send(success({ settings }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -552,7 +567,7 @@ export async function guildRoutes(app: FastifyInstance) {
       });
       reply.send(success(null, 'Paramètres mis à jour'));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur de mise à jour'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -563,7 +578,7 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!modules) modules = await prisma.moduleEnabled.create({ data: { guildId } });
       reply.send(success({ modules }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -579,7 +594,7 @@ export async function guildRoutes(app: FastifyInstance) {
       }
       reply.send(success(null, 'Modules mis à jour'));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -595,7 +610,7 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId, [moduleKey]: enabled },
       });
       reply.send(success({ moduleKey, enabled }, 'Module mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -618,7 +633,7 @@ export async function guildRoutes(app: FastifyInstance) {
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -642,7 +657,7 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       }).catch(() => {});
       reply.send(success(null, 'Cas supprimé'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -723,7 +738,7 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(modCase, 'Action exécutée sur Discord'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/tickets', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -746,7 +761,7 @@ export async function guildRoutes(app: FastifyInstance) {
         tickets,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/tickets', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -788,7 +803,7 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(ticket, 'Ticket créé'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/tickets/:ticketId', { preHandler: [authenticate, validateParams(ticketIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -850,7 +865,7 @@ export async function guildRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
       reply.send(success(updated, 'Ticket mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/logs', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -864,7 +879,7 @@ export async function guildRoutes(app: FastifyInstance) {
         ignoredChannels: JSON.parse(ls.ignoredChannels),
         ignoredRoles: JSON.parse(ls.ignoredRoles),
       }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/logs', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -882,7 +897,7 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId, logChannelId: body.logChannelId || null, events: body.events ? JSON.stringify(body.events) : '[]', ignoredChannels: '[]', ignoredRoles: '[]' },
       });
       reply.send(success(null, 'Logs mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/levels', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -899,7 +914,7 @@ export async function guildRoutes(app: FastifyInstance) {
       }
       const rewards = await prisma.xPRoleReward.findMany({ where: { guildId }, orderBy: { levelRequired: 'asc' } });
       reply.send(success({ settings: xp, roleRewards: rewards }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/levels', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -928,7 +943,7 @@ export async function guildRoutes(app: FastifyInstance) {
         }
       }
       reply.send(success(null, 'Paramètres XP mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/levels/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -954,7 +969,7 @@ export async function guildRoutes(app: FastifyInstance) {
         entries,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/economy', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -975,13 +990,27 @@ export async function guildRoutes(app: FastifyInstance) {
         currencyName: 'pièces',
         currencySymbol: '🪙',
       }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/economy', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      reply.send(success(null, 'Non implémenté côté API'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+      const { guildId } = request.params as any;
+      const ec = request.body as any;
+      await prisma.economySettings.upsert({
+        where: { guildId },
+        update: {
+          enabled: ec.enabled, currencyName: ec.currencyName, currencySymbol: ec.currencySymbol,
+          dailyAmount: ec.dailyAmount, weeklyAmount: ec.weeklyAmount, startupBalance: ec.startupBalance,
+          workMin: ec.workMin, workMax: ec.workMax, workCooldown: ec.workCooldown,
+          robberyEnabled: ec.robberyEnabled, robberyMaxAmount: ec.robberyMaxAmount,
+          robberyCooldown: ec.robberyCooldown, interestRate: ec.interestRate,
+          interestInterval: ec.interestInterval, bankCapacity: ec.bankCapacity,
+        },
+        create: { guildId, ...ec },
+      });
+      reply.send(success(null, 'Économie sauvegardée'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/economy/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1008,7 +1037,7 @@ export async function guildRoutes(app: FastifyInstance) {
         entries,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/giveaways', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1029,7 +1058,7 @@ export async function guildRoutes(app: FastifyInstance) {
         giveaways,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/giveaways', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1071,7 +1100,7 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(giveaway, 'Giveaway créé'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/giveaways/:id', { preHandler: [authenticate, validateParams(giveawayIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1084,7 +1113,11 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.status === 'ENDED' && g.messageId && !g.channelId.startsWith('pending')) {
         const entries = await prisma.giveawayEntry.findMany({ where: { giveawayId: g.id } });
         const userIds = entries.map(e => e.userId);
-        const shuffled = userIds.sort(() => Math.random() - 0.5);
+        const shuffled = [...userIds];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
         const winners = shuffled.slice(0, g.winnerCount);
         const winnersStr = winners.length > 0 ? winners.map(w => `<@${w}>`).join(', ') : 'Aucun participant';
         await editMessage(g.channelId, g.messageId, {
@@ -1113,7 +1146,7 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.winnerCount) upd.winnerCount = body.winnerCount;
       const updated = await prisma.giveaway.update({ where: { id }, data: upd });
       reply.send(success(updated, 'Giveaway mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/polls', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1155,7 +1188,7 @@ export async function guildRoutes(app: FastifyInstance) {
         polls: data,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/polls', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1195,7 +1228,7 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(poll, 'Sondage créé'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/polls/:id', { preHandler: [authenticate, validateParams(pollIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1228,7 +1261,7 @@ export async function guildRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
       reply.send(success({ ...updated, options: JSON.parse(updated.options) }, 'Sondage mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/:guildId/polls/:id', { preHandler: [authenticate, validateParams(pollIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1238,7 +1271,7 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!p) return reply.status(404).send(error('Sondage introuvable'));
       await prisma.poll.delete({ where: { id } });
       reply.send(success(null, 'Sondage supprimé'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/suggestions', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1268,7 +1301,7 @@ export async function guildRoutes(app: FastifyInstance) {
         suggestions,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/suggestions/:id', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1312,7 +1345,7 @@ export async function guildRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
       reply.send(success(updated, 'Suggestion mise à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/suggestions/:id/respond', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1355,7 +1388,7 @@ export async function guildRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
       reply.send(success(updated, 'Réponse enregistrée'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/suggestions/:id/vote', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1379,7 +1412,7 @@ export async function guildRoutes(app: FastifyInstance) {
         data: { upvotes, downvotes, voters: JSON.stringify(voters) },
       });
       reply.send(success(updated, 'Vote enregistré'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/:guildId/suggestions/:id', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1389,7 +1422,7 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!s) return reply.status(404).send(error('Suggestion introuvable'));
       await prisma.suggestion.delete({ where: { id } });
       reply.send(success(null, 'Suggestion supprimée'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/welcome', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1398,7 +1431,7 @@ export async function guildRoutes(app: FastifyInstance) {
       let welcome = await prisma.welcomeSettings.findUnique({ where: { guildId } });
       if (!welcome) welcome = await prisma.welcomeSettings.create({ data: { guildId } });
       reply.send(success({ settings: welcome }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/welcome', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1422,14 +1455,14 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId, ...body },
       });
       reply.send(success(null, 'Paramètres de bienvenue mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   function transformAutoroleSettings(ar: any) {
     return {
       enabled: ar.enabled,
       roleIds: (ar.entries ?? []).filter((e: any) => e.type === 'JOIN').map((e: any) => e.roleId),
-      botRoles: (ar.entries ?? []).filter((e: any) => e.type === 'REACTION').map((e: any) => e.roleId),
+      botRoles: (ar.entries ?? []).filter((e: any) => e.type === 'BOT').map((e: any) => e.roleId),
       delay: 0,
       ignoreBots: false,
     };
@@ -1441,10 +1474,10 @@ export async function guildRoutes(app: FastifyInstance) {
       let ar = await prisma.autoroleSettings.findUnique({ where: { guildId }, include: { entries: true } });
       if (!ar) ar = await prisma.autoroleSettings.create({ data: { guildId }, include: { entries: true } });
       reply.send(success({ settings: transformAutoroleSettings(ar) }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.put('/:guildId/autoroles', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.put('/:guildId/autoroles', { preHandler: [authenticate, validateParams(guildIdSchema), validateBody(autoroleSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
       const body = request.body as any;
@@ -1459,20 +1492,20 @@ export async function guildRoutes(app: FastifyInstance) {
           await prisma.autoroleEntry.deleteMany({ where: { guildId } });
           const joinRoles: string[] = body.roleIds ?? [];
           const botRoles: string[] = body.botRoles ?? [];
-          for (const roleId of joinRoles) {
-            await prisma.autoroleEntry.create({
-              data: { settingsId: settings.id, guildId, roleId, type: 'JOIN' },
-            }).catch(() => {});
+          if (joinRoles.length > 0) {
+            await prisma.autoroleEntry.createMany({
+              data: joinRoles.map((roleId: string) => ({ settingsId: settings.id, guildId, roleId, type: 'JOIN' })),
+            });
           }
-          for (const roleId of botRoles) {
-            await prisma.autoroleEntry.create({
-              data: { settingsId: settings.id, guildId, roleId, type: 'REACTION' },
-            }).catch(() => {});
+          if (botRoles.length > 0) {
+            await prisma.autoroleEntry.createMany({
+              data: botRoles.map((roleId: string) => ({ settingsId: settings.id, guildId, roleId, type: 'BOT' })),
+            });
           }
         }
       }
       reply.send(success(null, 'Paramètres d\'autorôles mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/embeds', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1481,7 +1514,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const embeds = await prisma.savedEmbed.findMany({ where: { guildId }, orderBy: { createdAt: 'desc' } });
       const data = embeds.map((e) => ({ ...e, fields: JSON.parse(e.fields) }));
       reply.send(success({ embeds: data }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // Envoi d'un embed depuis le dashboard (UI) vers un salon.
@@ -1518,7 +1551,7 @@ export async function guildRoutes(app: FastifyInstance) {
 
       reply.send(success(null, 'Embed envoyé'));
     } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de l\'envoi d\'embed'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -1538,7 +1571,7 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(embed, 'Embed créé'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/embeds/:id', { preHandler: [authenticate, validateParams(embedIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1559,7 +1592,7 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.timestamp !== undefined) upd.timestamp = body.timestamp;
       const updated = await prisma.savedEmbed.update({ where: { id }, data: upd });
       reply.send(success(updated, 'Embed mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/:guildId/embeds/:id', { preHandler: [authenticate, validateParams(embedIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1569,7 +1602,7 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!embed) return reply.status(404).send(error('Embed introuvable'));
       await prisma.savedEmbed.delete({ where: { id } });
       reply.send(success(null, 'Embed supprimé'));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/audit', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1587,7 +1620,7 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.auditLog.count({ where: { guildId } }),
       ]);
       reply.send(success({ entries: logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Music routes (proxy to bot internal API) ---
@@ -1597,7 +1630,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const { guildId } = request.params as any;
       const data = await getQueueState(guildId);
       reply.send(success(data));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/music/control', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1606,7 +1639,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const body = request.body as any;
       await botControl(guildId, body.action, body.value);
       reply.send(success({ action: body.action }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/music/history', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -1623,6 +1656,6 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.musicHistoryEntry.count({ where: { guildId } }),
       ]);
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 }

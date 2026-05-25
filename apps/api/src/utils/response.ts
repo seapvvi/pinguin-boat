@@ -12,6 +12,14 @@ export function error(message: string, details?: unknown): APIResponse<never> {
   return res;
 }
 
+export function sanitizeError(err: any): string {
+  if (typeof err === 'string') return err;
+  if (err?.code?.startsWith?.('P')) return 'Erreur de base de données';
+  if (err?.message?.includes?.('Discord API error')) return 'Erreur de communication avec Discord';
+  if (err?.message === 'BOT_OFFLINE') return 'Le bot est actuellement hors ligne';
+  return err?.message || 'Une erreur interne est survenue';
+}
+
 export function paginated<T>(
   data: T[],
   total: number,
