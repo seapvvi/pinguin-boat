@@ -167,7 +167,7 @@ export default function EmbedsPage() {
               {embed.title && <p className="text-xs text-[var(--text-primary)] truncate mb-2">{embed.title}</p>}
               {embed.description && <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{embed.description}</p>}
               <div className="flex items-center gap-2 mt-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: embed.color }} />
+                <div className="w-3 h-3 rounded-[0px]" style={{ backgroundColor: embed.color }} />
                 {embed.timestamp && <Badge variant="info">Timestamp</Badge>}
               </div>
             </Card>

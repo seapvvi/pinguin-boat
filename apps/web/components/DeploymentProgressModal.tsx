@@ -76,7 +76,7 @@ export default function DeploymentProgressModal({ deploymentId, onClose }: Deplo
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-xl w-full max-w-lg mx-4 overflow-hidden"
+            className="bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[0px] w-full max-w-lg mx-4 overflow-hidden"
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)]">
               <div className="flex items-center gap-3">
@@ -98,9 +98,9 @@ export default function DeploymentProgressModal({ deploymentId, onClose }: Deplo
 
             <div className="px-5 py-4 space-y-3">
               <div className="flex items-center gap-2">
-                <div className="flex-1 h-2 bg-[var(--bg-surface-alt)] rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-[var(--bg-surface-alt)] rounded-[0px] overflow-hidden">
                   <motion.div
-                    className={`h-full rounded-full ${isFailed ? 'bg-[var(--error)]' : 'bg-[var(--accent)]'}`}
+                    className={`h-full rounded-[0px] ${isFailed ? 'bg-[var(--error)]' : 'bg-[var(--accent)]'}`}
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
                     transition={{ duration: 0.5 }}
@@ -124,7 +124,7 @@ export default function DeploymentProgressModal({ deploymentId, onClose }: Deplo
                       ) : active && isRunning ? (
                         <Loader size={12} className="text-[var(--accent)] animate-spin shrink-0" />
                       ) : (
-                        <div className="w-3 h-3 rounded-full border border-[var(--border-color)] shrink-0" />
+                        <div className="w-3 h-3 rounded-[0px] border border-[var(--border-color)] shrink-0" />
                       )}
                       <span className={`${done ? 'text-[var(--text-primary)]' : active ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'}`}>
                         {step.label}

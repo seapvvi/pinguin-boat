@@ -6,7 +6,7 @@ import {
   Ticket, Plus, MessageSquare, UserCheck, X,
   ChevronLeft, ChevronRight, Send, Lock
 } from 'lucide-react';
-import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchTickets, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -40,7 +40,7 @@ export default function TicketsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
-  const [form, setForm] = useState({ category: 'support', subject: '', description: '' });
+  const [form, setForm] = useState({ subject: '', description: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,7 +73,7 @@ export default function TicketsPage() {
     try {
       await api.post(`/api/guilds/${guildId}/tickets`, form);
       setCreateOpen(false);
-      setForm({ category: 'support', subject: '', description: '' });
+      setForm({ subject: '', description: '' });
       load(page);
     } catch { /* ignore */ } finally {
       setSubmitting(false);
@@ -89,7 +89,7 @@ export default function TicketsPage() {
 
   const columns: Column<TicketData>[] = [
     { key: 'subject', label: 'Sujet', render: (t) => <span className="text-sm font-medium">{t.id.slice(0, 8)}…</span> },
-    { key: 'category', label: 'Catégorie', render: (t) => <Badge>{t.category}</Badge> },
+    { key: 'category', label: 'Catégorie', render: (t) => <Badge>{(t as any).categoryId ?? '—'}</Badge> },
     { key: 'status', label: 'Statut', sortable: true, render: (t) => <Badge variant={statusVariants[t.status]}>{statusLabels[t.status]}</Badge> },
     { key: 'creatorId', label: 'Créateur', render: (t) => <span className="font-mono text-xs">{t.creatorId.slice(0, 8)}…</span> },
     { key: 'createdAt', label: 'Date', sortable: true, render: (t) => <span className="text-xs text-[var(--text-secondary)]">{formatDate(t.createdAt)}</span> },
@@ -155,7 +155,6 @@ export default function TicketsPage() {
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Nouveau ticket">
         <div className="space-y-4">
-          <Select label="Catégorie" options={[{ value: 'support', label: 'Support' }, { value: 'report', label: 'Signalement' }, { value: 'other', label: 'Autre' }]} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
           <Input label="Sujet" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} error={formErrors.subject} placeholder="Résumé du problème" />
           <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} error={formErrors.description} placeholder="Détails du ticket" />
           <div className="flex justify-end gap-2 pt-2">
@@ -179,7 +178,7 @@ export default function TicketsPage() {
               </div>
               <div>
                 <span className="text-xs text-[var(--text-secondary)]">Catégorie</span>
-                <p className="text-sm">{selectedTicket.category}</p>
+                <p className="text-sm">{(selectedTicket as any).categoryId ?? '—'}</p>
               </div>
               <div>
                 <span className="text-xs text-[var(--text-secondary)]">Créateur</span>

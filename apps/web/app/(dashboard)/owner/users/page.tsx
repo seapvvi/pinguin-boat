@@ -100,9 +100,9 @@ export default function OwnerUsersPage() {
       render: (u: OwnerUser) => (
         <div className="flex items-center gap-3">
           {u.avatar ? (
-            <img src={`https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=32`} alt="" className="w-8 h-8 rounded-full" />
+            <img src={`https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=32`} alt="" className="w-8 h-8 rounded-[0px]" />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-bold text-[var(--text-secondary)]">{u.username.charAt(0)}</div>
+            <div className="w-8 h-8 rounded-[0px] bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-bold text-[var(--text-secondary)]">{u.username.charAt(0)}</div>
           )}
           <div>
             <span className="text-sm font-medium text-[var(--text-primary)]">{u.globalName || u.username}</span>

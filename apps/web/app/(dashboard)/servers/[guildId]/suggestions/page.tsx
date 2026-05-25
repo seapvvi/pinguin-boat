@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   Lightbulb, ThumbsUp, ThumbsDown, Check, X,
-  ChevronLeft, ChevronRight, MessageSquare, Send
+  ChevronLeft, ChevronRight, MessageSquare, Send, Trash2
 } from 'lucide-react';
 import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
@@ -70,6 +70,14 @@ export default function SuggestionsPage() {
     }
   };
 
+  const deleteSuggestion = async (suggestionId: string) => {
+    if (!confirm('Supprimer cette suggestion ?')) return;
+    try {
+      await api.delete(`/api/guilds/${guildId}/suggestions/${suggestionId}`);
+      load(page);
+    } catch { /* ignore */ }
+  };
+
   const columns: Column<Suggestion>[] = [
     { key: 'content', label: 'Suggestion', render: (s) => <span className="text-sm truncate max-w-[250px] block">{s.content}</span> },
     { key: 'authorId', label: 'Auteur', render: (s) => <span className="font-mono text-xs">{s.authorId.slice(0, 8)}…</span> },
@@ -82,7 +90,10 @@ export default function SuggestionsPage() {
     { key: 'status', label: 'Statut', sortable: true, render: (s) => <Badge variant={statusVariants[s.status]}>{statusLabels[s.status]}</Badge> },
     {
       key: 'actions', label: 'Actions', render: (s) => (
-        <Button variant="ghost" size="sm" onClick={() => { setSelectedSuggestion(s); setStaffResponse(''); }}><MessageSquare size={12} /> Répondre</Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => { setSelectedSuggestion(s); setStaffResponse(''); }}><MessageSquare size={12} /> Répondre</Button>
+          <Button variant="ghost" size="sm" onClick={() => deleteSuggestion(s.id)}><Trash2 size={12} /></Button>
+        </div>
       ),
     },
   ];

@@ -92,7 +92,7 @@ export default function GuildOverviewPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="flex items-center gap-4 mb-6">
         {loading ? (
-          <Skeleton className="w-12 h-12 rounded-full" />
+          <Skeleton className="w-12 h-12 rounded-[0px]" />
         ) : null}
         <div>
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">

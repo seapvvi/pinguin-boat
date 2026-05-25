@@ -50,7 +50,7 @@ export function Avatar({ src, alt = '', name, size = 32, className }: AvatarProp
         height={size}
         referrerPolicy="no-referrer"
         onError={() => setImgError(true)}
-        className={cn('rounded-full object-cover flex-shrink-0', className)}
+        className={cn('rounded-[0px] object-cover flex-shrink-0', className)}
         style={{ width: size, height: size }}
       />
     );
@@ -59,7 +59,7 @@ export function Avatar({ src, alt = '', name, size = 32, className }: AvatarProp
   return (
     <div
       className={cn(
-        'rounded-full flex items-center justify-center flex-shrink-0 font-medium select-none',
+        'rounded-[0px] flex items-center justify-center flex-shrink-0 font-medium select-none',
         className,
       )}
       style={{

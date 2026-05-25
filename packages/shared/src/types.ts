@@ -212,7 +212,7 @@ export interface TicketData {
   channelId: string;
   creatorId: string;
   status: TicketStatus;
-  category: string;
+  categoryId: string | null;
   claimedById: string | null;
   createdAt: string;
   closedAt: string | null;

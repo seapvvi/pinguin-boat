@@ -90,9 +90,9 @@ export default function OwnerServersPage() {
       render: (s: OwnerServer) => (
         <div className="flex items-center gap-3">
           {s.icon ? (
-            <img src={`https://cdn.discordapp.com/icons/${s.id}/${s.icon}.png?size=32`} alt="" className="w-8 h-8 rounded-full" />
+            <img src={`https://cdn.discordapp.com/icons/${s.id}/${s.icon}.png?size=32`} alt="" className="w-8 h-8 rounded-[0px]" />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-bold text-[var(--text-secondary)]">{s.name.charAt(0)}</div>
+            <div className="w-8 h-8 rounded-[0px] bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-bold text-[var(--text-secondary)]">{s.name.charAt(0)}</div>
           )}
           <span className="text-sm font-medium text-[var(--text-primary)]">{s.name}</span>
         </div>

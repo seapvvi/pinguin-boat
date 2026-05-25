@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   Vote, Plus, BarChart3, X, Plus as PlusIcon,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Trash2
 } from 'lucide-react';
 import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
@@ -86,6 +86,14 @@ export default function PollsPage() {
     } catch { /* ignore */ }
   };
 
+  const deletePoll = async (pollId: string) => {
+    if (!confirm('Supprimer ce sondage ?')) return;
+    try {
+      await api.delete(`/api/guilds/${guildId}/polls/${pollId}`);
+      load(page);
+    } catch { /* ignore */ }
+  };
+
   const totalVotes = (poll: Poll) => Object.keys(poll.votes).length;
 
   const columns: Column<Poll>[] = [
@@ -102,6 +110,7 @@ export default function PollsPage() {
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={() => setSelectedPoll(p)}><BarChart3 size={12} /></Button>
           {p.status === 'ACTIVE' && <Button variant="ghost" size="sm" onClick={() => closePoll(p.id)}><X size={12} /></Button>}
+          <Button variant="ghost" size="sm" onClick={() => deletePoll(p.id)}><Trash2 size={12} /></Button>
         </div>
       ),
     },
@@ -205,8 +214,8 @@ export default function PollsPage() {
                       <span className="text-sm text-[var(--text-primary)]">{opt.label}</span>
                       <span className="text-xs text-[var(--text-secondary)]">{count} ({pct}%)</span>
                     </div>
-                    <div className="h-2 rounded-full bg-[var(--bg-surface-alt)] overflow-hidden">
-                      <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                    <div className="h-2 rounded-[0px] bg-[var(--bg-surface-alt)] overflow-hidden">
+                      <div className="h-full bg-[var(--accent)] rounded-[0px] transition-all duration-300" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );

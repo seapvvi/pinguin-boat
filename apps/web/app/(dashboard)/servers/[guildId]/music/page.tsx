@@ -127,7 +127,7 @@ export default function MusicPage() {
             </div>
             {currentTrack ? (
               <div className="flex items-center gap-4 p-4 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
-                <img src={currentTrack.thumbnail} alt="" className="w-16 h-16 rounded-md object-cover" />
+                <img src={currentTrack.thumbnail} alt="" className="w-16 h-16 rounded-[0px] object-cover" />
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate">{currentTrack.title}</h3>
                   <p className="text-xs text-[var(--text-secondary)]">{currentTrack.author}</p>

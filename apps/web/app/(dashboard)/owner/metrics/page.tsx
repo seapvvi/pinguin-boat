@@ -104,12 +104,12 @@ export default function OwnerMetricsPage() {
                 <span>{metrics?.cpu ?? 0}% utilisé</span>
                 <span>100%</span>
               </div>
-              <div className="h-4 bg-[var(--bg-surface-alt)] rounded-full overflow-hidden">
+              <div className="h-4 bg-[var(--bg-surface-alt)] rounded-[0px] overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(metrics?.cpu ?? 0, 100)}%` }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className={`h-full rounded-full ${
+                  className={`h-full rounded-[0px] ${
                     (metrics?.cpu ?? 0) > 80 ? 'bg-[var(--error)]' :
                     (metrics?.cpu ?? 0) > 50 ? 'bg-[var(--warning)]' : 'bg-[var(--success)]'
                   }`}
@@ -129,12 +129,12 @@ export default function OwnerMetricsPage() {
                 <span>{metrics?.ram?.percent ?? 0}% utilisé ({(metrics?.ram?.used ?? 0) / 1024 / 1024 / 1024 | 0} Go / {(metrics?.ram?.total ?? 0) / 1024 / 1024 / 1024 | 0} Go)</span>
                 <span>100%</span>
               </div>
-              <div className="h-4 bg-[var(--bg-surface-alt)] rounded-full overflow-hidden">
+              <div className="h-4 bg-[var(--bg-surface-alt)] rounded-[0px] overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(metrics?.ram?.percent ?? 0, 100)}%` }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className={`h-full rounded-full ${
+                  className={`h-full rounded-[0px] ${
                     (metrics?.ram?.percent ?? 0) > 80 ? 'bg-[var(--error)]' :
                     (metrics?.ram?.percent ?? 0) > 50 ? 'bg-[var(--warning)]' : 'bg-[var(--accent)]'
                   }`}

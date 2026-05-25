@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { JetBrains_Mono } from 'next/font/google';
 import '../styles/globals.css';
 import { Providers } from './providers';
 
-const inter = Inter({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-inter',
+  variable: '--font-jetbrains',
 });
 
 export const metadata: Metadata = {
@@ -23,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" className={inter.variable}>
-      <body style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+    <html lang="fr" className={jetbrainsMono.variable}>
+      <body style={{ fontFamily: 'var(--font-jetbrains), monospace' }}>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -263,6 +263,7 @@ model Guild {
   logSettings     LogSettings?
   xpSettings      XPSettings?
   welcomeSettings WelcomeSettings?
+  economySettings EconomySettings?
   autoroleSettings AutoroleSettings?
   musicQueues     MusicQueue?
   blacklist       BlacklistGuild?
@@ -719,6 +720,33 @@ model WelcomeSettings {
   guild Guild @relation(fields: [guildId], references: [id])
 
   @@map("welcome_settings")
+}
+
+/// Configuration du module économique
+model EconomySettings {
+  id             String   @id @default(cuid()) @map("id")
+  guildId        String   @unique @map("guild_id")
+  enabled        Boolean  @default(false) @map("enabled")
+  currencyName   String   @default("pièces") @map("currency_name")
+  currencySymbol String   @default("🪙") @map("currency_symbol")
+  dailyAmount    Int      @default(200) @map("daily_amount")
+  weeklyAmount   Int      @default(1000) @map("weekly_amount")
+  startupBalance Int      @default(100) @map("startup_balance")
+  workMin        Int      @default(10) @map("work_min")
+  workMax        Int      @default(50) @map("work_max")
+  workCooldown   Int      @default(60) @map("work_cooldown")
+  robberyEnabled Boolean  @default(false) @map("robbery_enabled")
+  robberyMaxAmount Int    @default(500) @map("robbery_max_amount")
+  robberyCooldown Int     @default(3600) @map("robbery_cooldown")
+  interestRate   Int      @default(5) @map("interest_rate")
+  interestInterval Int    @default(86400) @map("interest_interval")
+  bankCapacity   Int      @default(50000) @map("bank_capacity")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@map("economy_settings")
 }
 
 /// Configuration des rôles automatiques

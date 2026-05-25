@@ -83,10 +83,10 @@ export default function ServersPage() {
                   <img
                     src={`https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64`}
                     alt={g.name}
-                    className="w-10 h-10 rounded-full"
+                    className="w-10 h-10 rounded-[0px]"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-[var(--bg-surface-alt)] flex items-center justify-center text-base font-bold text-[var(--text-secondary)]">
+                  <div className="w-10 h-10 rounded-[0px] bg-[var(--bg-surface-alt)] flex items-center justify-center text-base font-bold text-[var(--text-secondary)]">
                     {g.name.charAt(0)}
                   </div>
                 )}

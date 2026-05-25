@@ -18,9 +18,9 @@ export function generateThemeCSSVariables(theme: ThemeConfig): string {
     --warning: ${c.warning};
     --error: ${c.error};
     --info: ${c.info};
-    --radius: 4px;
-    --radius-sm: 2px;
-    --radius-lg: 8px;
+    --radius: 0px;
+    --radius-sm: 0px;
+    --radius-lg: 0px;
   `;
 }
 

@@ -44,7 +44,7 @@ export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleT
   }
 
   return (
-    <div className="flex items-center justify-between p-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)]">
+    <div className="flex items-center justify-between p-4 rounded-[0px] border border-[var(--border-color)] bg-[var(--bg-surface)]">
       <div>
         <p className="text-sm font-semibold text-[var(--text-primary)]">{label}</p>
         {description && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>}

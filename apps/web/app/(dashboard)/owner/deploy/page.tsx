@@ -190,7 +190,7 @@ export default function OwnerDeployPage() {
             {deployments.map((d, idx) => (
               <div key={d.id} className="flex items-center justify-between px-5 py-3 hover:bg-[var(--bg-surface-alt)]/50 transition-colors cursor-pointer" onClick={() => setSelectedDeploy(d)}>
                 <div className="flex items-center gap-3">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                  <span className={`w-6 h-6 rounded-[0px] flex items-center justify-center text-xs font-bold ${
                     d.status === 'SUCCESS' ? 'bg-[var(--success)]/10 text-[var(--success)]' :
                     d.status === 'FAILED' ? 'bg-[var(--error)]/10 text-[var(--error)]' :
                     d.status === 'RUNNING' ? 'bg-[var(--info)]/10 text-[var(--info)]' :

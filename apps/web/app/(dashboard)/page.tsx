@@ -144,7 +144,7 @@ export default function OverviewPage() {
                   <img
                     src={`https://cdn.discordapp.com/avatars/${entry.userId}/${entry.avatar}.png?size=32`}
                     alt={entry.username}
-                    className="w-7 h-7 rounded-full"
+                    className="w-7 h-7 rounded-[0px]"
                   />
                   <span className="flex-1 text-sm text-[var(--text-primary)] truncate">{entry.username}</span>
                   <span className="text-xs text-[var(--text-secondary)]">{entry.level} niveaux</span>
@@ -176,10 +176,10 @@ export default function OverviewPage() {
                     <img
                       src={`https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=32`}
                       alt={g.name}
-                      className="w-7 h-7 rounded-full"
+                      className="w-7 h-7 rounded-[0px]"
                     />
                   ) : (
-                    <div className="w-7 h-7 rounded-full bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-bold text-[var(--text-secondary)]">
+                    <div className="w-7 h-7 rounded-[0px] bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-bold text-[var(--text-secondary)]">
                       {g.name.charAt(0)}
                     </div>
                   )}
@@ -246,7 +246,7 @@ export default function OverviewPage() {
                 <div key={sys.label} className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
                   <span className="text-sm text-[var(--text-primary)]">{sys.label}</span>
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
+                    <span className="w-2 h-2 rounded-[0px] bg-[var(--success)]" />
                     <span className="text-xs text-[var(--success)]">{sys.status}</span>
                   </div>
                 </div>

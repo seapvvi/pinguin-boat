@@ -69,7 +69,7 @@ export default function EconomyPage() {
     { key: 'rank', label: '#', render: (e) => <span className="text-xs font-bold text-[var(--text-secondary)]">#{e.rank}</span> },
     { key: 'user', label: 'Utilisateur', render: (e) => (
       <div className="flex items-center gap-2">
-        <img src={`https://cdn.discordapp.com/avatars/${e.userId}/${e.avatar}.png?size=32`} alt="" className="w-6 h-6 rounded-full" />
+        <img src={`https://cdn.discordapp.com/avatars/${e.userId}/${e.avatar}.png?size=32`} alt="" className="w-6 h-6 rounded-[0px]" />
         <span className="text-sm truncate max-w-[120px]">{e.username}</span>
       </div>
     )},

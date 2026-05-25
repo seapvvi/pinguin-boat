@@ -1,6 +1,8 @@
 import { MessageReaction, User, Client, PartialMessageReaction, PartialUser } from 'discord.js';
 import { prisma } from '@pinguin/db';
 
+const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
+
 export async function execute(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser, client: Client): Promise<void> {
   if (user.bot) return;
   if (!reaction.message.guildId) return;
@@ -15,24 +17,43 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   const guildId = reaction.message.guildId;
   const messageId = reaction.message.id;
 
+  // --- Suggestion votes ---
   const suggestion = await prisma.suggestion.findFirst({
     where: { messageId, guildId },
   });
-  if (!suggestion || suggestion.status !== 'PENDING') return;
+  if (suggestion && suggestion.status === 'PENDING') {
+    const voters: Record<string, 'up' | 'down'> = JSON.parse(suggestion.voters || '{}');
 
-  const voters: Record<string, 'up' | 'down'> = JSON.parse(suggestion.voters || '{}');
+    if (reaction.emoji.name === '👍') {
+      voters[user.id] = 'up';
+    } else if (reaction.emoji.name === '👎') {
+      voters[user.id] = 'down';
+    } else return;
 
-  if (reaction.emoji.name === '👍') {
-    voters[user.id] = 'up';
-  } else if (reaction.emoji.name === '👎') {
-    voters[user.id] = 'down';
-  } else return;
+    const upvotes = Object.values(voters).filter((v) => v === 'up').length;
+    const downvotes = Object.values(voters).filter((v) => v === 'down').length;
 
-  const upvotes = Object.values(voters).filter((v) => v === 'up').length;
-  const downvotes = Object.values(voters).filter((v) => v === 'down').length;
+    await prisma.suggestion.update({
+      where: { id: suggestion.id },
+      data: { upvotes, downvotes, voters: JSON.stringify(voters) },
+    });
+    return;
+  }
 
-  await prisma.suggestion.update({
-    where: { id: suggestion.id },
-    data: { upvotes, downvotes, voters: JSON.stringify(voters) },
+  // --- Poll votes ---
+  const poll = await prisma.poll.findFirst({
+    where: { messageId, guildId, status: 'OPEN' },
+  });
+  if (!poll) return;
+  if (!reaction.emoji.name || !numberEmojis.includes(reaction.emoji.name)) return;
+
+  const optionIndex = numberEmojis.indexOf(reaction.emoji.name);
+  const options = JSON.parse(poll.options);
+  if (optionIndex < 0 || optionIndex >= options.length) return;
+
+  await prisma.pollVote.upsert({
+    where: { pollId_userId: { pollId: poll.id, userId: user.id } },
+    update: { optionIndex },
+    create: { pollId: poll.id, userId: user.id, optionIndex },
   });
 }

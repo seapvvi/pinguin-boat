@@ -13,7 +13,7 @@ export function Skeleton({ className, width, height, rounded = false }: Skeleton
     <div
       className={cn(
         'bg-[var(--bg-surface-alt)]',
-        rounded ? 'rounded-full' : 'rounded-[var(--radius-sm)]',
+        rounded ? 'rounded-[0px]' : 'rounded-[var(--radius-sm)]',
         className,
       )}
       style={{
