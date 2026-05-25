@@ -1,10 +1,19 @@
-import { CommandInteraction, Client, Interaction, AutocompleteInteraction } from 'discord.js';
+import { CommandInteraction, Client, Interaction, AutocompleteInteraction, ButtonInteraction } from 'discord.js';
 import { getConfig } from '@pinguin/config';
 import { checkCooldown } from '../guards/cooldown';
 import { checkModPermissions } from '../guards/permissions';
 import { checkInteractionBlacklist } from '../guards/blacklist';
 import { requireModule } from '../guards/module';
 import { errorEmbed } from '../services/embed';
+
+async function replyButtonError(interaction: ButtonInteraction, message: string): Promise<void> {
+  const payload = { embeds: [errorEmbed('Erreur', message)], ephemeral: true as const };
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply(payload).catch(() => {});
+  } else {
+    await interaction.reply(payload).catch(() => {});
+  }
+}
 
 export async function execute(interaction: Interaction, client: Client): Promise<void> {
   if (interaction.isAutocomplete()) {
@@ -13,25 +22,31 @@ export async function execute(interaction: Interaction, client: Client): Promise
   }
 
   if (interaction.isButton()) {
-    if (interaction.customId.startsWith('ticket_')) {
-      const { handleTicketButton } = await import('../commands/tickets/ticket-button');
-      await handleTicketButton(interaction, client);
+    if (!interaction.guildId) {
+      await interaction.reply({ embeds: [errorEmbed('Erreur', 'Utilisable uniquement sur un serveur.')], ephemeral: true }).catch(() => {});
       return;
     }
-    if (interaction.customId === 'giveaway_join' || interaction.customId === 'giveaway_join_api') {
-      const { handleGiveawayJoin } = await import('../commands/giveaways/giveaway-join');
-      try {
-        await handleGiveawayJoin(interaction, client);
-      } catch (err) {
-        console.error('[GiveawayJoin]', err);
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({
-            embeds: [errorEmbed('Erreur', 'Impossible de traiter votre participation.')],
-            ephemeral: true,
-          }).catch(() => {});
+
+    try {
+      if (interaction.customId.startsWith('ticket_')) {
+        const moduleCheck = await requireModule(interaction.guildId, 'tickets');
+        if (!moduleCheck.enabled) {
+          await interaction.reply({ embeds: [errorEmbed('Module désactivé', moduleCheck.message!)], ephemeral: true });
+          return;
         }
+        const { handleTicketButton } = await import('../commands/tickets/ticket-button');
+        await handleTicketButton(interaction, client);
+        return;
       }
-      return;
+
+      if (interaction.customId === 'giveaway_join' || interaction.customId === 'giveaway_join_api') {
+        const { handleGiveawayJoin } = await import('../commands/giveaways/giveaway-join');
+        await handleGiveawayJoin(interaction, client);
+        return;
+      }
+    } catch (err) {
+      console.error('[Bot] Erreur bouton:', interaction.customId, err);
+      await replyButtonError(interaction, 'Une erreur est survenue. Réessayez dans un instant.');
     }
     return;
   }

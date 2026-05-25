@@ -43,8 +43,16 @@ export default function WelcomePage() {
         };
 
 
-        const w = res.data.guild.welcome ?? defaultWelcome;
-        setLocal({ ...defaultWelcome, ...w });
+        const w = (res.data.guild.welcome ?? defaultWelcome) as WelcomeSettings & {
+          welcomeDM?: boolean;
+          welcomeDMMessage?: string | null;
+        };
+        setLocal({
+          ...defaultWelcome,
+          ...w,
+          dmWelcome: w.dmWelcome ?? w.welcomeDM ?? false,
+          dmWelcomeMessage: w.dmWelcomeMessage ?? w.welcomeDMMessage ?? null,
+        });
 
         setWelcomePreview(((w as WelcomeSettings).welcomeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
         setGoodbyePreview(((w as WelcomeSettings).goodbyeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
@@ -64,7 +72,13 @@ export default function WelcomePage() {
     setSaveError(null);
     try {
       await api.put(`/api/guilds/${guildId}/welcome`, {
-        ...local,
+        enabled: local.enabled,
+        welcomeChannelId: local.welcomeChannelId,
+        welcomeMessage: local.welcomeMessage,
+        welcomeEmbed: local.welcomeEmbed,
+        goodbyeChannelId: local.goodbyeChannelId,
+        goodbyeMessage: local.goodbyeMessage,
+        goodbyeEmbed: local.goodbyeEmbed,
         welcomeDM: local.dmWelcome,
         welcomeDMMessage: local.dmWelcomeMessage,
       });

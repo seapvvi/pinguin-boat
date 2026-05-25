@@ -47,7 +47,7 @@ export async function handleCallback(code: string): Promise<AuthCallbackDTO> {
 
 export async function logout(): Promise<void> {
   try {
-    await api.post('/api/auth/logout');
+    await api.post('/api/auth/logout', {});
   } finally {
     clearSessionToken();
   }

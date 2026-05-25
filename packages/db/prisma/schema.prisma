@@ -318,7 +318,7 @@ model ModuleEnabled {
 
   moderation  Boolean  @default(true) @map("moderation")
   protection  Boolean  @default(true) @map("protection")
-  tickets     Boolean  @default(false) @map("tickets")
+  tickets     Boolean  @default(true) @map("tickets")
   logs        Boolean  @default(true) @map("logs")
   levels      Boolean  @default(true) @map("levels")
   economy     Boolean  @default(false) @map("economy")

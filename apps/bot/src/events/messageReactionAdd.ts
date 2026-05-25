@@ -1,9 +1,10 @@
 import { MessageReaction, User, Client, PartialMessageReaction, PartialUser } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { ensureUser } from '../services/user';
 
 const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
-export async function execute(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser, client: Client): Promise<void> {
+export async function execute(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser, _client: Client): Promise<void> {
   if (user.bot) return;
   if (!reaction.message.guildId) return;
 
@@ -17,7 +18,6 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   const guildId = reaction.message.guildId;
   const messageId = reaction.message.id;
 
-  // --- Suggestion votes ---
   const suggestion = await prisma.suggestion.findFirst({
     where: { messageId, guildId },
   });
@@ -40,7 +40,6 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
     return;
   }
 
-  // --- Poll votes ---
   const poll = await prisma.poll.findFirst({
     where: { messageId, guildId, status: 'OPEN' },
   });
@@ -51,9 +50,11 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   const options = JSON.parse(poll.options);
   if (optionIndex < 0 || optionIndex >= options.length) return;
 
+  const dbUser = await ensureUser(user.id, user.username ?? user.id, user.displayAvatarURL?.() ?? null);
+
   await prisma.pollVote.upsert({
-    where: { pollId_userId: { pollId: poll.id, userId: user.id } },
+    where: { pollId_userId: { pollId: poll.id, userId: dbUser.id } },
     update: { optionIndex },
-    create: { pollId: poll.id, userId: user.id, optionIndex },
+    create: { pollId: poll.id, userId: dbUser.id, optionIndex },
   });
 }

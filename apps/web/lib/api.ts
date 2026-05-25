@@ -43,9 +43,17 @@ async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promis
   fetchOptions.credentials = 'include';
 
   const token = getBearerToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const method = (fetchOptions.method || 'GET').toUpperCase();
+  const hasBody =
+    fetchOptions.body !== undefined &&
+    fetchOptions.body !== null &&
+    method !== 'GET' &&
+    method !== 'HEAD';
+
+  const headers: Record<string, string> = {};
+  if (hasBody) {
+    headers['Content-Type'] = 'application/json';
+  }
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }

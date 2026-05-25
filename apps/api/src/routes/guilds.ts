@@ -7,7 +7,7 @@ import { validateParams, validateBody } from '../middleware/validate';
 import { success, error, sanitizeError } from '../utils/response';
 import { getQueueState, botControl, botPlay, notifyModuleChange } from '../services/bot-proxy';
 import { closeTicketWithTranscript } from '../services/ticket-close';
-import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, getGuildMember, NUMBER_EMOJIS } from '../services/discord';
+import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, getGuildMember, getBotUserId, PERM_VIEW_CHANNEL, PERM_SEND_MESSAGES, PERM_READ_HISTORY, PERM_MANAGE_CHANNELS, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
 
 const config = getConfig();
@@ -75,7 +75,7 @@ export async function guildRoutes(app: FastifyInstance) {
 
   const MODULE_FIELDS = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds'] as const;
   const MODULE_DEFAULTS: Record<string, boolean> = {
-    moderation: true, protection: true, tickets: false, logs: true,
+    moderation: true, protection: true, tickets: true, logs: true,
     levels: true, economy: false, music: true, giveaways: true,
     polls: true, suggestions: true, welcome: true, autoroles: true, embeds: true,
   };
@@ -784,9 +784,12 @@ export async function guildRoutes(app: FastifyInstance) {
       const { guildId } = request.params as any;
       const body = request.body as any;
       if (!body.subject) return reply.status(400).send(error('Sujet requis'));
-      await ensureUser(body.creatorId || request.user!.id);
+      const creatorId = body.creatorId || request.user!.discordId;
+      await ensureUser(creatorId);
       const catId = body.categoryId || undefined;
-      const creatorId = body.creatorId || request.user!.id;
+      const botUserId = await getBotUserId();
+      const memberPerms = `${PERM_VIEW_CHANNEL}|${PERM_SEND_MESSAGES}|${PERM_READ_HISTORY}`;
+      const botPerms = `${PERM_VIEW_CHANNEL}|${PERM_SEND_MESSAGES}|${PERM_READ_HISTORY}|${PERM_MANAGE_CHANNELS}`;
       let channel: any;
       try {
         channel = await createGuildChannel(guildId, {
@@ -794,8 +797,9 @@ export async function guildRoutes(app: FastifyInstance) {
           type: 0,
           parent_id: catId,
           permission_overwrites: [
-            { id: guildId, deny: 1n << 10n }, // deny VIEW_CHANNEL for @everyone
-            { id: creatorId, allow: (1n << 10n) | (1n << 11n) | (1n << 12n) }, // allow VIEW, SEND, READ_HISTORY
+            { id: guildId, type: 0, deny: PERM_VIEW_CHANNEL },
+            { id: creatorId, type: 1, allow: memberPerms },
+            { id: botUserId, type: 1, allow: botPerms },
           ],
           topic: `Ticket: ${body.subject}`,
         });
@@ -803,16 +807,24 @@ export async function guildRoutes(app: FastifyInstance) {
         return reply.status(500).send(error('Impossible de créer le channel ticket sur Discord'));
       }
       await sendChannelMessage(channel.id, {
+        content: `<@${creatorId}>`,
         embeds: [{
-          title: 'Nouveau ticket',
-          description: `**Sujet :** ${body.subject}${body.description ? `\n**Description :** ${body.description}` : ''}\n**Créé par :** <@${creatorId}>`,
+          title: '🎫 Ticket — Support',
+          description: `**Sujet :** ${body.subject}${body.description ? `\n**Description :** ${body.description}` : ''}\nUn membre de l'équipe va vous répondre sous peu.`,
           color: 0x00AAFF,
           timestamp: new Date().toISOString(),
+        }],
+        components: [{
+          type: 1,
+          components: [
+            { type: 2, style: 4, custom_id: 'ticket_close', label: 'Fermer', emoji: { name: '🔒' } },
+            { type: 2, style: 3, custom_id: 'ticket_claim', label: 'Claim', emoji: { name: '🤚' } },
+          ],
         }],
       });
       const ticket = await prisma.ticket.create({
         data: {
-          guildId, channelId: channel.id, creatorId: body.creatorId || request.user!.id,
+          guildId, channelId: channel.id, creatorId,
           subject: body.subject, description: body.description || null,
           categoryId: body.categoryId || null, status: 'OPEN',
         },
@@ -832,7 +844,7 @@ export async function guildRoutes(app: FastifyInstance) {
       if (action === 'close' || action === 'CLOSED') {
         upd.status = 'CLOSED'; upd.closedAt = new Date(); upd.closedById = request.user!.discordId;
       } else if (action === 'claim' || action === 'CLAIMED') {
-        upd.status = 'CLAIMED'; upd.claimedById = body.claimedById || request.user!.id;
+        upd.status = 'CLAIMED'; upd.claimedById = body.claimedById || request.user!.discordId;
       } else if (action === 'unclaim') {
         upd.status = 'OPEN'; upd.claimedById = null;
       } else if (body.status) {
@@ -1110,8 +1122,11 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!g) return reply.status(404).send(error('Giveaway introuvable'));
 
       if ((body.status === 'ENDED' || body.reroll) && g.messageId && !g.channelId.startsWith('pending')) {
-        const entries = await prisma.giveawayEntry.findMany({ where: { giveawayId: g.id } });
-        const userIds = entries.map(e => e.userId);
+        const entries = await prisma.giveawayEntry.findMany({
+          where: { giveawayId: g.id },
+          include: { user: { select: { discordId: true } } },
+        });
+        const userIds = entries.map((e) => e.user.discordId);
         const shuffled = [...userIds];
         for (let i = shuffled.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -1158,7 +1173,7 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.poll.findMany({
           where: { guildId }, orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit, take: limit,
-          include: { votes: { select: { userId: true, optionIndex: true } } },
+          include: { votes: { select: { userId: true, optionIndex: true, user: { select: { discordId: true } } } } },
         }),
         prisma.poll.count({ where: { guildId } }),
       ]);
@@ -1170,7 +1185,8 @@ export async function guildRoutes(app: FastifyInstance) {
         const votesRecord: Record<string, string> = {};
         const voteCounts: number[] = new Array(rawOptions.length).fill(0);
         for (const v of p.votes) {
-          votesRecord[v.userId] = String(v.optionIndex);
+          const discordId = (v as { user?: { discordId: string } }).user?.discordId ?? v.userId;
+          votesRecord[discordId] = String(v.optionIndex);
           voteCounts[v.optionIndex]++;
         }
         return {
@@ -1441,21 +1457,35 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as any;
       const body = request.body as any;
+      const welcomeDM = body.welcomeDM ?? body.dmWelcome ?? false;
+      const welcomeDMMessage = body.welcomeDMMessage ?? body.dmWelcomeMessage ?? null;
+      const data = {
+        enabled: body.enabled ?? true,
+        welcomeChannelId: body.welcomeChannelId ?? null,
+        welcomeMessage: body.welcomeMessage ?? null,
+        welcomeEmbed: body.welcomeEmbed ?? false,
+        welcomeDM,
+        welcomeDMMessage,
+        goodbyeEnabled: body.goodbyeEnabled ?? true,
+        goodbyeChannelId: body.goodbyeChannelId ?? null,
+        goodbyeMessage: body.goodbyeMessage ?? null,
+        goodbyeEmbed: body.goodbyeEmbed ?? false,
+      };
       await prisma.welcomeSettings.upsert({
         where: { guildId },
         update: {
-          enabled: body.enabled ?? undefined,
-          welcomeChannelId: body.welcomeChannelId ?? undefined,
-          welcomeMessage: body.welcomeMessage ?? undefined,
-          welcomeEmbed: body.welcomeEmbed ?? undefined,
-          goodbyeEnabled: body.goodbyeEnabled ?? undefined,
-          goodbyeChannelId: body.goodbyeChannelId ?? undefined,
-          goodbyeMessage: body.goodbyeMessage ?? undefined,
-          goodbyeEmbed: body.goodbyeEmbed ?? undefined,
-          welcomeDM: body.welcomeDM ?? undefined,
-          welcomeDMMessage: body.welcomeDMMessage ?? undefined,
+          enabled: data.enabled,
+          welcomeChannelId: data.welcomeChannelId,
+          welcomeMessage: data.welcomeMessage,
+          welcomeEmbed: data.welcomeEmbed,
+          goodbyeEnabled: data.goodbyeEnabled,
+          goodbyeChannelId: data.goodbyeChannelId,
+          goodbyeMessage: data.goodbyeMessage,
+          goodbyeEmbed: data.goodbyeEmbed,
+          welcomeDM: data.welcomeDM,
+          welcomeDMMessage: data.welcomeDMMessage,
         },
-        create: { guildId, ...body },
+        create: { guildId, ...data },
       });
       reply.send(success(null, 'Paramètres de bienvenue mis à jour'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }

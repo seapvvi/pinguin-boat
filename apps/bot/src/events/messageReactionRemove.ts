@@ -1,9 +1,10 @@
 import { MessageReaction, User, Client, PartialMessageReaction, PartialUser } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { ensureUser } from '../services/user';
 
 const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
-export async function execute(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser, client: Client): Promise<void> {
+export async function execute(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser, _client: Client): Promise<void> {
   if (user.bot) return;
   if (!reaction.message.guildId) return;
 
@@ -17,7 +18,6 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   const guildId = reaction.message.guildId;
   const messageId = reaction.message.id;
 
-  // --- Suggestion votes ---
   const suggestion = await prisma.suggestion.findFirst({
     where: { messageId, guildId },
   });
@@ -36,14 +36,16 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
     return;
   }
 
-  // --- Poll votes ---
   const poll = await prisma.poll.findFirst({
     where: { messageId, guildId, status: 'OPEN' },
   });
   if (!poll) return;
   if (!reaction.emoji.name || !numberEmojis.includes(reaction.emoji.name)) return;
 
+  const dbUser = await prisma.user.findUnique({ where: { discordId: user.id } });
+  if (!dbUser) return;
+
   await prisma.pollVote.deleteMany({
-    where: { pollId: poll.id, userId: user.id },
+    where: { pollId: poll.id, userId: dbUser.id },
   });
 }

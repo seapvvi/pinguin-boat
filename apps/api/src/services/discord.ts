@@ -154,6 +154,23 @@ export async function getGuild(guildId: string): Promise<{ id: string; name: str
   });
 }
 
+let cachedBotUserId: string | null = null;
+
+export async function getBotUserId(): Promise<string> {
+  if (cachedBotUserId) return cachedBotUserId;
+  const me = await discordFetch<{ id: string }>('/users/@me', {
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+  });
+  cachedBotUserId = me.id;
+  return cachedBotUserId;
+}
+
+/** Permissions Discord en string (évite BigInt dans JSON). */
+export const PERM_VIEW_CHANNEL = '1024';
+export const PERM_SEND_MESSAGES = '2048';
+export const PERM_READ_HISTORY = '65536';
+export const PERM_MANAGE_CHANNELS = '16';
+
 export function hasDiscordPermission(
   memberPermissions: string,
   requiredPermission: bigint

@@ -5,7 +5,7 @@ import { errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { closeTicketViaApi } from '../../services/ticket-close';
 
 export async function handleTicketButton(interaction: ButtonInteraction, client: Client): Promise<void> {
-  const { customId, guild, user, channel } = interaction;
+  const { customId, guild } = interaction;
   if (!guild) return;
 
   if (customId === 'ticket_open') {

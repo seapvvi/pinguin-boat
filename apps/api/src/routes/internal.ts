@@ -10,6 +10,7 @@ function requireInternalSecret(
 ): void {
   if (request.headers['x-internal-secret'] !== INTERNAL_SECRET) {
     reply.status(403).send(error('Forbidden'));
+    return;
   }
 }
 

@@ -114,15 +114,18 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         return;
       }
 
-      const entries = await prisma.giveawayEntry.findMany({ where: { giveawayId: giveaway.id } });
-      const userIds = entries.map(e => e.userId);
-      const shuffled = [...userIds];
+      const entries = await prisma.giveawayEntry.findMany({
+        where: { giveawayId: giveaway.id },
+        include: { user: { select: { discordId: true } } },
+      });
+      const discordIds = entries.map((e) => e.user.discordId);
+      const shuffled = [...discordIds];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
       const winners = shuffled.slice(0, giveaway.winnerCount);
-      const winnersStr = winners.length > 0 ? winners.map(w => `<@${w}>`).join(', ') : 'Aucun participant';
+      const winnersStr = winners.length > 0 ? winners.map((w) => `<@${w}>`).join(', ') : 'Aucun participant';
 
       try {
         const channel = await interaction.guild.channels.fetch(giveaway.channelId);
@@ -168,6 +171,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
       const entries = await prisma.giveawayEntry.findMany({
         where: { giveawayId: giveaway.id },
+        include: { user: { select: { discordId: true } } },
       });
 
       if (entries.length === 0) {
@@ -180,10 +184,11 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      const winners = shuffled.slice(0, giveaway.winnerCount);
+      const winnerEntries = shuffled.slice(0, giveaway.winnerCount);
+      const winners = winnerEntries.map((e) => e.user.discordId);
 
       await interaction.editReply({
-        embeds: [successEmbed('Giveaway re-tiré', `Nouveau(x) gagnant(s) : ${winners.map((w) => `<@${w.userId}>`).join(', ')}`)],
+        embeds: [successEmbed('Giveaway re-tiré', `Nouveau(x) gagnant(s) : ${winners.map((w) => `<@${w}>`).join(', ')}`)],
       });
       break;
     }
