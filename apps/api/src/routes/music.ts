@@ -1,11 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '@pinguin/db';
-import { guildMemberGuardenticate } from '../middleware/guildMemberGuard';
-import { requireGuildMember } from '../middleware/guild-guildMemberGuard';
+import { authenticate } from '../middleware/auth';
+import { requireGuildMember } from '../middleware/guild-auth';
 import { success, error, sanitizeError } from '../utils/response';
 import { botControl, getQueueState, botSearch } from '../services/bot-proxy';
 
-const guildMemberGuard = { preHandler: [guildMemberGuardenticate, requireGuildMember] };
+const guildMemberGuard = { preHandler: [authenticate, requireGuildMember] };
 
 export async function musicRoutes(app: FastifyInstance) {
   app.get('/state/:guildId', guildMemberGuard, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -15,7 +15,6 @@ export async function musicRoutes(app: FastifyInstance) {
         const state = await getQueueState(guildId);
         return reply.send(success(state));
       } catch {
-        // bot offline — fallback DB
         const queue = await prisma.musicQueue.findUnique({ where: { guildId } });
         if (!queue) {
           return reply.send(success({
@@ -40,7 +39,6 @@ export async function musicRoutes(app: FastifyInstance) {
       if (!body.track) return reply.status(400).send(error('Track requis'));
       if (!body.voiceChannelId) return reply.status(400).send(error('voiceChannelId requis'));
       const result = await botControl(guildId, 'play', { track: body.track, voiceChannelId: body.voiceChannelId });
-      // persist in DB for fallback
       let queue = await prisma.musicQueue.findUnique({ where: { guildId } });
       const tracks = queue ? JSON.parse(queue.tracks) : [];
       tracks.push(body.track);
@@ -67,16 +65,14 @@ export async function musicRoutes(app: FastifyInstance) {
       const validActions = ['play', 'pause', 'resume', 'skip', 'stop', 'volume', 'shuffle', 'loop'];
       if (!validActions.includes(action)) return reply.status(400).send(error('Action invalide'));
 
-      // Always delegate to bot first
       try {
         await botControl(guildId, action, body.value);
       } catch (e: any) {
         if (e.message === 'BOT_OFFLINE') {
-          // Still persist state changes in DB for when bot comes back
+          // bot offline, persist state for when it comes back
         } else throw e;
       }
 
-      // Persist state in DB for relevant actions
       const queue = await prisma.musicQueue.findUnique({ where: { guildId } });
       if (!queue) return reply.status(404).send(error('Aucune file active'));
 
