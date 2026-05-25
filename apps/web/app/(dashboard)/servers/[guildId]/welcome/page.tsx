@@ -14,6 +14,7 @@ export default function WelcomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<WelcomeSettings | null>(null);
   // Les couleurs d’embed ne sont pas (actuellement) stockées dans `WelcomeSettings`.
   // Elles sont donc retirées pour éviter d’envoyer des champs non supportés au backend.
@@ -60,10 +61,13 @@ export default function WelcomePage() {
   const handleSave = async () => {
     if (!local) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const res = await updateGuildSettings(guildId, { welcome: local });
       if (res.success && res.data) setLocal(res.data.guild.welcome ?? local);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } finally {
       setSaving(false);
     }
   };
@@ -110,6 +114,7 @@ export default function WelcomePage() {
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
       </div>
+      {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
 
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="welcome" label="Bienvenue" />

@@ -52,15 +52,19 @@ export default function ModerationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       await api.delete(`/api/guilds/${guildId}/moderation/${deleteTarget}`);
       setDeleteTarget(null);
       load(page);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setDeleteError(e?.message || 'Erreur lors de la suppression');
+    } finally {
       setDeleting(false);
     }
   };
@@ -91,6 +95,7 @@ export default function ModerationPage() {
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
+    setFormErrors({});
     try {
       const res = await api.post(`/api/guilds/${guildId}/moderation`, {
         type: form.type,
@@ -101,7 +106,9 @@ export default function ModerationPage() {
       setCreateOpen(false);
       setForm({ userId: '', type: ModerationCaseType.WARN, reason: '', duration: '' });
       load(page);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setFormErrors({ general: e?.message || 'Erreur lors de la création' });
+    } finally {
       setSubmitting(false);
     }
   };
@@ -114,7 +121,9 @@ export default function ModerationPage() {
     try {
       await api.post(`/api/guilds/${guildId}/moderation`, { type, userId: userId.trim(), reason: reason.trim() });
       load(page);
-    } catch { /* ignore */ }
+    } catch (e: any) {
+      alert(e?.message || 'Erreur lors de l\'action rapide');
+    }
   };
 
   const columns: Column<ModCase>[] = [
@@ -188,6 +197,9 @@ export default function ModerationPage() {
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Nouveau cas de modération">
         <div className="space-y-4">
+          {formErrors.general && (
+            <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded">{formErrors.general}</div>
+          )}
           <Input label="ID Utilisateur" value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })} error={formErrors.userId} placeholder="ID Discord" />
           <Select label="Type" options={Object.entries(caseTypeLabels).map(([v, l]) => ({ value: v, label: l }))} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as ModerationCaseType })} />
           <Input label="Raison" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} error={formErrors.reason} placeholder="Motif de la sanction" />
@@ -204,6 +216,9 @@ export default function ModerationPage() {
           Êtes-vous sûr de vouloir supprimer ce cas de modération ?<br />
           Cette action est réversible (soft-delete).
         </p>
+        {deleteError && (
+          <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{deleteError}</div>
+        )}
         <div className="flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={() => setDeleteTarget(null)}>Annuler</Button>
           <Button variant="danger" size="sm" loading={deleting} onClick={handleDelete}>Supprimer</Button>

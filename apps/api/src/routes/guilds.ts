@@ -360,8 +360,8 @@ export async function guildRoutes(app: FastifyInstance) {
             welcomeEmbedDescription: w.welcomeEmbedDescription ?? undefined,
             welcomeEmbedFooter: w.welcomeEmbedFooter ?? undefined,
             welcomeEmbedImage: w.welcomeEmbedImage ?? undefined,
-            welcomeDM: w.welcomeDM ?? undefined,
-            welcomeDMMessage: w.welcomeDMMessage ?? undefined,
+            welcomeDM: w.welcomeDM ?? w.dmWelcome ?? undefined,
+            welcomeDMMessage: w.welcomeDMMessage ?? w.dmWelcomeMessage ?? undefined,
             goodbyeEnabled: w.goodbyeEnabled ?? undefined,
             goodbyeChannelId: w.goodbyeChannelId ?? undefined,
             goodbyeMessage: w.goodbyeMessage ?? undefined,
@@ -395,12 +395,13 @@ export async function guildRoutes(app: FastifyInstance) {
       }
 
       // -- embeds --
-      if (body.embeds) {
-        await prisma.savedEmbed.deleteMany({ where: { guildId } });
-        if (Array.isArray(body.embeds)) {
-          for (const e of body.embeds) {
-            await prisma.savedEmbed.create({
+      if (body.embeds && Array.isArray(body.embeds)) {
+        await prisma.$transaction([
+          prisma.savedEmbed.deleteMany({ where: { guildId } }),
+          ...body.embeds.map((e: any) =>
+            prisma.savedEmbed.create({
               data: {
+                id: e.id ?? undefined,
                 guildId,
                 name: e.name,
                 title: e.title ?? null,
@@ -410,11 +411,13 @@ export async function guildRoutes(app: FastifyInstance) {
                 footer: e.footer ?? null,
                 image: e.image ?? null,
                 thumbnail: e.thumbnail ?? null,
+                authorName: e.authorName ?? null,
+                authorIcon: e.authorIcon ?? null,
                 timestamp: e.timestamp ?? true,
               },
-            });
-          }
-        }
+            })
+          ),
+        ]);
       }
 
       // -- protection --
@@ -616,6 +619,10 @@ export async function guildRoutes(app: FastifyInstance) {
         update: { [moduleKey]: enabled },
         create: { guildId, [moduleKey]: enabled },
       });
+      // Notify the bot of the module change
+      const allModules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
+      const disabled = allModules ? validModules.filter((m) => !(allModules as any)[m]) : [];
+      try { await notifyModuleChange(guildId, disabled); } catch {}
       reply.send(success({ moduleKey, enabled }, 'Module mis à jour'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
@@ -738,10 +745,10 @@ export async function guildRoutes(app: FastifyInstance) {
 
       const modCase = await prisma.moderationCase.create({
         data: {
-          guildId, userId: body.userId, moderatorId: request.user!.id,
+          guildId, userId: body.userId, moderatorId: request.user!.discordId,
           type, reason,
-          duration: body.duration || null,
-          expiresAt: body.duration ? new Date(Date.now() + body.duration * 1000) : null,
+          duration: body.duration ? body.duration * 60 : null, // web sends minutes → store as seconds
+          expiresAt: body.duration ? new Date(Date.now() + body.duration * 60 * 1000) : null,
         },
       });
       reply.status(201).send(success(modCase, 'Action exécutée sur Discord'));
@@ -1205,30 +1212,32 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!body.question || !body.options?.length)
         return reply.status(400).send(error('Question et options requises'));
       const channelId = body.channelId;
-      if (!channelId) return reply.status(400).send(error('channelId requis'));
-      const options = body.options.map((o: string) => ({ id: o, label: o }));
-      const descLines = options.map((o: any, i: number) => `${NUMBER_EMOJIS[i] || `${i + 1}.`} ${o.label}`).join('\n');
-      let msg: any;
-      try {
-        msg = await sendChannelMessage(channelId, {
-          embeds: [{
-            title: `📊 ${body.question}`,
-            description: descLines,
-            color: 0x00AAFF,
-            footer: { text: 'Réagissez pour voter' },
-            timestamp: new Date().toISOString(),
-          }],
-        });
-        for (let i = 0; i < Math.min(options.length, 10); i++) {
-          await addMessageReaction(channelId, msg.id, NUMBER_EMOJIS[i]).catch(() => {});
+
+      let msg: any = null;
+      if (channelId) {
+        const options = body.options.map((o: string) => ({ id: o, label: o }));
+        const descLines = options.map((o: any, i: number) => `${NUMBER_EMOJIS[i] || `${i + 1}.`} ${o.label}`).join('\n');
+        try {
+          msg = await sendChannelMessage(channelId, {
+            embeds: [{
+              title: `📊 ${body.question}`,
+              description: descLines,
+              color: 0x00AAFF,
+              footer: { text: 'Réagissez pour voter' },
+              timestamp: new Date().toISOString(),
+            }],
+          });
+          for (let i = 0; i < Math.min(options.length, 10); i++) {
+            await addMessageReaction(channelId, msg.id, NUMBER_EMOJIS[i]).catch(() => {});
+          }
+        } catch {
+          return reply.status(500).send(error('Impossible de poster le sondage sur Discord'));
         }
-      } catch {
-        return reply.status(500).send(error('Impossible de poster le sondage sur Discord'));
       }
       const poll = await prisma.poll.create({
         data: {
-          guildId, channelId,
-          messageId: msg.id,
+          guildId, channelId: channelId || '',
+          messageId: msg?.id || null,
           question: body.question,
           options: JSON.stringify(body.options.map((o: string, i: number) => ({ id: String(i), label: o, votes: 0 }))),
           status: 'OPEN',
@@ -1407,10 +1416,11 @@ export async function guildRoutes(app: FastifyInstance) {
       const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
       if (!s || s.status !== 'PENDING') return reply.status(400).send(error('Suggestion introuvable ou déjà traitée'));
       const voters: Record<string, 'up' | 'down'> = JSON.parse(s.voters || '{}');
-      if (voters[request.user!.id] === vote) {
-        delete voters[request.user!.id];
+      const discordId = request.user!.discordId;
+      if (voters[discordId] === vote) {
+        delete voters[discordId];
       } else {
-        voters[request.user!.id] = vote;
+        voters[discordId] = vote;
       }
       const upvotes = Object.values(voters).filter((v) => v === 'up').length;
       const downvotes = Object.values(voters).filter((v) => v === 'down').length;

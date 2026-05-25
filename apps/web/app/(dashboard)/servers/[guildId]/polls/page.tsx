@@ -59,12 +59,13 @@ export default function PollsPage() {
       await api.post(`/api/guilds/${guildId}/polls`, {
         question: form.question.trim(),
         options: validOptions,
-        duration: form.duration,
       });
       setCreateOpen(false);
       setForm({ question: '', options: ['', ''], duration: 300 });
       load(page);
-    } catch { /* ignore */ } finally {
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la création');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -83,7 +84,9 @@ export default function PollsPage() {
     try {
       await api.put(`/api/guilds/${guildId}/polls/${pollId}`, { status: 'CLOSED' });
       load(page);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la fermeture');
+    }
   };
 
   const deletePoll = async (pollId: string) => {
@@ -91,7 +94,9 @@ export default function PollsPage() {
     try {
       await api.delete(`/api/guilds/${guildId}/polls/${pollId}`);
       load(page);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la suppression');
+    }
   };
 
   const totalVotes = (poll: Poll) => Object.keys(poll.votes).length;

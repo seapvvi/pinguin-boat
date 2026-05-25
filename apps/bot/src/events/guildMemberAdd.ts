@@ -1,4 +1,4 @@
-import { GuildMember, Client } from 'discord.js';
+import { GuildMember, Client, EmbedBuilder } from 'discord.js';
 import { prisma } from '@pinguin/db';
 
 export async function execute(member: GuildMember, client: Client): Promise<void> {
@@ -11,13 +11,28 @@ export async function execute(member: GuildMember, client: Client): Promise<void
   if (welcome.welcomeChannelId) {
     const channel = member.guild.channels.cache.get(welcome.welcomeChannelId);
     if (channel?.isTextBased()) {
-      const msg = welcome.welcomeMessage
-        ? welcome.welcomeMessage
-            .replace('{user}', member.toString())
-            .replace('{server}', member.guild.name)
-            .replace('{members}', String(member.guild.memberCount))
-        : `Bienvenue ${member.toString()} sur **${member.guild.name}** !`;
-      await channel.send(msg).catch(() => {});
+      const replacements = (s: string) => s
+        .replace('{user}', member.toString())
+        .replace('{server}', member.guild.name)
+        .replace('{members}', String(member.guild.memberCount));
+
+      if (welcome.welcomeEmbed) {
+        const embed = new EmbedBuilder()
+          .setColor((welcome.welcomeEmbedColor || '#00FF00') as any);
+
+        if (welcome.welcomeEmbedTitle) embed.setTitle(replacements(welcome.welcomeEmbedTitle));
+        if (welcome.welcomeEmbedDescription) embed.setDescription(replacements(welcome.welcomeEmbedDescription));
+        if (welcome.welcomeEmbedFooter) embed.setFooter({ text: replacements(welcome.welcomeEmbedFooter) });
+        if (welcome.welcomeEmbedImage) embed.setImage(welcome.welcomeEmbedImage);
+        if (welcome.welcomeMessage) embed.setDescription(replacements(welcome.welcomeMessage));
+
+        await channel.send({ embeds: [embed] }).catch(() => {});
+      } else {
+        const msg = welcome.welcomeMessage
+          ? replacements(welcome.welcomeMessage)
+          : `Bienvenue ${member.toString()} sur **${member.guild.name}** !`;
+        await channel.send(msg).catch(() => {});
+      }
     }
   }
 

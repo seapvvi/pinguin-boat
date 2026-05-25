@@ -18,6 +18,7 @@ export default function AutorolesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<AutoroleSettings | null>(null);
   const [roleRewards, setRoleRewards] = useState<RoleReward[]>([]);
   const [roleInput, setRoleInput] = useState('');
@@ -81,10 +82,13 @@ export default function AutorolesPage() {
   const handleSave = async () => {
     if (!local) return;
     setSaving(true);
+    setSaveError(null);
     try {
       await updateGuildSettings(guildId, { autoroles: local, levels: { ...config?.levels, roleRewards } });
       load();
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } finally {
       setSaving(false);
     }
   };
@@ -116,6 +120,7 @@ export default function AutorolesPage() {
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
       </div>
+      {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
 
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="autoroles" label="Rôles automatiques" />

@@ -21,6 +21,7 @@ export default function GuildOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
   const [memberCount, setMemberCount] = useState<number>(0);
   const [channelCount, setChannelCount] = useState<number>(0);
   const [roleCount, setRoleCount] = useState<number>(0);
@@ -55,6 +56,7 @@ export default function GuildOverviewPage() {
 
   const handleModuleToggle = async (module: ModuleName, enabled: boolean) => {
     setToggling(module);
+    setToggleError(null);
     try {
       const current = config?.disabledModules ?? [];
       const updated = enabled
@@ -62,7 +64,9 @@ export default function GuildOverviewPage() {
         : [...current, module];
       const res = await updateGuildSettings(guildId, { disabledModules: updated });
       if (res.success && res.data) setConfig(res.data.guild);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setToggleError(e?.message || 'Erreur lors du changement de module');
+    } finally {
       setToggling(null);
     }
   };
@@ -121,6 +125,7 @@ export default function GuildOverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Card>
           <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Modules</h2>
+          {toggleError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{toggleError}</div>}
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (

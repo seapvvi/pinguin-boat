@@ -43,6 +43,7 @@ export default function TicketsPage() {
   const [form, setForm] = useState({ subject: '', description: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = async (p: number) => {
     setLoading(true);
@@ -70,21 +71,27 @@ export default function TicketsPage() {
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
+    setActionError(null);
     try {
       await api.post(`/api/guilds/${guildId}/tickets`, form);
       setCreateOpen(false);
       setForm({ subject: '', description: '' });
       load(page);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setActionError(e?.message || 'Erreur lors de la création');
+    } finally {
       setSubmitting(false);
     }
   };
 
   const handleAction = async (ticketId: string, action: string) => {
+    setActionError(null);
     try {
       await api.put(`/api/guilds/${guildId}/tickets/${ticketId}`, { action });
       load(page);
-    } catch { /* ignore */ }
+    } catch (e: any) {
+      setActionError(e?.message || 'Erreur lors de l\'action');
+    }
   };
 
   const columns: Column<TicketData>[] = [
@@ -157,6 +164,7 @@ export default function TicketsPage() {
         <div className="space-y-4">
           <Input label="Sujet" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} error={formErrors.subject} placeholder="Résumé du problème" />
           <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} error={formErrors.description} placeholder="Détails du ticket" />
+          {actionError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded">{actionError}</div>}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setCreateOpen(false)}>Annuler</Button>
             <Button loading={submitting} onClick={handleCreate}>Créer</Button>
@@ -186,6 +194,9 @@ export default function TicketsPage() {
               </div>
             </div>
             <div className="flex gap-2">
+              {actionError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded w-full">{actionError}</div>}
+            </div>
+            <div className="flex gap-2 mt-2">
               {selectedTicket.status === TicketStatus.OPEN && (
                 <Button size="sm" onClick={() => { handleAction(selectedTicket.id, 'claim'); setSelectedTicket(null); }}><UserCheck size={14} /> Prendre en charge</Button>
               )}

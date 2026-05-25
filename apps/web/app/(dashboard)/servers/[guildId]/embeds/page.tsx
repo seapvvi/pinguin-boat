@@ -97,7 +97,9 @@ export default function EmbedsPage() {
       if (res.success && res.data) setEmbeds(updated);
       setCreateOpen(false);
       resetForm();
-    } catch { /* ignore */ } finally {
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -107,7 +109,9 @@ export default function EmbedsPage() {
     try {
       await updateGuildSettings(guildId, { embeds: updated } as any);
       setEmbeds(updated);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la suppression');
+    }
   };
 
   const handleSend = async (embed: EmbedPreset) => {
@@ -116,7 +120,9 @@ export default function EmbedsPage() {
       await api.post(`/api/guilds/${guildId}/embeds/send`, { embed, channelId: sendChannel.trim() });
       setSendChannel('');
       setPreviewOpen(false);
-    } catch { /* ignore */ }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de l\'envoi');
+    }
   };
 
   if (error) {

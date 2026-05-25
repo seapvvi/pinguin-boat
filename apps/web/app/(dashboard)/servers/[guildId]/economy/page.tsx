@@ -30,6 +30,7 @@ export default function EconomyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<EconomySettings | null>(null);
 
   const load = async () => {
@@ -57,10 +58,13 @@ export default function EconomyPage() {
   const handleSave = async () => {
     if (!local) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const res = await updateGuildSettings(guildId, { economy: local });
       if (res.success && res.data) setConfig(res.data.guild);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } finally {
       setSaving(false);
     }
   };
@@ -105,6 +109,7 @@ export default function EconomyPage() {
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
       </div>
+      {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
 
       <div className="mb-4"><ModuleToggle guildId={guildId} moduleKey="economy" label="Économie" /></div>
 

@@ -65,6 +65,7 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<LogSettings | null>(null);
   const [ignoreChannelsInput, setIgnoreChannelsInput] = useState('');
   const [ignoreRolesInput, setIgnoreRolesInput] = useState('');
@@ -124,10 +125,13 @@ export default function LogsPage() {
   const handleSave = async () => {
     if (!local) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const res = await updateGuildSettings(guildId, { logs: local });
       if (res.success && res.data) setConfig(res.data.guild);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } finally {
       setSaving(false);
     }
   };
@@ -159,6 +163,7 @@ export default function LogsPage() {
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
       </div>
+      {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
 
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="logs" label="Logs" />

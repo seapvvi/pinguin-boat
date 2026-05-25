@@ -39,6 +39,7 @@ export default function SuggestionsPage() {
   const [staffResponse, setStaffResponse] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [votingId, setVotingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = async (p: number) => {
     setLoading(true);
@@ -60,10 +61,13 @@ export default function SuggestionsPage() {
 
   const handleVote = async (suggestionId: string, vote: 'up' | 'down') => {
     setVotingId(suggestionId);
+    setActionError(null);
     try {
       await api.post(`/api/guilds/${guildId}/suggestions/${suggestionId}/vote`, { vote });
       load(page);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setActionError(e?.message || 'Erreur lors du vote');
+    } finally {
       setVotingId(null);
     }
   };
@@ -71,22 +75,28 @@ export default function SuggestionsPage() {
   const handleAction = async (suggestionId: string, action: 'APPROVED' | 'REJECTED' | 'IMPLEMENTED') => {
     if (!staffResponse.trim()) return;
     setSubmitting(true);
+    setActionError(null);
     try {
       await api.post(`/api/guilds/${guildId}/suggestions/${suggestionId}/respond`, { action, response: staffResponse.trim() });
       setSelectedSuggestion(null);
       setStaffResponse('');
       load(page);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setActionError(e?.message || 'Erreur lors de la réponse');
+    } finally {
       setSubmitting(false);
     }
   };
 
   const deleteSuggestion = async (suggestionId: string) => {
     if (!confirm('Supprimer cette suggestion ?')) return;
+    setActionError(null);
     try {
       await api.delete(`/api/guilds/${guildId}/suggestions/${suggestionId}`);
       load(page);
-    } catch { /* ignore */ }
+    } catch (e: any) {
+      setActionError(e?.message || 'Erreur lors de la suppression');
+    }
   };
 
   const columns: Column<Suggestion>[] = [
@@ -179,6 +189,7 @@ export default function SuggestionsPage() {
               </div>
             )}
             <Input label="Votre réponse" value={staffResponse} onChange={(e) => setStaffResponse(e.target.value)} placeholder="Réponse du staff" />
+            {actionError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded">{actionError}</div>}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setSelectedSuggestion(null)}>Annuler</Button>
               <Button variant="success" disabled={!staffResponse.trim() || submitting} onClick={() => handleAction(selectedSuggestion.id, 'APPROVED')} loading={submitting}>

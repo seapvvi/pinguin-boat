@@ -3,7 +3,7 @@ import { prisma } from '@pinguin/db';
 import { authenticate } from '../middleware/auth';
 import { requireGuildMember } from '../middleware/guild-auth';
 import { success, error, sanitizeError } from '../utils/response';
-import { botControl, getQueueState, botSearch } from '../services/bot-proxy';
+import { botControl, getQueueState, botSearch, botPlay } from '../services/bot-proxy';
 
 const guildMemberGuard = { preHandler: [authenticate, requireGuildMember] };
 
@@ -38,20 +38,8 @@ export async function musicRoutes(app: FastifyInstance) {
       const body = request.body as any;
       if (!body.track) return reply.status(400).send(error('Track requis'));
       if (!body.voiceChannelId) return reply.status(400).send(error('voiceChannelId requis'));
-      const result = await botControl(guildId, 'play', { track: body.track, voiceChannelId: body.voiceChannelId });
-      let queue = await prisma.musicQueue.findUnique({ where: { guildId } });
-      const tracks = queue ? JSON.parse(queue.tracks) : [];
-      tracks.push(body.track);
-      if (!queue) {
-        await prisma.musicQueue.create({
-          data: { guildId, tracks: JSON.stringify(tracks), currentTrack: null, volume: 50 },
-        });
-      } else {
-        await prisma.musicQueue.update({
-          where: { guildId }, data: { tracks: JSON.stringify(tracks) },
-        });
-      }
-      reply.send(success(result || { queue }, 'Piste ajoutée'));
+      const result = await botPlay(guildId, body.track, body.voiceChannelId);
+      reply.send(success(result, 'Piste ajoutée'));
     } catch (err: any) {
       if (err.message === 'BOT_OFFLINE') return reply.status(503).send(error('Le bot est hors ligne'));
       reply.status(500).send(error(sanitizeError(err)));
@@ -65,44 +53,33 @@ export async function musicRoutes(app: FastifyInstance) {
       const validActions = ['play', 'pause', 'resume', 'skip', 'stop', 'volume', 'shuffle', 'loop'];
       if (!validActions.includes(action)) return reply.status(400).send(error('Action invalide'));
 
+      let botOffline = false;
       try {
         await botControl(guildId, action, body.value);
       } catch (e: any) {
-        if (e.message === 'BOT_OFFLINE') {
-          // bot offline, persist state for when it comes back
-        } else throw e;
+        if (e.message !== 'BOT_OFFLINE') throw e;
+        botOffline = true;
       }
 
-      const queue = await prisma.musicQueue.findUnique({ where: { guildId } });
-      if (!queue) return reply.status(404).send(error('Aucune file active'));
+      // Only persist to DB when bot is offline (fallback for when it comes back)
+      if (botOffline) {
+        const queue = await prisma.musicQueue.findUnique({ where: { guildId } });
+        if (!queue) return reply.status(404).send(error('Aucune file active'));
 
-      if (action === 'volume' && body.value) {
-        await prisma.musicQueue.update({ where: { guildId }, data: { volume: parseInt(body.value) || 50 } });
-      }
-      if (action === 'loop' && body.value) {
-        await prisma.musicQueue.update({ where: { guildId }, data: { loopMode: body.value } });
-      }
-      if (action === 'shuffle') {
-        const tracks = JSON.parse(queue.tracks);
-        for (let i = tracks.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
+        if (action === 'volume' && body.value) {
+          await prisma.musicQueue.update({ where: { guildId }, data: { volume: parseInt(body.value) || 50 } });
         }
-        await prisma.musicQueue.update({ where: { guildId }, data: { tracks: JSON.stringify(tracks) } });
-      }
-      if (action === 'skip') {
-        const tracks = JSON.parse(queue.tracks);
-        const nextTrack = tracks.shift() || null;
-        await prisma.musicQueue.update({
-          where: { guildId },
-          data: { tracks: JSON.stringify(tracks), currentTrack: nextTrack ? JSON.stringify(nextTrack) : null },
-        });
-      }
-      if (action === 'stop') {
-        await prisma.musicQueue.update({
-          where: { guildId },
-          data: { tracks: '[]', currentTrack: null, position: 0 },
-        });
+        if (action === 'loop' && body.value) {
+          await prisma.musicQueue.update({ where: { guildId }, data: { loopMode: body.value } });
+        }
+        if (action === 'stop') {
+          await prisma.musicQueue.update({
+            where: { guildId },
+            data: { tracks: '[]', currentTrack: null, position: 0 },
+          });
+        }
+        // skip/shuffle not persisted — the bot manages queue state in memory;
+        // when it comes back, loadQueueFromDb() restores last known queue from before it went offline
       }
       reply.send(success({ action }, `Action ${action} exécutée`));
     } catch (err: any) {

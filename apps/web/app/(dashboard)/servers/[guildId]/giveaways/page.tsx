@@ -43,6 +43,7 @@ export default function GiveawaysPage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = async (p: number) => {
     setLoading(true);
@@ -79,6 +80,7 @@ export default function GiveawaysPage() {
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
+    setActionError(null);
     try {
       const channelId = form.channelId;
       if (!channelId) { setFormErrors({ channelId: 'Requis' }); setSubmitting(false); return; }
@@ -97,16 +99,21 @@ export default function GiveawaysPage() {
       setCreateOpen(false);
       setForm({ prize: '', winners: 1, duration: 60, channelId: '', minAccountAge: 0, minGuildJoinTime: 0, requiredRoleId: '', boostRequired: false });
       load(page);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setActionError(e?.message || 'Erreur lors de la création');
+    } finally {
       setSubmitting(false);
     }
   };
 
   const handleAction = async (id: string, action: string) => {
+    setActionError(null);
     try {
       await api.post(`/api/guilds/${guildId}/giveaways/${id}`, { action });
       load(page);
-    } catch { /* ignore */ }
+    } catch (e: any) {
+      setActionError(e?.message || 'Erreur lors de l\'action');
+    }
   };
 
   const columns: Column<Giveaway>[] = [
@@ -187,6 +194,7 @@ export default function GiveawaysPage() {
             <span className="text-sm text-[var(--text-primary)]">Boost requis</span>
             <input type="checkbox" checked={form.boostRequired} onChange={(e) => setForm({ ...form, boostRequired: e.target.checked })} className="accent-[var(--accent)]" />
           </div>
+          {actionError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded">{actionError}</div>}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setCreateOpen(false)}>Annuler</Button>
             <Button loading={submitting} onClick={handleCreate}>Créer</Button>

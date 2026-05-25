@@ -193,8 +193,10 @@ export async function play(guildId: string, query: string, requester: GuildMembe
 
 export async function skip(guildId: string): Promise<TrackInfo | null> {
   const state = getState(guildId);
+  // Save loop mode so the stop->idle->playNext flow doesn't lose it during a skip
+  const savedLoop = state.loopMode;
   state.player?.stop();
-  if (state.loopMode === LoopMode.TRACK) state.loopMode = LoopMode.NONE;
+  state.loopMode = savedLoop;
   return state.currentTrack;
 }
 
@@ -218,6 +220,12 @@ export async function resume(guildId: string): Promise<void> {
 export function setVolume(guildId: string, vol: number): void {
   const state = getState(guildId);
   state.volume = Math.max(0, Math.min(100, vol));
+  // Apply to current playback
+  const player = state.player;
+  if (player?.state.status === AudioPlayerStatus.Playing) {
+    const resource = player.state.resource;
+    resource.volume?.setVolume(state.volume / 100);
+  }
 }
 
 export function setLoop(guildId: string, mode: LoopMode): void {

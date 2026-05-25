@@ -20,6 +20,8 @@ export default function MusicPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [controlError, setControlError] = useState<string | null>(null);
   const [local, setLocal] = useState<MusicSettings | null>(null);
   const [queue, setQueue] = useState<TrackInfo[]>([]);
   const [currentTrack, setCurrentTrack] = useState<TrackInfo | null>(null);
@@ -69,18 +71,24 @@ export default function MusicPage() {
   }, [guildId, local?.enabled]);
 
   const sendControl = async (action: string, value?: unknown) => {
+    setControlError(null);
     try {
       await api.post(`/api/guilds/${guildId}/music/control`, { action, value });
-    } catch { /* ignore */ }
+    } catch (e: any) {
+      setControlError(e?.message || 'Erreur de contrôle');
+    }
   };
 
   const handleSave = async () => {
     if (!local) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const res = await updateGuildSettings(guildId, { music: local });
       if (res.success && res.data) setConfig(res.data.guild);
-    } catch { /* ignore */ } finally {
+    } catch (e: any) {
+      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } finally {
       setSaving(false);
     }
   };
@@ -112,6 +120,7 @@ export default function MusicPage() {
         </div>
         <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
       </div>
+      {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
 
       <div className="mb-4"><ModuleToggle guildId={guildId} moduleKey="music" label="Musique" /></div>
 
@@ -144,6 +153,7 @@ export default function MusicPage() {
 
           <Card>
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Contrôles</h2>
+            {controlError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-3">{controlError}</div>}
             <div className="flex items-center justify-center gap-3 mb-4">
               <Button variant="ghost" size="sm" onClick={() => sendControl('PREVIOUS')}><SkipBack size={18} /></Button>
               <Button size="md" onClick={() => sendControl(playing ? 'PAUSE' : 'RESUME')}>
