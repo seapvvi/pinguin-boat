@@ -13,8 +13,9 @@ import { deployRoutes } from './routes/deploy';
 import { musicRoutes } from './routes/music';
 import { webhookRoutes } from './routes/webhooks';
 import { authenticate } from './middleware/auth';
-import { success, error, paginated } from './utils/response';
+import { success, error, paginated, sanitizeError } from './utils/response';
 import { getSystemMetrics, getGlobalStats } from './services/metrics';
+import { botFetch } from './services/bot-proxy';
 
 const config = getConfig();
 
@@ -59,6 +60,19 @@ async function main() {
     status: 'ok',
     timestamp: new Date().toISOString(),
   }));
+
+  app.get('/api/health/bot', { preHandler: [authenticate] }, async (_request, reply) => {
+    try {
+      await botFetch('/internal/ping');
+      reply.send({ success: true, status: 'ONLINE' });
+    } catch (err: any) {
+      if (err.message === 'BOT_OFFLINE' || err.name === 'AbortError') {
+        reply.send({ success: true, status: 'OFFLINE' });
+      } else {
+        reply.send({ success: true, status: 'DEGRADED', error: sanitizeError(err) });
+      }
+    }
+  });
 
   app.get('/api/stats', { preHandler: [authenticate] }, async (_request, reply) => {
     try {

@@ -1,13 +1,14 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '@pinguin/db';
-import { authenticate } from '../middleware/auth';
+import { guildMemberGuardenticate } from '../middleware/guildMemberGuard';
+import { requireGuildMember } from '../middleware/guild-guildMemberGuard';
 import { success, error, sanitizeError } from '../utils/response';
 import { botControl, getQueueState, botSearch } from '../services/bot-proxy';
 
-const auth = { preHandler: [authenticate] };
+const guildMemberGuard = { preHandler: [guildMemberGuardenticate, requireGuildMember] };
 
 export async function musicRoutes(app: FastifyInstance) {
-  app.get('/state/:guildId', auth, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/state/:guildId', guildMemberGuard, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
       try {
@@ -32,7 +33,7 @@ export async function musicRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.post('/play/:guildId', auth, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/play/:guildId', guildMemberGuard, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
       const body = request.body as any;
@@ -59,7 +60,7 @@ export async function musicRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/control/:guildId/:action', auth, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/control/:guildId/:action', guildMemberGuard, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId, action } = request.params as any;
       const body = request.body as any;
@@ -114,7 +115,7 @@ export async function musicRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get('/search/:guildId/:query', auth, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/search/:guildId/:query', guildMemberGuard, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId, query } = request.params as any;
       try {
@@ -129,7 +130,7 @@ export async function musicRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.get('/history/:guildId', auth, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/history/:guildId', guildMemberGuard, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
       const q = request.query as any;

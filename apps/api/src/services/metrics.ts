@@ -11,19 +11,29 @@ interface SystemMetricsData {
   loadAvg: number[];
 }
 
-function getCPUUsage(): number {
+let lastCpuMeasure: { idle: number; total: number } | null = null;
+
+function sampleCPU(): { idle: number; total: number } {
   const cpus = os.cpus();
-  let totalIdle = 0;
-  let totalTick = 0;
+  let totalIdle = 0, totalTick = 0;
   for (const cpu of cpus) {
-    for (const type in cpu.times) {
-      totalTick += (cpu.times as any)[type];
-    }
+    for (const type in cpu.times) totalTick += (cpu.times as any)[type];
     totalIdle += cpu.times.idle;
   }
-  const idle = totalIdle / cpus.length;
-  const tick = totalTick / cpus.length;
-  return parseFloat(((1 - idle / tick) * 100).toFixed(2));
+  return { idle: totalIdle / cpus.length, total: totalTick / cpus.length };
+}
+
+function getCPUUsage(): number {
+  const current = sampleCPU();
+  if (!lastCpuMeasure) {
+    lastCpuMeasure = current;
+    return 0;
+  }
+  const idleDiff = current.idle - lastCpuMeasure.idle;
+  const totalDiff = current.total - lastCpuMeasure.total;
+  lastCpuMeasure = current;
+  if (totalDiff === 0) return 0;
+  return parseFloat(((1 - idleDiff / totalDiff) * 100).toFixed(2));
 }
 
 export function getSystemMetrics(): SystemMetricsData {

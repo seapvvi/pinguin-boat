@@ -54,7 +54,7 @@ export async function botPlay(guildId: string, query: string, voiceChannelId: st
 export async function botControl(guildId: string, action: string, value?: unknown) {
   return botFetch(`/internal/guilds/${guildId}/control`, {
     method: 'POST',
-    body: { action, value },
+    body: { action: action.toUpperCase(), value },
   });
 }
 

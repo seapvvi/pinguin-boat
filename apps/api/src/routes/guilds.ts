@@ -38,14 +38,21 @@ export async function guildRoutes(app: FastifyInstance) {
         orderBy: [{ botPresent: 'desc' }, { memberCount: 'desc' }],
       });
       const userDiscordId = request.user!.discordId;
-      const memberChecks = await Promise.all(
-        allGuilds.map(g =>
-          getGuildMember(g.id, userDiscordId)
-            .then(() => ({ ...g, isMember: true } as typeof g & { isMember: boolean }))
-            .catch(() => ({ ...g, isMember: false } as typeof g & { isMember: boolean }))
-        )
-      );
-      const guilds = memberChecks.filter(g => g.isMember);
+      // Concurrency-limited checks (max 10 simultaneous Discord API calls)
+      const concurrency = 10;
+      const results: (typeof allGuilds[0] & { isMember: boolean })[] = [];
+      for (let i = 0; i < allGuilds.length; i += concurrency) {
+        const batch = allGuilds.slice(i, i + concurrency);
+        const batchResults = await Promise.all(
+          batch.map(g =>
+            getGuildMember(g.id, userDiscordId)
+              .then(() => ({ ...g, isMember: true }))
+              .catch(() => ({ ...g, isMember: false }))
+          )
+        );
+        results.push(...batchResults);
+      }
+      const guilds = results.filter(g => g.isMember);
       guilds.sort((a, b) => {
         if (a.botPresent !== b.botPresent) return a.botPresent ? -1 : 1;
         return b.memberCount - a.memberCount;

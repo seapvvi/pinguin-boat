@@ -8,6 +8,13 @@ import fs from 'fs';
 
 const config = getConfig();
 
+function maskSecrets(str: string): string {
+  if (config.GITHUB_TOKEN) {
+    str = str.replace(new RegExp(config.GITHUB_TOKEN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '***TOKEN***');
+  }
+  return str;
+}
+
 let repoDir: string;
 try {
   repoDir = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).toString().trim();
@@ -33,7 +40,8 @@ async function runDeploymentInline(deploymentId: string) {
     try {
       execSync(cmd, { cwd: repoDir, encoding: 'utf8', timeout: 600000 });
     } catch (err: any) {
-      const details = (err.stderr || err.stdout || err.message || 'Erreur inconnue').toString().trim().split('\n').slice(-10).join('\n');
+      const raw = (err.stderr || err.stdout || err.message || 'Erreur inconnue').toString().trim();
+      const details = maskSecrets(raw).split('\n').slice(-10).join('\n');
       throw new Error(details);
     }
   };
@@ -42,7 +50,8 @@ async function runDeploymentInline(deploymentId: string) {
     try {
       return execSync(cmd, { cwd: repoDir, encoding: 'utf8', timeout: 600000 }).toString().trim();
     } catch (err: any) {
-      const details = (err.stderr || err.stdout || err.message || 'Erreur inconnue').toString().trim().split('\n').slice(-10).join('\n');
+      const raw = (err.stderr || err.stdout || err.message || 'Erreur inconnue').toString().trim();
+      const details = maskSecrets(raw).split('\n').slice(-10).join('\n');
       throw new Error(details);
     }
   };

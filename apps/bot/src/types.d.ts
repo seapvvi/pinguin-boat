@@ -12,7 +12,6 @@ declare module 'discord.js' {
       guards?: { cooldown?: boolean };
       module?: string;
     }>;
-    cooldowns: Collection<string, Collection<string, number>>;
   }
 }
 

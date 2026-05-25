@@ -47,5 +47,21 @@ export async function execute(client: Client): Promise<void> {
     }
   }
 
+  // Sync memberCount périodique
+  setInterval(async () => {
+    for (const guild of client.guilds.cache.values()) {
+      try {
+        await prisma.guild.update({
+          where: { id: guild.id },
+          data: {
+            memberCount: guild.memberCount,
+            name: guild.name,
+            icon: guild.icon,
+          },
+        });
+      } catch { /* ignore */ }
+    }
+  }, 10 * 60 * 1000);
+
   console.log('[Bot] Prêt !');
 }

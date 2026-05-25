@@ -24,7 +24,6 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-client.cooldowns = new Collection();
 
 async function start() {
   try {

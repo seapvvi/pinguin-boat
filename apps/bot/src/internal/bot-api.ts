@@ -1,6 +1,7 @@
 import http from 'http';
 import { Client, TextChannel } from 'discord.js';
 import * as music from '../services/music';
+import { invalidateCache } from '../utils/cache';
 
 export function startInternalBotApi(client: Client): void {
   const port = parseInt(process.env.BOT_INTERNAL_PORT || '3002');
@@ -19,6 +20,12 @@ export function startInternalBotApi(client: Client): void {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
       const path = url.pathname;
       const guildId = path.match(/\/internal\/guilds\/([^/]+)/)?.[1];
+
+      // GET /internal/ping — health check (no guildId required)
+      if (path === '/internal/ping' && req.method === 'GET') {
+        res.end(JSON.stringify({ success: true, uptime: process.uptime() }));
+        return;
+      }
 
       if (!guildId) {
         res.statusCode = 400;
@@ -141,6 +148,42 @@ export function startInternalBotApi(client: Client): void {
           default:
             res.statusCode = 400;
             res.end(JSON.stringify({ error: `Unknown action: ${action}` }));
+        }
+        return;
+      }
+
+      // POST /internal/guilds/:guildId/modules — notify module changes
+      if (path === `/internal/guilds/${guildId}/modules` && req.method === 'POST') {
+        const body = await readBody(req);
+        const disabledModules: string[] = body.disabledModules ?? [];
+        console.log(`[BotAPI] Modules mis à jour pour ${guildId}:`, disabledModules);
+        invalidateCache(`modules:${guildId}`);
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
+      // GET /internal/guilds/:guildId/search — search tracks
+      if (path.startsWith(`/internal/guilds/${guildId}/search`) && req.method === 'GET') {
+        const query = url.searchParams.get('q') || '';
+        if (!query) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'query required' }));
+          return;
+        }
+        try {
+          const { search } = await import('play-dl');
+          const results = await search(query, { source: { youtube: 'video' }, limit: 5 });
+          const tracks = results.map((v: any) => ({
+            title: v.title,
+            url: v.url,
+            duration: v.durationInSec,
+            thumbnail: v.thumbnails?.[0]?.url ?? null,
+            author: v.channel?.name ?? 'Inconnu',
+          }));
+          res.end(JSON.stringify({ success: true, data: tracks }));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
         }
         return;
       }

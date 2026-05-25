@@ -18,3 +18,16 @@ export async function requireGuildAdmin(
     reply.status(403).send(error('Vous n\'êtes pas membre de ce serveur'));
   }
 }
+
+export async function requireGuildMember(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> {
+  const { guildId } = request.params as { guildId: string };
+  const discordId = request.user!.discordId;
+  try {
+    await getGuildMember(guildId, discordId);
+  } catch {
+    reply.status(403).send(error('Vous n\'êtes pas membre de ce serveur'));
+  }
+}
