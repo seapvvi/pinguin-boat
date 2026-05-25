@@ -66,6 +66,9 @@ const envSchema = z.object({
     .transform((v) => v === 'true' || v === '1')
     .default('false'),
 
+  // Pastebin
+  PASTEBIN_API_KEY: z.string().optional().default(''),
+
   // Logging
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   LOG_FORMAT: z.enum(['pretty', 'json']).default('pretty'),

@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFla
 import { prisma } from '@pinguin/db';
 import { infoEmbed, errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
+import { sendDM } from '../../services/dm';
 
 export const data = new SlashCommandBuilder()
   .setName('approve')
@@ -44,6 +45,17 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         staffResponderId: interaction.user.id,
       },
     });
+
+    await sendDM(client, suggestion.authorId, [
+      createEmbed('suggestion')
+        .setTitle('💡 Suggestion approuvée ✅')
+        .setDescription(`Ta suggestion a été approuvée :\n\n${suggestion.content}`)
+        .addFields(
+          { name: 'Votes', value: `👍 ${suggestion.upvotes} | 👎 ${suggestion.downvotes}`, inline: false },
+          ...(response ? [{ name: 'Réponse du staff', value: response, inline: false } as const] : []),
+        )
+        .setTimestamp(),
+    ]);
 
     try {
       const channel = await interaction.guild.channels.fetch(suggestion.channelId);

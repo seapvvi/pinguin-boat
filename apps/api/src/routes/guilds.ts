@@ -5,7 +5,8 @@ import { authenticate } from '../middleware/auth';
 import { validateParams } from '../middleware/validate';
 import { success, error } from '../utils/response';
 import { getQueueState, botControl, botPlay } from '../services/bot-proxy';
-import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, NUMBER_EMOJIS } from '../services/discord';
+import { uploadToPastebin, generateTicketTranscriptHtml } from '../services/pastebin';
+import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
 
 const config = getConfig();
@@ -58,6 +59,15 @@ export async function guildRoutes(app: FastifyInstance) {
       .map(f => f.toUpperCase());
   }
 
+  const defaultEconomy = () => ({
+    enabled: false, currencyName: 'pièces', currencySymbol: '🪙',
+    dailyAmount: 200, weeklyAmount: 1000, startupBalance: 100,
+    workMin: 10, workMax: 50, workCooldown: 60,
+    robberyEnabled: false, robberyMaxAmount: 500, robberyCooldown: 3600,
+    interestRate: 5, interestInterval: 86400, bankCapacity: 50000,
+    shopItems: [],
+  });
+
   app.get('/:guildId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
@@ -70,6 +80,14 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       if (!guild) return reply.status(404).send(error('Serveur introuvable'));
+      if (!guild.autoroleSettings) {
+        guild.autoroleSettings = await prisma.autoroleSettings.upsert({
+          where: { guildId },
+          update: {},
+          create: { guildId },
+          include: { entries: true },
+        });
+      }
       let channelCount = 0, roleCount = 0;
       try {
         const [channels, roles] = await Promise.all([
@@ -81,11 +99,32 @@ export async function guildRoutes(app: FastifyInstance) {
       } catch {}
       const payload = {
         ...guild,
-        autoroles: guild.autoroleSettings ? transformAutoroleSettings(guild.autoroleSettings) : undefined,
+        autoroles: transformAutoroleSettings(guild.autoroleSettings),
+        economy: defaultEconomy(),
         disabledModules: computeDisabledModules(guild.modulesEnabled),
         memberCount: guild.memberCount, channelCount, roleCount,
       };
       reply.send(success({ guild: payload }));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message || 'Erreur'));
+    }
+  });
+
+  app.get('/:guildId/channels', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const channels = await getGuildChannels(guildId);
+      reply.send(success({ channels }));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message || 'Erreur'));
+    }
+  });
+
+  app.get('/:guildId/roles', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const roles = await getGuildRoles(guildId);
+      reply.send(success({ roles }));
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur'));
     }
@@ -366,12 +405,17 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!body.subject) return reply.status(400).send(error('Sujet requis'));
       await ensureUser(body.creatorId || request.user!.id);
       const catId = body.categoryId || undefined;
+      const creatorId = body.creatorId || request.user!.id;
       let channel: any;
       try {
         channel = await createGuildChannel(guildId, {
           name: `ticket-${body.subject.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 32)}`,
           type: 0,
           parent_id: catId,
+          permission_overwrites: [
+            { id: guildId, deny: 1n << 10n }, // deny VIEW_CHANNEL for @everyone
+            { id: creatorId, allow: (1n << 10n) | (1n << 11n) | (1n << 12n) }, // allow VIEW, SEND, READ_HISTORY
+          ],
           topic: `Ticket: ${body.subject}`,
         });
       } catch {
@@ -380,7 +424,7 @@ export async function guildRoutes(app: FastifyInstance) {
       await sendChannelMessage(channel.id, {
         embeds: [{
           title: 'Nouveau ticket',
-          description: `**Sujet :** ${body.subject}${body.description ? `\n**Description :** ${body.description}` : ''}\n**Créé par :** <@${body.creatorId || request.user!.id}>`,
+          description: `**Sujet :** ${body.subject}${body.description ? `\n**Description :** ${body.description}` : ''}\n**Créé par :** <@${creatorId}>`,
           color: 0x00AAFF,
           timestamp: new Date().toISOString(),
         }],
@@ -416,8 +460,30 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.claimedById !== undefined && !upd.claimedById) upd.claimedById = body.claimedById;
       const updated = await prisma.ticket.update({ where: { id: ticketId }, data: upd });
       if (upd.status === 'CLOSED' && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
+        let transcriptUrl: string | null = null;
+        try {
+          const messages = await getChannelMessages(ticket.channelId, 100);
+          const html = generateTicketTranscriptHtml(messages, ticket.subject);
+          transcriptUrl = await uploadToPastebin(html, `Ticket: ${ticket.subject}`);
+        } catch {}
+        try {
+          const creator = await prisma.user.findUnique({ where: { discordId: ticket.creatorId } });
+          if (transcriptUrl) {
+            await sendDM(ticket.creatorId, {
+              embeds: [{
+                title: '🎫 Ticket fermé',
+                description: `Ton ticket **${ticket.subject}** a été fermé.\n📄 [Transcription](${transcriptUrl})`,
+                color: 0x14B8A6,
+                timestamp: new Date().toISOString(),
+              }],
+            }).catch(() => {});
+          }
+        } catch {}
+        if (transcriptUrl) {
+          await prisma.ticket.update({ where: { id: ticketId }, data: { transcriptId: transcriptUrl } }).catch(() => {});
+        }
         await sendChannelMessage(ticket.channelId, {
-          embeds: [{ title: 'Ticket fermé', description: `Ce ticket a été fermé par <@${request.user!.id}>.`, color: 0xFF0000, timestamp: new Date().toISOString() }],
+          embeds: [{ title: 'Ticket fermé', description: `Ce ticket a été fermé par <@${request.user!.id}>.${transcriptUrl ? `\n📄 [Transcription](${transcriptUrl})` : ''}`, color: 0xFF0000, timestamp: new Date().toISOString() }],
         }).catch(() => {});
       }
       if (upd.claimedById && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
@@ -714,7 +780,7 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.poll.count({ where: { guildId } }),
       ]);
       const data = polls.map((p) => {
-        const rawOptions: string[] = JSON.parse(p.options);
+        const rawOptions = JSON.parse(p.options) as { label: string }[];
         const votesRecord: Record<string, string> = {};
         const voteCounts: number[] = new Array(rawOptions.length).fill(0);
         for (const v of p.votes) {
@@ -726,7 +792,7 @@ export async function guildRoutes(app: FastifyInstance) {
           guildId: p.guildId,
           channelId: p.channelId,
           question: p.question,
-          options: rawOptions.map((label, i) => ({ id: String(i), label, votes: voteCounts[i] })),
+          options: rawOptions.map((o, i) => ({ id: String(i), label: o.label, votes: voteCounts[i] })),
           votes: votesRecord,
           status: p.status === 'OPEN' ? 'ACTIVE' : 'CLOSED' as const,
         };
@@ -848,6 +914,20 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.status) upd.status = body.status;
       if (body.staffResponse) { upd.staffResponse = body.staffResponse; upd.staffResponderId = request.user!.id; }
       const updated = await prisma.suggestion.update({ where: { id }, data: upd });
+      if (body.status) {
+        sendDM(s.authorId, {
+          embeds: [{
+            title: body.status === 'APPROVED' ? '💡 Suggestion approuvée ✅' : body.status === 'REJECTED' ? '💡 Suggestion refusée ❌' : 'Suggestion mise à jour',
+            description: `Ta suggestion a été ${body.status === 'APPROVED' ? 'approuvée' : 'refusée'} :\n\n${s.content}`,
+            fields: [
+              { name: 'Votes', value: `👍 ${s.upvotes} | 👎 ${s.downvotes}`, inline: false },
+              ...(body.staffResponse ? [{ name: 'Réponse du staff', value: body.staffResponse, inline: false }] : []),
+            ],
+            color: body.status === 'APPROVED' ? 0x00FF00 : 0xFF0000,
+            timestamp: new Date().toISOString(),
+          }],
+        }).catch(() => {});
+      }
       if (body.status && s.messageId && !s.channelId.startsWith('pending')) {
         const statusEmoji = body.status === 'APPROVED' ? '✅' : body.status === 'REJECTED' ? '❌' : '⏳';
         const statusLabel = body.status === 'APPROVED' ? 'Approuvée' : body.status === 'REJECTED' ? 'Refusée' : 'En attente';
@@ -879,6 +959,18 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!action || !staffResponse) return reply.status(400).send(error('action et response requis'));
       const upd: any = { status: action, staffResponse, staffResponderId: request.user!.id };
       const updated = await prisma.suggestion.update({ where: { id }, data: upd });
+      sendDM(s.authorId, {
+        embeds: [{
+          title: action === 'APPROVED' ? '💡 Suggestion approuvée ✅' : '💡 Suggestion refusée ❌',
+          description: `Ta suggestion a été ${action === 'APPROVED' ? 'approuvée' : 'refusée'} :\n\n${s.content}`,
+          fields: [
+            { name: 'Votes', value: `👍 ${s.upvotes} | 👎 ${s.downvotes}`, inline: false },
+            { name: 'Réponse du staff', value: staffResponse, inline: false },
+          ],
+          color: action === 'APPROVED' ? 0x00FF00 : 0xFF0000,
+          timestamp: new Date().toISOString(),
+        }],
+      }).catch(() => {});
       if (s.messageId && !s.channelId.startsWith('pending')) {
         const statusEmoji = action === 'APPROVED' ? '✅' : action === 'REJECTED' ? '❌' : '⏳';
         const statusLabel = action === 'APPROVED' ? 'Approuvée' : action === 'REJECTED' ? 'Refusée' : 'En attente';

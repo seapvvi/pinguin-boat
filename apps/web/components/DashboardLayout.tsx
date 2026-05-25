@@ -15,7 +15,15 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) setSidebarOpen(false);
+  }, []);
+
+  function handleSidebarClose() {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) setSidebarOpen(false);
+  }
 
   useEffect(() => {
     async function load() {
@@ -72,7 +80,7 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
       <Sidebar
         user={user}
         isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        onClose={handleSidebarClose}
         onLogout={handleLogout}
       />
 
@@ -87,7 +95,7 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
       >
         <Header
           user={user}
-          onMenuToggle={() => setSidebarOpen(true)}
+          onMenuToggle={() => setSidebarOpen((prev) => !prev)}
           onLogout={handleLogout}
           guildId={guildId}
         />

@@ -235,6 +235,12 @@ export async function addMessageReaction(channelId: string, messageId: string, e
   }
 }
 
+export async function getChannelMessages(channelId: string, limit = 100): Promise<any[]> {
+  return discordFetch<any[]>(`/channels/${channelId}/messages?limit=${limit}`, {
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+  });
+}
+
 export async function createGuildChannel(guildId: string, options: { name: string; type?: number; parent_id?: string; permission_overwrites?: any[]; topic?: string }): Promise<any> {
   return discordFetch(`/guilds/${guildId}/channels`, {
     method: 'POST',

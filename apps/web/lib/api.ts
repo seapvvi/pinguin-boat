@@ -113,6 +113,14 @@ export async function fetchModCases(
   return api.get<APIResponse<ModCaseListDTO>>(`/api/guilds/${guildId}/moderation`, params);
 }
 
+export async function fetchGuildChannels(guildId: string): Promise<APIResponse<{ channels: any[] }>> {
+  return api.get<APIResponse<{ channels: any[] }>>(`/api/guilds/${guildId}/channels`);
+}
+
+export async function fetchGuildRoles(guildId: string): Promise<APIResponse<{ roles: any[] }>> {
+  return api.get<APIResponse<{ roles: any[] }>>(`/api/guilds/${guildId}/roles`);
+}
+
 export async function fetchTickets(
   guildId: string,
   params?: Record<string, string>

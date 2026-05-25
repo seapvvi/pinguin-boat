@@ -18,6 +18,11 @@ export async function execute(interaction: Interaction, client: Client): Promise
       await handleTicketButton(interaction, client);
       return;
     }
+    if (interaction.customId === 'giveaway_join') {
+      const { handleGiveawayJoin } = await import('../commands/giveaways/giveaway-join');
+      await handleGiveawayJoin(interaction, client);
+      return;
+    }
     return;
   }
 
