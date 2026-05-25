@@ -81,8 +81,9 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
           display: 'flex',
           flexDirection: 'column',
           flex: 1,
+          transition: 'margin-left 0.3s ease',
         }}
-        className="lg:ml-[260px]"
+        className={sidebarOpen ? 'lg:ml-[260px]' : 'lg:ml-0'}
       >
         <Header
           user={user}

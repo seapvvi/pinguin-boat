@@ -367,21 +367,30 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
 
   return (
     <>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: 260,
-          height: '100vh',
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          zIndex: 40,
-        }}
-        className="hidden lg:flex"
-      >
-        {sidebarContent}
-      </div>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              width: 260,
+              height: '100vh',
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              zIndex: 51,
+              overflow: 'hidden',
+            }}
+            className="hidden lg:flex"
+          >
+            {sidebarContent}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isOpen && (

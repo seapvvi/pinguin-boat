@@ -1,10 +1,9 @@
 'use client';
 
-import { Avatar } from '@pinguin/ui';
+import { Logo } from '@pinguin/ui';
 import { Menu, LogOut } from 'lucide-react';
 import ThemeSelector from './ThemeSelector';
 import ServerSelector from './ServerSelector';
-import { getAvatarUrl } from '@/lib/utils';
 
 interface HeaderProps {
   user: {
@@ -34,9 +33,11 @@ export default function Header({ user, onMenuToggle, onLogout, guildId }: Header
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Logo withText size={28} />
         <button
           type="button"
           onClick={onMenuToggle}
+          title="Menu"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -56,29 +57,9 @@ export default function Header({ user, onMenuToggle, onLogout, guildId }: Header
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = 'transparent';
           }}
-          className="flex lg:hidden"
         >
           <Menu size={20} />
         </button>
-
-        {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Avatar
-              src={getAvatarUrl(user) ?? undefined}
-              name={user.username}
-              size={28}
-            />
-            <span
-              style={{
-                fontSize: 15,
-                fontWeight: 500,
-                color: 'var(--text-primary)',
-              }}
-            >
-              Bienvenue, {user.username}
-            </span>
-          </div>
-        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

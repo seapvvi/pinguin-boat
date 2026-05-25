@@ -80,7 +80,9 @@ export async function guildRoutes(app: FastifyInstance) {
         roleCount = roles.length;
       } catch {}
       const payload = {
-        ...guild, disabledModules: computeDisabledModules(guild.modulesEnabled),
+        ...guild,
+        autoroles: guild.autoroleSettings ? transformAutoroleSettings(guild.autoroleSettings) : undefined,
+        disabledModules: computeDisabledModules(guild.modulesEnabled),
         memberCount: guild.memberCount, channelCount, roleCount,
       };
       reply.send(success({ guild: payload }));
@@ -814,7 +816,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
       const where: any = { guildId };
       if (q.status) where.status = q.status;
-      const [suggestions, total] = await Promise.all([
+      const [rawSuggestions, total] = await Promise.all([
         prisma.suggestion.findMany({
           where, orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit, take: limit,
@@ -822,6 +824,13 @@ export async function guildRoutes(app: FastifyInstance) {
         }),
         prisma.suggestion.count({ where }),
       ]);
+      const suggestions = rawSuggestions.map((s) => ({
+        id: s.id, guildId: s.guildId, channelId: s.channelId, authorId: s.authorId,
+        content: s.content,
+        votes: { up: s.upvotes, down: s.downvotes },
+        status: s.status,
+        staffResponse: s.staffResponse ? { moderatorId: s.staffResponderId || '', response: s.staffResponse, action: s.status as any } : null,
+      }));
       reply.send(success({
         suggestions,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
@@ -859,6 +868,37 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
   });
 
+  app.post('/:guildId/suggestions/:id/respond', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, id } = request.params as any;
+      const body = request.body as any;
+      const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
+      if (!s) return reply.status(404).send(error('Suggestion introuvable'));
+      const action = body.action;
+      const staffResponse = body.response;
+      if (!action || !staffResponse) return reply.status(400).send(error('action et response requis'));
+      const upd: any = { status: action, staffResponse, staffResponderId: request.user!.id };
+      const updated = await prisma.suggestion.update({ where: { id }, data: upd });
+      if (s.messageId && !s.channelId.startsWith('pending')) {
+        const statusEmoji = action === 'APPROVED' ? '✅' : action === 'REJECTED' ? '❌' : '⏳';
+        const statusLabel = action === 'APPROVED' ? 'Approuvée' : action === 'REJECTED' ? 'Refusée' : 'En attente';
+        await editMessage(s.channelId, s.messageId, {
+          embeds: [{
+            title: `💡 Suggestion ${statusLabel} ${statusEmoji}`,
+            description: s.content,
+            fields: [
+              { name: 'Statut', value: statusLabel, inline: true },
+              { name: 'Réponse du staff', value: staffResponse, inline: false },
+            ],
+            color: action === 'APPROVED' ? 0x00FF00 : action === 'REJECTED' ? 0xFF0000 : 0xFFA500,
+            timestamp: new Date().toISOString(),
+          }],
+        }).catch(() => {});
+      }
+      reply.send(success(updated, 'Réponse enregistrée'));
+    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+  });
+
   app.get('/:guildId/welcome', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
@@ -892,12 +932,22 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
   });
 
+  function transformAutoroleSettings(ar: any) {
+    return {
+      enabled: ar.enabled,
+      roleIds: (ar.entries ?? []).filter((e: any) => e.type === 'JOIN').map((e: any) => e.roleId),
+      botRoles: (ar.entries ?? []).filter((e: any) => e.type === 'REACTION').map((e: any) => e.roleId),
+      delay: 0,
+      ignoreBots: false,
+    };
+  }
+
   app.get('/:guildId/autoroles', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
       let ar = await prisma.autoroleSettings.findUnique({ where: { guildId }, include: { entries: true } });
       if (!ar) ar = await prisma.autoroleSettings.create({ data: { guildId }, include: { entries: true } });
-      reply.send(success({ settings: ar }));
+      reply.send(success({ settings: transformAutoroleSettings(ar) }));
     } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
   });
 
@@ -907,26 +957,24 @@ export async function guildRoutes(app: FastifyInstance) {
       const body = request.body as any;
       await prisma.autoroleSettings.upsert({
         where: { guildId },
-        update: {
-          enabled: body.enabled ?? undefined,
-          onJoin: body.onJoin ?? undefined,
-          onLevelUp: body.onLevelUp ?? undefined,
-          onReaction: body.onReaction ?? undefined,
-        },
-        create: { guildId, ...body },
+        update: { enabled: body.enabled ?? undefined },
+        create: { guildId, enabled: body.enabled ?? true },
       });
-      if (body.entries) {
-        await prisma.autoroleEntry.deleteMany({ where: { guildId } });
+      if (body.roleIds || body.botRoles) {
         const settings = await prisma.autoroleSettings.findUnique({ where: { guildId } });
         if (settings) {
-          for (const e of body.entries) {
+          await prisma.autoroleEntry.deleteMany({ where: { guildId } });
+          const joinRoles: string[] = body.roleIds ?? [];
+          const botRoles: string[] = body.botRoles ?? [];
+          for (const roleId of joinRoles) {
             await prisma.autoroleEntry.create({
-              data: {
-                settingsId: settings.id, guildId,
-                roleId: e.roleId, type: e.type || 'JOIN',
-                levelRequired: e.levelRequired || null,
-              },
-            });
+              data: { settingsId: settings.id, guildId, roleId, type: 'JOIN' },
+            }).catch(() => {});
+          }
+          for (const roleId of botRoles) {
+            await prisma.autoroleEntry.create({
+              data: { settingsId: settings.id, guildId, roleId, type: 'REACTION' },
+            }).catch(() => {});
           }
         }
       }

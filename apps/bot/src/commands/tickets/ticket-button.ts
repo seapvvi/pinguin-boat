@@ -102,7 +102,10 @@ async function handleTicketClose(interaction: ButtonInteraction): Promise<void> 
   });
 
   const ch = interaction.channel as TextChannel;
-  await ch.permissionOverwrites.edit(ticket.creatorId, { ViewChannel: false });
+  try {
+    const member = await interaction.guild!.members.fetch(ticket.creatorId);
+    await ch.permissionOverwrites.edit(member, { ViewChannel: false });
+  } catch {}
 
   await interaction.reply({ embeds: [successEmbed('Fermé', 'Ticket fermé.')] });
 

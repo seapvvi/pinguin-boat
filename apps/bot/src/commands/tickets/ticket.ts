@@ -174,7 +174,10 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       });
 
       const channel = interaction.channel as TextChannel;
-      await channel.permissionOverwrites.edit(ticket.creatorId, { ViewChannel: false });
+      try {
+        const member = await interaction.guild!.members.fetch(ticket.creatorId);
+        await channel.permissionOverwrites.edit(member, { ViewChannel: false });
+      } catch {}
 
       await interaction.reply({ embeds: [successEmbed('Ticket fermé', 'Ce ticket a été fermé.')] });
 

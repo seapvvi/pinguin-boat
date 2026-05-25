@@ -75,8 +75,8 @@ export default function SuggestionsPage() {
     { key: 'authorId', label: 'Auteur', render: (s) => <span className="font-mono text-xs">{s.authorId.slice(0, 8)}…</span> },
     { key: 'votes', label: 'Votes', render: (s) => (
       <div className="flex items-center gap-2">
-        <span className="text-xs text-[var(--success)] flex items-center gap-0.5"><ThumbsUp size={10} />{s.votes.up}</span>
-        <span className="text-xs text-[var(--error)] flex items-center gap-0.5"><ThumbsDown size={10} />{s.votes.down}</span>
+        <span className="text-xs text-[var(--success)] flex items-center gap-0.5"><ThumbsUp size={10} />{s.votes?.up ?? 0}</span>
+        <span className="text-xs text-[var(--error)] flex items-center gap-0.5"><ThumbsDown size={10} />{s.votes?.down ?? 0}</span>
       </div>
     )},
     { key: 'status', label: 'Statut', sortable: true, render: (s) => <Badge variant={statusVariants[s.status]}>{statusLabels[s.status]}</Badge> },
