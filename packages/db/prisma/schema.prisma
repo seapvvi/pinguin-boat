@@ -80,6 +80,7 @@ enum DeploymentStatus {
 /// Type de rôle automatique
 enum AutoroleType {
   JOIN
+  BOT
   LEVEL
   REACTION
 }
@@ -264,6 +265,7 @@ model Guild {
   xpSettings      XPSettings?
   welcomeSettings WelcomeSettings?
   economySettings EconomySettings?
+  protectionSettings ProtectionSettings?
   autoroleSettings AutoroleSettings?
   musicQueues     MusicQueue?
   blacklist       BlacklistGuild?
@@ -747,6 +749,33 @@ model EconomySettings {
   guild Guild @relation(fields: [guildId], references: [id])
 
   @@map("economy_settings")
+}
+
+/// Configuration du module de protection anti-raid/anti-spam
+model ProtectionSettings {
+  id                 String   @id @default(cuid()) @map("id")
+  guildId            String   @unique @map("guild_id")
+  enabled            Boolean  @default(false) @map("enabled")
+  antiRaid           Boolean  @default(false) @map("anti_raid")
+  raidThreshold      Int      @default(10) @map("raid_threshold")
+  raidInterval       Int      @default(10) @map("raid_interval")
+  antiSpam           Boolean  @default(false) @map("anti_spam")
+  spamThreshold      Int      @default(5) @map("spam_threshold")
+  spamInterval       Int      @default(5) @map("spam_interval")
+  antiMassMention    Boolean  @default(false) @map("anti_mass_mention")
+  mentionThreshold   Int      @default(5) @map("mention_threshold")
+  antiLink           Boolean  @default(false) @map("anti_link")
+  antiAlts           Boolean  @default(false) @map("anti_alts")
+  altAccountAge      Int      @default(7) @map("alt_account_age")
+  verificationLevel  String   @default("NONE") @map("verification_level")
+  captchaVerification Boolean @default(false) @map("captcha_verification")
+  punishment         String   @default("KICK") @map("punishment")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@map("protection_settings")
 }
 
 /// Configuration des rôles automatiques

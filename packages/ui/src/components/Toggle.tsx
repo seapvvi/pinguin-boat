@@ -37,8 +37,8 @@ export function Toggle({ checked, onChange, disabled = false, className, label }
           layout
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
           className={cn(
-            'block h-4 w-4 rounded-[0px] bg-white shadow-md',
-            checked ? 'translate-x-[18px]' : 'translate-x-[2px]',
+            'block h-4 w-4 rounded-[0px] shadow-md',
+            checked ? 'translate-x-[18px] bg-white' : 'translate-x-[2px] bg-[var(--text-secondary)]',
           )}
         />
       </button>

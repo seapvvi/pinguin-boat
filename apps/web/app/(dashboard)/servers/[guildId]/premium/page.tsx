@@ -5,6 +5,7 @@ import { motion } from 'motion/react'
 import { Crown, Check, X as XIcon } from 'lucide-react'
 import { Card, Badge, Skeleton, Button, Toggle } from '@pinguin/ui'
 import { api } from '@/lib/api'
+import { getUser } from '@/lib/auth'
 import { useParams } from 'next/navigation'
 
 interface PremiumInfo {
@@ -25,15 +26,31 @@ export default function PremiumPage() {
   const params = useParams<{ guildId: string }>()
   const [premium, setPremium] = useState<PremiumInfo | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isOwner, setIsOwner] = useState(false)
 
   useEffect(() => {
-    api.get<PremiumInfo>(`/guilds/${params.guildId}/premium`)
-      .then(setPremium)
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.all([
+      api.get<PremiumInfo>(`/guilds/${params.guildId}/premium`),
+      getUser(),
+    ]).then(([prem, user]) => {
+      setPremium(prem)
+      setIsOwner(user?.isOwner ?? false)
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [params.guildId])
 
   if (loading) return <div className="p-6 space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64" /></div>
+
+  if (!isOwner) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
+        <Card>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Cette page est réservée au propriétaire du bot. Vous ne pouvez pas modifier les abonnements premium.
+          </p>
+        </Card>
+      </motion.div>
+    )
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 space-y-6">

@@ -38,6 +38,7 @@ export default function SuggestionsPage() {
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
   const [staffResponse, setStaffResponse] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [votingId, setVotingId] = useState<string | null>(null);
 
   const load = async (p: number) => {
     setLoading(true);
@@ -56,6 +57,16 @@ export default function SuggestionsPage() {
   };
 
   useEffect(() => { load(page); }, [guildId, page]);
+
+  const handleVote = async (suggestionId: string, vote: 'up' | 'down') => {
+    setVotingId(suggestionId);
+    try {
+      await api.post(`/api/guilds/${guildId}/suggestions/${suggestionId}/vote`, { vote });
+      load(page);
+    } catch { /* ignore */ } finally {
+      setVotingId(null);
+    }
+  };
 
   const handleAction = async (suggestionId: string, action: 'APPROVED' | 'REJECTED' | 'IMPLEMENTED') => {
     if (!staffResponse.trim()) return;
@@ -83,8 +94,12 @@ export default function SuggestionsPage() {
     { key: 'authorId', label: 'Auteur', render: (s) => <span className="font-mono text-xs">{s.authorId.slice(0, 8)}…</span> },
     { key: 'votes', label: 'Votes', render: (s) => (
       <div className="flex items-center gap-2">
-        <span className="text-xs text-[var(--success)] flex items-center gap-0.5"><ThumbsUp size={10} />{s.votes?.up ?? 0}</span>
-        <span className="text-xs text-[var(--error)] flex items-center gap-0.5"><ThumbsDown size={10} />{s.votes?.down ?? 0}</span>
+        <button onClick={() => handleVote(s.id, 'up')} disabled={votingId === s.id} className="flex items-center gap-0.5 text-xs text-[var(--success)] hover:opacity-80 transition-opacity disabled:opacity-40">
+          <ThumbsUp size={12} />{s.votes?.up ?? 0}
+        </button>
+        <button onClick={() => handleVote(s.id, 'down')} disabled={votingId === s.id} className="flex items-center gap-0.5 text-xs text-[var(--error)] hover:opacity-80 transition-opacity disabled:opacity-40">
+          <ThumbsDown size={12} />{s.votes?.down ?? 0}
+        </button>
       </div>
     )},
     { key: 'status', label: 'Statut', sortable: true, render: (s) => <Badge variant={statusVariants[s.status]}>{statusLabels[s.status]}</Badge> },

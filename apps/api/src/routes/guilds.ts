@@ -94,7 +94,10 @@ export async function guildRoutes(app: FastifyInstance) {
         include: {
           settings: true, modulesEnabled: true, logSettings: true,
           xpSettings: true, welcomeSettings: true,
+          protectionSettings: true,
           autoroleSettings: { include: { entries: true } },
+          savedEmbeds: true,
+          xpRoleRewards: true,
         },
       });
       if (!guild) return reply.status(404).send(error('Serveur introuvable'));
@@ -106,6 +109,11 @@ export async function guildRoutes(app: FastifyInstance) {
           include: { entries: true },
         });
       }
+      if (!guild.protectionSettings) {
+        guild.protectionSettings = await prisma.protectionSettings.create({
+          data: { guildId },
+        });
+      }
       const es = await getEconomySettings(guildId);
       let channelCount = 0, roleCount = 0;
       try {
@@ -113,12 +121,13 @@ export async function guildRoutes(app: FastifyInstance) {
           getGuildChannels(guildId),
           getGuildRoles(guildId),
         ]);
-        channelCount = channels.length;
-        roleCount = roles.length;
+        channelCount = channels.filter((c: any) => c.type !== 4).length;
+        roleCount = roles.filter((r: any) => r.id !== guildId).length;
       } catch {}
       const payload = {
         ...guild,
         autoroles: transformAutoroleSettings(guild.autoroleSettings),
+        protection: guild.protectionSettings || { enabled: false, antiRaid: false, raidThreshold: 10, raidInterval: 10, antiSpam: false, spamThreshold: 5, spamInterval: 5, antiMassMention: false, mentionThreshold: 5, antiLink: false, antiAlts: false, altAccountAge: 7, verificationLevel: 'NONE', captchaVerification: false, punishment: 'KICK' },
         economy: {
           enabled: es.enabled,
           currencyName: es.currencyName,
@@ -137,6 +146,39 @@ export async function guildRoutes(app: FastifyInstance) {
           bankCapacity: es.bankCapacity,
           shopItems: [],
         },
+        levels: guild.xpSettings ? {
+          enabled: guild.xpSettings.enabled,
+          messageXp: guild.xpSettings.messageXp,
+          voiceXp: guild.xpSettings.voiceXp,
+          messageCooldown: guild.xpSettings.messageCooldown,
+          voiceCooldown: guild.xpSettings.voiceCooldown,
+          levelFormula: guild.xpSettings.levelFormula,
+          maxLevel: guild.xpSettings.maxLevel,
+          ignoredChannels: JSON.parse(guild.xpSettings.ignoredChannels),
+          ignoredRoles: JSON.parse(guild.xpSettings.ignoredRoles),
+          announcementChannelId: guild.xpSettings.announcementChannelId,
+          announcementMessage: guild.xpSettings.announcementMessage,
+          roleRewards: [],
+        } : undefined,
+        welcome: guild.welcomeSettings || undefined,
+        logSettings: guild.logSettings ? {
+          logChannelId: guild.logSettings.logChannelId,
+          events: JSON.parse(guild.logSettings.events),
+          ignoredChannels: JSON.parse(guild.logSettings.ignoredChannels),
+          ignoredRoles: JSON.parse(guild.logSettings.ignoredRoles),
+        } : undefined,
+        embeds: (guild.savedEmbeds || []).map((e: any) => ({
+          id: e.id,
+          name: e.name,
+          title: e.title,
+          description: e.description,
+          color: e.color,
+          fields: JSON.parse(e.fields),
+          footer: e.footer,
+          image: e.image,
+          thumbnail: e.thumbnail,
+          timestamp: e.timestamp,
+        })),
         disabledModules: computeDisabledModules(guild.modulesEnabled),
         memberCount: guild.memberCount, channelCount, roleCount,
       };
@@ -171,6 +213,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const { guildId } = request.params as any;
       const body = request.body as any;
 
+      // -- disabledModules --
       if (Array.isArray(body.disabledModules)) {
         const data: Record<string, boolean> = {};
         for (const f of MODULE_FIELDS) {
@@ -183,6 +226,7 @@ export async function guildRoutes(app: FastifyInstance) {
         });
       }
 
+      // -- economy --
       if (body.economy) {
         const ec = body.economy;
         await prisma.economySettings.upsert({
@@ -208,16 +252,262 @@ export async function guildRoutes(app: FastifyInstance) {
         });
       }
 
+      // -- autoroles --
+      if (body.autoroles) {
+        const ar = body.autoroles;
+        const settings = await prisma.autoroleSettings.upsert({
+          where: { guildId },
+          update: { enabled: ar.enabled ?? undefined },
+          create: { guildId, enabled: ar.enabled ?? false },
+        });
+        await prisma.autoroleEntry.deleteMany({ where: { settingsId: settings.id } });
+        const entries: any[] = [];
+        if (Array.isArray(ar.roleIds)) {
+          for (const roleId of ar.roleIds) {
+            entries.push({ settingsId: settings.id, guildId, roleId, type: 'JOIN' });
+          }
+        }
+        if (Array.isArray(ar.botRoles)) {
+          for (const roleId of ar.botRoles) {
+            entries.push({ settingsId: settings.id, guildId, roleId, type: 'BOT' });
+          }
+        }
+        if (entries.length > 0) {
+          await prisma.autoroleEntry.createMany({ data: entries });
+        }
+      }
+
+      // -- levels --
+      if (body.levels) {
+        const lv = body.levels;
+        await prisma.xPSettings.upsert({
+          where: { guildId },
+          update: {
+            enabled: lv.enabled ?? undefined,
+            messageXp: lv.messageXp ?? undefined,
+            voiceXp: lv.voiceXp ?? undefined,
+            messageCooldown: lv.messageCooldown ?? undefined,
+            voiceCooldown: lv.voiceCooldown ?? undefined,
+            levelFormula: lv.levelFormula ?? undefined,
+            maxLevel: lv.maxLevel ?? undefined,
+            ignoredChannels: lv.ignoredChannels ? JSON.stringify(lv.ignoredChannels) : undefined,
+            ignoredRoles: lv.ignoredRoles ? JSON.stringify(lv.ignoredRoles) : undefined,
+            announcementChannelId: lv.announcementChannelId ?? undefined,
+            announcementMessage: lv.announcementMessage ?? undefined,
+          },
+          create: {
+            guildId,
+            enabled: lv.enabled ?? true,
+            messageXp: lv.messageXp ?? 15,
+            voiceXp: lv.voiceXp ?? 10,
+            messageCooldown: lv.messageCooldown ?? 60,
+            voiceCooldown: lv.voiceCooldown ?? 120,
+            levelFormula: lv.levelFormula ?? '100 * level * 1.5',
+            maxLevel: lv.maxLevel ?? 1000,
+            ignoredChannels: lv.ignoredChannels ? JSON.stringify(lv.ignoredChannels) : '[]',
+            ignoredRoles: lv.ignoredRoles ? JSON.stringify(lv.ignoredRoles) : '[]',
+            announcementChannelId: lv.announcementChannelId ?? null,
+            announcementMessage: lv.announcementMessage ?? null,
+          },
+        });
+        if (Array.isArray(lv.roleRewards)) {
+          await prisma.xPRoleReward.deleteMany({ where: { guildId } });
+          const rewards = lv.roleRewards.map((rr: any) => ({
+            guildId,
+            levelRequired: rr.level,
+            roleId: rr.roleId,
+          }));
+          if (rewards.length > 0) {
+            await prisma.xPRoleReward.createMany({ data: rewards });
+          }
+        }
+      }
+
+      // -- welcome --
+      if (body.welcome) {
+        const w = body.welcome;
+        await prisma.welcomeSettings.upsert({
+          where: { guildId },
+          update: {
+            enabled: w.enabled ?? undefined,
+            welcomeChannelId: w.welcomeChannelId ?? undefined,
+            welcomeMessage: w.welcomeMessage ?? undefined,
+            welcomeEmbed: w.welcomeEmbed ?? undefined,
+            welcomeEmbedColor: w.welcomeEmbedColor ?? undefined,
+            welcomeEmbedTitle: w.welcomeEmbedTitle ?? undefined,
+            welcomeEmbedDescription: w.welcomeEmbedDescription ?? undefined,
+            welcomeEmbedFooter: w.welcomeEmbedFooter ?? undefined,
+            welcomeEmbedImage: w.welcomeEmbedImage ?? undefined,
+            welcomeDM: w.welcomeDM ?? undefined,
+            welcomeDMMessage: w.welcomeDMMessage ?? undefined,
+            goodbyeEnabled: w.goodbyeEnabled ?? undefined,
+            goodbyeChannelId: w.goodbyeChannelId ?? undefined,
+            goodbyeMessage: w.goodbyeMessage ?? undefined,
+            goodbyeEmbed: w.goodbyeEmbed ?? undefined,
+            goodbyeEmbedColor: w.goodbyeEmbedColor ?? undefined,
+          },
+          create: { guildId, ...w },
+        });
+      }
+
+      // -- logSettings (also accepts body.logs) --
+      const logData = body.logSettings || body.logs;
+      if (logData) {
+        const ls = logData;
+        await prisma.logSettings.upsert({
+          where: { guildId },
+          update: {
+            logChannelId: ls.logChannelId ?? undefined,
+            events: Array.isArray(ls.events) ? JSON.stringify(ls.events) : undefined,
+            ignoredChannels: Array.isArray(ls.ignoredChannels) ? JSON.stringify(ls.ignoredChannels) : undefined,
+            ignoredRoles: Array.isArray(ls.ignoredRoles) ? JSON.stringify(ls.ignoredRoles) : undefined,
+          },
+          create: {
+            guildId,
+            logChannelId: ls.logChannelId ?? null,
+            events: Array.isArray(ls.events) ? JSON.stringify(ls.events) : '[]',
+            ignoredChannels: Array.isArray(ls.ignoredChannels) ? JSON.stringify(ls.ignoredChannels) : '[]',
+            ignoredRoles: Array.isArray(ls.ignoredRoles) ? JSON.stringify(ls.ignoredRoles) : '[]',
+          },
+        });
+      }
+
+      // -- embeds --
+      if (body.embeds) {
+        await prisma.savedEmbed.deleteMany({ where: { guildId } });
+        if (Array.isArray(body.embeds)) {
+          for (const e of body.embeds) {
+            await prisma.savedEmbed.create({
+              data: {
+                guildId,
+                name: e.name,
+                title: e.title ?? null,
+                description: e.description ?? null,
+                color: e.color ?? '#e0e0e0',
+                fields: Array.isArray(e.fields) ? JSON.stringify(e.fields) : '[]',
+                footer: e.footer ?? null,
+                image: e.image ?? null,
+                thumbnail: e.thumbnail ?? null,
+                timestamp: e.timestamp ?? true,
+              },
+            });
+          }
+        }
+      }
+
+      // -- protection --
+      if (body.protection) {
+        const p = body.protection;
+        await prisma.protectionSettings.upsert({
+          where: { guildId },
+          update: {
+            enabled: p.enabled ?? undefined,
+            antiRaid: p.antiRaid ?? undefined,
+            raidThreshold: p.raidThreshold ?? undefined,
+            raidInterval: p.raidInterval ?? undefined,
+            antiSpam: p.antiSpam ?? undefined,
+            spamThreshold: p.spamThreshold ?? undefined,
+            spamInterval: p.spamInterval ?? undefined,
+            antiMassMention: p.antiMassMention ?? undefined,
+            mentionThreshold: p.mentionThreshold ?? undefined,
+            antiLink: p.antiLink ?? undefined,
+            antiAlts: p.antiAlts ?? undefined,
+            altAccountAge: p.altAccountAge ?? undefined,
+            verificationLevel: p.verificationLevel ?? undefined,
+            captchaVerification: p.captchaVerification ?? undefined,
+            punishment: p.punishment ?? undefined,
+          },
+          create: { guildId, ...p },
+        });
+      }
+
+      // -- settings (general guild settings) --
+      if (body.settings) {
+        const s = body.settings;
+        await prisma.guildSettings.upsert({
+          where: { guildId },
+          update: {
+            prefix: s.prefix ?? undefined,
+            locale: s.locale ?? undefined,
+            timezone: s.timezone ?? undefined,
+            modLogChannel: s.modLogChannel ?? undefined,
+            modRoleIds: Array.isArray(s.modRoleIds) ? JSON.stringify(s.modRoleIds) : undefined,
+            adminRoleIds: Array.isArray(s.adminRoleIds) ? JSON.stringify(s.adminRoleIds) : undefined,
+            muteRoleId: s.muteRoleId ?? undefined,
+          },
+          create: {
+            guildId,
+            prefix: s.prefix ?? null,
+            locale: s.locale ?? 'fr',
+            timezone: s.timezone ?? 'Europe/Paris',
+            modLogChannel: s.modLogChannel ?? null,
+            modRoleIds: Array.isArray(s.modRoleIds) ? JSON.stringify(s.modRoleIds) : '[]',
+            adminRoleIds: Array.isArray(s.adminRoleIds) ? JSON.stringify(s.adminRoleIds) : '[]',
+            muteRoleId: s.muteRoleId ?? null,
+          },
+        });
+      }
+
+      // -- re-fetch and return --
       const guild = await prisma.guild.findUnique({
         where: { id: guildId },
         include: {
           settings: true, modulesEnabled: true, logSettings: true,
           xpSettings: true, welcomeSettings: true,
+          protectionSettings: true,
           autoroleSettings: { include: { entries: true } },
+          savedEmbeds: true,
+          xpRoleRewards: true,
         },
       });
       if (!guild) return reply.status(404).send(error('Serveur introuvable'));
-      const payload = { ...guild, disabledModules: computeDisabledModules(guild.modulesEnabled) };
+      const es = await getEconomySettings(guildId);
+      let channelCount = 0, roleCount = 0;
+      try {
+        const [channels, roles] = await Promise.all([
+          getGuildChannels(guildId),
+          getGuildRoles(guildId),
+        ]);
+        channelCount = channels.filter((c: any) => c.type !== 4).length;
+        roleCount = roles.filter((r: any) => r.id !== guildId).length;
+      } catch {}
+      const payload = {
+        ...guild,
+        autoroles: transformAutoroleSettings(guild.autoroleSettings),
+        economy: {
+          enabled: es.enabled, currencyName: es.currencyName, currencySymbol: es.currencySymbol,
+          dailyAmount: es.dailyAmount, weeklyAmount: es.weeklyAmount, startupBalance: es.startupBalance,
+          workMin: es.workMin, workMax: es.workMax, workCooldown: es.workCooldown,
+          robberyEnabled: es.robberyEnabled, robberyMaxAmount: es.robberyMaxAmount,
+          robberyCooldown: es.robberyCooldown, interestRate: es.interestRate,
+          interestInterval: es.interestInterval, bankCapacity: es.bankCapacity, shopItems: [],
+        },
+        protection: guild.protectionSettings || { enabled: false, antiRaid: false, raidThreshold: 10, raidInterval: 10, antiSpam: false, spamThreshold: 5, spamInterval: 5, antiMassMention: false, mentionThreshold: 5, antiLink: false, antiAlts: false, altAccountAge: 7, verificationLevel: 'NONE', captchaVerification: false, punishment: 'KICK' },
+        levels: guild.xpSettings ? {
+          enabled: guild.xpSettings.enabled, messageXp: guild.xpSettings.messageXp,
+          voiceXp: guild.xpSettings.voiceXp, messageCooldown: guild.xpSettings.messageCooldown,
+          voiceCooldown: guild.xpSettings.voiceCooldown, levelFormula: guild.xpSettings.levelFormula,
+          maxLevel: guild.xpSettings.maxLevel, ignoredChannels: JSON.parse(guild.xpSettings.ignoredChannels),
+          ignoredRoles: JSON.parse(guild.xpSettings.ignoredRoles),
+          announcementChannelId: guild.xpSettings.announcementChannelId,
+          announcementMessage: guild.xpSettings.announcementMessage,
+          roleRewards: (guild as any).xpRoleRewards?.map((rr: any) => ({ level: rr.levelRequired, roleId: rr.roleId })) ?? [],
+        } : undefined,
+        welcome: guild.welcomeSettings || undefined,
+        logSettings: guild.logSettings ? {
+          logChannelId: guild.logSettings.logChannelId,
+          events: JSON.parse(guild.logSettings.events),
+          ignoredChannels: JSON.parse(guild.logSettings.ignoredChannels),
+          ignoredRoles: JSON.parse(guild.logSettings.ignoredRoles),
+        } : undefined,
+        embeds: (guild.savedEmbeds || []).map((e: any) => ({
+          id: e.id, name: e.name, title: e.title, description: e.description,
+          color: e.color, fields: JSON.parse(e.fields), footer: e.footer,
+          image: e.image, thumbnail: e.thumbnail, timestamp: e.timestamp,
+        })),
+        disabledModules: computeDisabledModules(guild.modulesEnabled),
+        memberCount: guild.memberCount, channelCount, roleCount,
+      };
       reply.send(success({ guild: payload }));
     } catch (err: any) {
       reply.status(500).send(error(err.message || 'Erreur'));
@@ -841,7 +1131,10 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.poll.count({ where: { guildId } }),
       ]);
       const data = polls.map((p) => {
-        const rawOptions = JSON.parse(p.options) as { label: string }[];
+        const parsed = JSON.parse(p.options);
+        const rawOptions = Array.isArray(parsed)
+          ? parsed.map((o: any, i: number) => ({ id: String(i), label: typeof o === 'string' ? o : o.label, votes: 0 }))
+          : [];
         const votesRecord: Record<string, string> = {};
         const voteCounts: number[] = new Array(rawOptions.length).fill(0);
         for (const v of p.votes) {
@@ -915,7 +1208,10 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.status) upd.status = body.status === 'CLOSED' ? 'CLOSED' : 'OPEN';
       const updated = await prisma.poll.update({ where: { id }, data: upd });
       if (body.status === 'CLOSED' && p.messageId && !p.channelId.startsWith('pending')) {
-        const rawOptions = JSON.parse(p.options) as { id: string; label: string; votes: number }[];
+        const parsed = JSON.parse(p.options);
+        const rawOptions = Array.isArray(parsed)
+          ? parsed.map((o: any, i: number) => ({ id: String(i), label: typeof o === 'string' ? o : o.label, votes: 0 }))
+          : [];
         const voteCounts = new Array(rawOptions.length).fill(0);
         for (const v of (p.votes || [])) voteCounts[v.optionIndex]++;
         const descLines = rawOptions.map((o: any, i: number) =>
@@ -1059,6 +1355,30 @@ export async function guildRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
       reply.send(success(updated, 'Réponse enregistrée'));
+    } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
+  });
+
+  app.post('/:guildId/suggestions/:id/vote', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, id } = request.params as any;
+      const body = request.body as any;
+      const vote = body.vote;
+      if (!['up', 'down'].includes(vote)) return reply.status(400).send(error('Vote invalide'));
+      const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
+      if (!s || s.status !== 'PENDING') return reply.status(400).send(error('Suggestion introuvable ou déjà traitée'));
+      const voters: Record<string, 'up' | 'down'> = JSON.parse(s.voters || '{}');
+      if (voters[request.user!.id] === vote) {
+        delete voters[request.user!.id];
+      } else {
+        voters[request.user!.id] = vote;
+      }
+      const upvotes = Object.values(voters).filter((v) => v === 'up').length;
+      const downvotes = Object.values(voters).filter((v) => v === 'down').length;
+      const updated = await prisma.suggestion.update({
+        where: { id },
+        data: { upvotes, downvotes, voters: JSON.stringify(voters) },
+      });
+      reply.send(success(updated, 'Vote enregistré'));
     } catch (err: any) { reply.status(500).send(error(err.message || 'Erreur')); }
   });
 

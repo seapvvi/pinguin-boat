@@ -58,7 +58,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       channelId: interaction.channelId,
       messageId: msg.id,
       question,
-      options: JSON.stringify(options),
+      options: JSON.stringify(options.map((o, i) => ({ id: String(i), label: o, votes: 0 }))),
       status: 'OPEN',
     },
   });
