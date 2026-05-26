@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Server, Search, Plus, Users } from 'lucide-react';
 import { Card, Input, Badge, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
@@ -8,6 +9,8 @@ import { formatNumber } from '@/lib/utils';
 import type { GuildItemDTO } from '@pinguin/shared';
 
 export default function ServersPage() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') ?? '/overview';
   const [guilds, setGuilds] = useState<GuildItemDTO[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -109,7 +112,7 @@ export default function ServersPage() {
               </div>
               {g.botPresent ? (
                 <a
-                  href={`/servers/${g.id}/overview`}
+                  href={`/servers/${g.id}${redirect}`}
                   className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border bg-[var(--accent)] text-[var(--bg-primary)] border-[var(--accent)] hover:opacity-90 no-underline"
                 >
                   Gérer

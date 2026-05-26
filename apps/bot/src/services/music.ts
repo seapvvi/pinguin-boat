@@ -101,21 +101,29 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
   const state = getState(guildId);
   if (state.destroyed || !state.connection) return;
 
+  const playdl = await import('play-dl');
+
+  let stream: Awaited<ReturnType<typeof playdl.stream>>;
   try {
-    const playdl = await import('play-dl');
-    const stream = track.source === 'YOUTUBE'
-      ? await playdl.stream(track.url, { quality: 2 })
-      : await playdl.stream(track.url);
+    stream = await playdl.stream(track.url, { quality: 2 });
+  } catch (streamErr: any) {
+    console.error(`[Music] Stream error for "${track.title}":`, streamErr.message);
+    playNext(guildId).catch(() => {});
+    return;
+  }
+
+  try {
     const resource = createAudioResource(stream.stream, {
       inputType: stream.type as any,
       inlineVolume: true,
     });
     resource.volume?.setVolume(state.volume / 100);
-    state.player = getPlayer(guildId);
-    state.player.play(resource);
-    state.connection.subscribe(state.player);
+    const player = getPlayer(guildId);
+    state.player = player;
+    state.connection.subscribe(player);
+    player.play(resource);
 
-    await prisma.musicHistoryEntry.create({
+    prisma.musicHistoryEntry.create({
       data: {
         guildId,
         trackTitle: track.title,
@@ -126,7 +134,7 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
       },
     }).catch(() => {});
   } catch (err: any) {
-    console.error(`[Music] Error playing ${track.title}:`, err.message);
+    console.error(`[Music] Error playing "${track.title}":`, err.message);
     playNext(guildId).catch(() => {});
   }
 }
@@ -210,8 +218,6 @@ export async function play(guildId: string, query: string, requester: GuildMembe
   }
 
   state.currentTrack = track;
-  state.player = getPlayer(guildId);
-  state.connection?.subscribe(state.player);
   saveQueueToDb(guildId);
   await playTrack(guildId, track);
   return track;

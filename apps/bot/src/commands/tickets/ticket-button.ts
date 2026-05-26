@@ -46,26 +46,45 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
     const channelName = (ticketSettings?.channelFormat ?? 'ticket-{username}')
       .replace('{username}', interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, ''));
 
+    const botMember = interaction.guild!.members.me!;
+    if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
+      await interaction.editReply({ embeds: [errorEmbed('Permissions manquantes', 'Le bot a besoin de la permission **Gérer les salons** pour créer des tickets.')] });
+      return;
+    }
+
+    const modRoles: string[] = ticketSettings?.moderatorRoles ? JSON.parse(ticketSettings.moderatorRoles || '[]') : [];
     const permissionOverwrites: any[] = [
       { id: interaction.guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
       { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
       { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
     ];
-
-    if (ticketSettings?.moderatorRoles) {
-      const modRoles: string[] = JSON.parse(ticketSettings.moderatorRoles || '[]');
-      for (const roleId of modRoles) {
-        permissionOverwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
-      }
+    for (const roleId of modRoles) {
+      permissionOverwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
     }
 
-    const ticketChannel = await interaction.guild!.channels.create({
-      name: channelName,
-      type: ChannelType.GuildText,
-      parent: ticketSettings?.categoryId ?? undefined,
-      permissionOverwrites,
-      reason: `Ticket ouvert par ${interaction.user.tag}`,
-    });
+    const categoryId = ticketSettings?.categoryId ?? undefined;
+
+    let ticketChannel;
+    try {
+      ticketChannel = await interaction.guild!.channels.create({
+        name: channelName,
+        type: ChannelType.GuildText,
+        parent: categoryId,
+        permissionOverwrites,
+        reason: `Ticket ouvert par ${interaction.user.tag}`,
+      });
+    } catch (firstErr: any) {
+      if (firstErr?.code === 50013 && categoryId) {
+        ticketChannel = await interaction.guild!.channels.create({
+          name: channelName,
+          type: ChannelType.GuildText,
+          permissionOverwrites,
+          reason: `Ticket ouvert par ${interaction.user.tag}`,
+        });
+      } else {
+        throw firstErr;
+      }
+    }
 
     await prisma.ticket.create({
       data: {

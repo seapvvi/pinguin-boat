@@ -45,7 +45,7 @@ export default function SupportPage() {
   }, []);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 max-w-3xl space-y-6">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 max-w-3xl mx-auto space-y-6">
       <div className="text-center space-y-3">
         <Heart className="w-10 h-10 mx-auto text-[var(--accent)]" />
         <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Soutenir Pinguin Boat 🐧</h1>

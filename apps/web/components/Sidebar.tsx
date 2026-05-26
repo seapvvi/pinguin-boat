@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, Logo, Avatar, Toggle, Snowflakes } from '@pinguin/ui';
-import { useSnowflakes } from '@pinguin/ui';
+import { useSnowflakes, useTheme } from '@pinguin/ui';
+import { ThemeName, themes, DONOR_THEMES } from '@pinguin/shared';
 import { getAvatarUrl } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -30,6 +31,7 @@ import {
   X,
   Snowflake,
   LogOut,
+  Palette,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -38,6 +40,7 @@ interface SidebarProps {
     username: string;
     avatar: string | null;
     isOwner: boolean;
+    isDonor?: boolean;
   } | null;
   isOpen: boolean;
   onClose: () => void;
@@ -58,7 +61,7 @@ interface Item {
 
 function guildHref(guildId: string | null, base: string, isGuildPage: boolean): string {
   if (!isGuildPage) return base;
-  if (!guildId) return '/servers';
+  if (!guildId) return `/servers?redirect=${encodeURIComponent(base)}`;
   return `/servers/${guildId}${base}`;
 }
 
@@ -115,6 +118,10 @@ const categoryDefs: CategoryDef[] = [
 export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProps) {
   const pathname = usePathname();
   const { enabled: snowflakesEnabled, toggle: toggleSnowflakes } = useSnowflakes();
+  const { current: currentTheme, setTheme } = useTheme();
+  const [themeOpen, setThemeOpen] = useState(false);
+  const allThemes = Object.values(ThemeName);
+  const isDonor = user?.isDonor ?? false;
 
   const guildId = pathname.match(/^\/servers\/([^/]+)/)?.[1] ?? null;
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => {
@@ -302,6 +309,68 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
           padding: '12px 16px',
         }}
       >
+        <div style={{ marginBottom: 8 }}>
+          <button
+            type="button"
+            onClick={() => setThemeOpen((v) => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+              padding: '4px 0', marginBottom: 4,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Palette size={14} style={{ color: 'var(--text-secondary)' }} />
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Thème</span>
+            </div>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{themes[currentTheme]?.label ?? currentTheme}</span>
+          </button>
+          {themeOpen && (
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginBottom: 8,
+            }}>
+              {allThemes.map((t) => {
+                const isDonorTheme = DONOR_THEMES.includes(t);
+                const locked = isDonorTheme && !isDonor;
+                const tc = themes[t];
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    title={locked ? `${tc.label} — réservé aux donateurs` : tc.label}
+                    disabled={locked}
+                    onClick={() => { if (!locked) { setTheme(t); setThemeOpen(false); } }}
+                    style={{
+                      position: 'relative',
+                      width: '100%', height: 28,
+                      borderRadius: 4,
+                      border: currentTheme === t ? '2px solid var(--accent)' : '1px solid var(--border-color)',
+                      background: tc.colors.background,
+                      cursor: locked ? 'not-allowed' : 'pointer',
+                      opacity: locked ? 0.45 : 1,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', inset: 0, display: 'flex',
+                    }}>
+                      <div style={{ flex: 1, background: tc.colors.sidebar }} />
+                      <div style={{ flex: 2, background: tc.colors.surface }} />
+                      <div style={{ width: 6, background: tc.colors.accent }} />
+                    </div>
+                    {locked && (
+                      <div style={{
+                        position: 'absolute', inset: 0, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10,
+                      }}>🔒</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <div
           style={{
             display: 'flex',

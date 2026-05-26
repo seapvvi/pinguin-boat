@@ -69,6 +69,24 @@ export async function botSearch(guildId: string, query: string): Promise<any> {
   return botFetch(`/internal/guilds/${guildId}/search?q=${encodeURIComponent(query)}`);
 }
 
+export async function createTicketChannel(guildId: string, params: {
+  userId: string;
+  channelName: string;
+  categoryId?: string | null;
+  modRoles?: string[];
+  reason?: string;
+}): Promise<{ channelId: string; channelMention: string }> {
+  const res = await botFetch(`/internal/guilds/${guildId}/create-channel`, {
+    method: 'POST',
+    body: params,
+  });
+  return res.data;
+}
+
+export async function leaveGuildViaBot(guildId: string): Promise<void> {
+  await botFetch(`/internal/guilds/${guildId}/leave`, { method: 'POST' });
+}
+
 export async function botEmergencyMode(guildId: string, enable: boolean): Promise<any> {
   return botFetch(`/internal/guilds/${guildId}/emergency`, {
     method: 'POST',

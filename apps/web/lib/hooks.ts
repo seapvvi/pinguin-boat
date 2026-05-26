@@ -16,6 +16,21 @@ export function useAutoRefresh(load: () => void | Promise<void>, intervalMs = 10
   }, [intervalMs, ...deps]);
 }
 
+/**
+ * Refresh silencieux — appelle load(true) pour signaler un background refresh.
+ * La fonction load doit accepter un booléen `silent` et ne pas appeler setLoading(true) si true.
+ */
+export function useBackgroundRefresh(load: (silent: boolean) => void | Promise<void>, intervalMs = 10000, deps: unknown[] = []) {
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
+  useEffect(() => {
+    const id = setInterval(() => void loadRef.current(true), intervalMs);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intervalMs, ...deps]);
+}
+
 /** Sauvegarde au démontage + toutes les `intervalMs` si `enabled` et données présentes. */
 export function useAutoSave<T>(
   data: T | null,

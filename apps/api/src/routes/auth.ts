@@ -157,20 +157,23 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.get('/me', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const user = await prisma.user.findUnique({
-      where: { id: request.user!.id },
-      select: {
-        id: true,
-        discordId: true,
-        username: true,
-        avatar: true,
-        email: true,
-        locale: true,
-        theme: true,
-        snowflakes: true,
-        createdAt: true,
-      },
-    });
+    const [user, donor] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: request.user!.id },
+        select: {
+          id: true,
+          discordId: true,
+          username: true,
+          avatar: true,
+          email: true,
+          locale: true,
+          theme: true,
+          snowflakes: true,
+          createdAt: true,
+        },
+      }),
+      prisma.donor.findUnique({ where: { userId: request.user!.discordId } }),
+    ]);
 
     if (!user) {
       return reply.status(401).send(error('Utilisateur introuvable'));
@@ -188,6 +191,7 @@ export async function authRoutes(app: FastifyInstance) {
       createdAt: user.createdAt,
       discriminator: '0',
       isOwner: user.discordId === config.DISCORD_OWNER_ID,
+      isDonor: !!donor,
     }));
   });
 

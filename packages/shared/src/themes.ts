@@ -246,8 +246,76 @@ export const themes: Record<ThemeName, ThemeConfig> = {
     },
     isDark: true,
   },
+  [ThemeName.GOLD]: {
+    name: ThemeName.GOLD,
+    label: '✨ Gold',
+    colors: {
+      background: '#1a1500',
+      surface: '#221c00',
+      surfaceAlt: '#2e2500',
+      border: '#3d3100',
+      text: '#f5d060',
+      textSecondary: '#a08a30',
+      accent: '#ffd700',
+      accentHover: '#ffe066',
+      success: '#a6e22e',
+      warning: '#f59e0b',
+      error: '#ef4444',
+      info: '#60a5fa',
+      sidebar: '#120f00',
+      sidebarActive: '#2e2500',
+      header: '#120f00',
+    },
+    isDark: true,
+  },
+  [ThemeName.AURORA]: {
+    name: ThemeName.AURORA,
+    label: '🌌 Aurora',
+    colors: {
+      background: '#0d0d1a',
+      surface: '#12122b',
+      surfaceAlt: '#1a1a3a',
+      border: '#2a2a4a',
+      text: '#e0e8ff',
+      textSecondary: '#7080b0',
+      accent: '#a78bfa',
+      accentHover: '#34d399',
+      success: '#34d399',
+      warning: '#fbbf24',
+      error: '#f87171',
+      info: '#60a5fa',
+      sidebar: '#08081a',
+      sidebarActive: '#1a1a3a',
+      header: '#08081a',
+    },
+    isDark: true,
+  },
+  [ThemeName.CRIMSON]: {
+    name: ThemeName.CRIMSON,
+    label: '🩸 Crimson',
+    colors: {
+      background: '#130808',
+      surface: '#1c0a0a',
+      surfaceAlt: '#2a0e0e',
+      border: '#3d1515',
+      text: '#fce4e4',
+      textSecondary: '#a06060',
+      accent: '#dc2626',
+      accentHover: '#ef4444',
+      success: '#4ade80',
+      warning: '#fbbf24',
+      error: '#ff6b6b',
+      info: '#60a5fa',
+      sidebar: '#0d0505',
+      sidebarActive: '#2a0e0e',
+      header: '#0d0505',
+    },
+    isDark: true,
+  },
 };
 
+export const DONOR_THEMES: ThemeName[] = [ThemeName.GOLD, ThemeName.AURORA, ThemeName.CRIMSON];
+
 export function getTheme(themeName: ThemeName): ThemeConfig {
-  return themes[themeName];
+  return themes[themeName] ?? themes[ThemeName.DARK];
 }

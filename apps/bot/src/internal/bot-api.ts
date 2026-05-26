@@ -173,6 +173,52 @@ export function startInternalBotApi(client: Client): void {
         return;
       }
 
+      // POST /internal/guilds/:guildId/create-channel — create ticket channel from bot context
+      if (path === `/internal/guilds/${guildId}/create-channel` && req.method === 'POST') {
+        const body = await readBody(req);
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) { res.statusCode = 404; res.end(JSON.stringify({ error: 'Guild not found' })); return; }
+        try {
+          const { ChannelType, PermissionFlagsBits: PFB } = await import('discord.js');
+          const overwrites: any[] = [
+            { id: guild.roles.everyone.id, deny: [PFB.ViewChannel] },
+            { id: body.userId, allow: [PFB.ViewChannel, PFB.SendMessages, PFB.ReadMessageHistory] },
+            { id: client.user!.id, allow: [PFB.ViewChannel, PFB.SendMessages, PFB.ReadMessageHistory, PFB.ManageChannels] },
+          ];
+          if (Array.isArray(body.modRoles)) {
+            for (const roleId of body.modRoles) {
+              overwrites.push({ id: roleId, allow: [PFB.ViewChannel, PFB.SendMessages, PFB.ReadMessageHistory] });
+            }
+          }
+          const channel = await guild.channels.create({
+            name: body.channelName ?? `ticket-${body.userId}`,
+            type: ChannelType.GuildText,
+            parent: body.categoryId ?? undefined,
+            permissionOverwrites: overwrites,
+            reason: body.reason ?? 'Ticket ouvert',
+          });
+          res.end(JSON.stringify({ success: true, data: { channelId: channel.id, channelMention: channel.toString() } }));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
+      // POST /internal/guilds/:guildId/leave — bot leaves the guild
+      if (path === `/internal/guilds/${guildId}/leave` && req.method === 'POST') {
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) { res.statusCode = 404; res.end(JSON.stringify({ error: 'Guild not found' })); return; }
+        try {
+          await guild.leave();
+          res.end(JSON.stringify({ success: true }));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
       // POST /internal/guilds/:guildId/emergency — lock/unlock guild
       if (path === `/internal/guilds/${guildId}/emergency` && req.method === 'POST') {
         const body = await readBody(req);

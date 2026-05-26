@@ -13,7 +13,7 @@ import { LogEventType } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
-import { useAutoRefresh, useAutoSave } from '@/lib/hooks';
+import { useBackgroundRefresh, useAutoSave } from '@/lib/hooks';
 
 const eventCategories: { label: string; icon: React.ReactNode; events: { value: LogEventType; label: string }[] }[] = [
   {
@@ -78,7 +78,7 @@ export default function LogsPage() {
   const [local, setLocal] = useState<LogSettings | null>(null);
   const [ignoreChannelsInput, setIgnoreChannelsInput] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     setError(null);
     try {
       const res = await api.get<{ data: LogSettings & { enabledEvents?: LogEventType[] } }>(`/api/guilds/${guildId}/logs`);
@@ -96,14 +96,14 @@ export default function LogsPage() {
         setLocal({ ...defaultLogs });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur de chargement');
+      if (!silent) setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [guildId]);
 
   useEffect(() => { load(); }, [load]);
-  useAutoRefresh(load, 10000, [guildId]);
+  useBackgroundRefresh(load, 10000, [guildId]);
 
   const saveLogs = useCallback(async (data: LogSettings) => {
     await api.put(`/api/guilds/${guildId}/logs`, {

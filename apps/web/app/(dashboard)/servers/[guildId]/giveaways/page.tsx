@@ -4,12 +4,12 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   Gift, Plus, Trophy, Users, Clock, BarChart3,
-  ChevronLeft, ChevronRight, RotateCcw, XCircle
+  ChevronLeft, ChevronRight, RotateCcw, XCircle, Trash2
 } from 'lucide-react';
 import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGiveaways, fetchGuildChannels, api } from '@/lib/api';
-import { useAutoRefresh } from '@/lib/hooks';
+import { useBackgroundRefresh } from '@/lib/hooks';
 import { formatDate } from '@/lib/utils';
 import type { APIResponse, Giveaway } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -55,8 +55,8 @@ export default function GiveawaysPage() {
   const [statsData, setStatsData] = useState<GiveawayStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  const load = async (p: number) => {
-    setLoading(true);
+  const load = async (p: number, silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await fetchGiveaways(guildId, { page: String(p), limit: '15' });
@@ -65,14 +65,14 @@ export default function GiveawaysPage() {
         setTotalPages(res.data.pagination.totalPages);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur de chargement');
+      if (!silent) setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => { load(page); }, [guildId, page]);
-  useAutoRefresh(() => load(page), 10000, [guildId, page]);
+  useBackgroundRefresh((silent) => load(page, silent), 10000, [guildId, page]);
 
   useEffect(() => {
     if (createOpen) {
@@ -126,6 +126,8 @@ export default function GiveawaysPage() {
         await api.put(`/api/guilds/${guildId}/giveaways/${id}`, { status: 'CANCELLED' });
       } else if (action === 'reroll') {
         await api.put(`/api/guilds/${guildId}/giveaways/${id}`, { status: 'ENDED', reroll: true });
+      } else if (action === 'delete') {
+        await api.delete(`/api/guilds/${guildId}/giveaways/${id}`);
       }
       load(page);
     } catch (e: any) {
@@ -159,6 +161,7 @@ export default function GiveawaysPage() {
           )}
           {g.status === 'RUNNING' && <Button variant="ghost" size="sm" onClick={() => handleAction(g.id, 'end')}><Trophy size={12} /></Button>}
           {g.status !== 'CANCELLED' && g.status !== 'ENDED' && <Button variant="ghost" size="sm" onClick={() => handleAction(g.id, 'cancel')}><XCircle size={12} /></Button>}
+          <Button variant="ghost" size="sm" onClick={() => handleAction(g.id, 'delete')} title="Supprimer"><Trash2 size={12} /></Button>
         </div>
       ),
     },

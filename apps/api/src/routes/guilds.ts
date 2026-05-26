@@ -5,7 +5,7 @@ import { authenticate } from '../middleware/auth';
 import { requireGuildAdmin } from '../middleware/guild-auth';
 import { validateParams, validateBody } from '../middleware/validate';
 import { success, error, sanitizeError } from '../utils/response';
-import { getQueueState, botControl, botPlay, notifyModuleChange } from '../services/bot-proxy';
+import { getQueueState, botControl, botPlay, notifyModuleChange, createTicketChannel, leaveGuildViaBot } from '../services/bot-proxy';
 import { closeTicketWithTranscript } from '../services/ticket-close';
 import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, getGuildMember, getBotUserId, PERM_VIEW_CHANNEL, PERM_SEND_MESSAGES, PERM_READ_HISTORY, PERM_MANAGE_CHANNELS, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
@@ -1280,6 +1280,17 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
+  app.delete('/:guildId/giveaways/:id', { preHandler: [authenticate, validateParams(giveawayIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, id } = request.params as any;
+      const g = await prisma.giveaway.findFirst({ where: { id, guildId } });
+      if (!g) return reply.status(404).send(error('Giveaway introuvable'));
+      await prisma.giveawayEntry.deleteMany({ where: { giveawayId: id } });
+      await prisma.giveaway.delete({ where: { id } });
+      reply.send(success(null, 'Giveaway supprimé'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
   app.get('/:guildId/polls', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
@@ -1983,12 +1994,7 @@ export async function guildRoutes(app: FastifyInstance) {
   app.post('/:guildId/settings/leave', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
-      const config = getConfig();
-      const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
-      });
-      if (!res.ok) return reply.status(500).send(error('Impossible de quitter le serveur'));
+      await leaveGuildViaBot(guildId);
       await prisma.guild.update({ where: { id: guildId }, data: { botPresent: false } });
       reply.send(success(null, 'Bot retiré du serveur'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }

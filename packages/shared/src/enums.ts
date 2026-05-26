@@ -89,6 +89,9 @@ export enum ThemeName {
   TOKYO_NIGHT = 'TOKYO_NIGHT',
   ROSE_PINE = 'ROSE_PINE',
   MONOKAI = 'MONOKAI',
+  GOLD = 'GOLD',
+  AURORA = 'AURORA',
+  CRIMSON = 'CRIMSON',
 }
 
 export enum AuditAction {

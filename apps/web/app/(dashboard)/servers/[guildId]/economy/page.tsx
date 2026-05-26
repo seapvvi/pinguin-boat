@@ -15,7 +15,7 @@ import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
-import { useAutoRefresh, useAutoSave } from '@/lib/hooks';
+import { useBackgroundRefresh, useAutoSave } from '@/lib/hooks';
 
 interface EconomyEntry {
   rank: number;
@@ -38,8 +38,8 @@ export default function EconomyPage() {
   const [shopItems, setShopItems] = useState<Array<{ id?: string; name: string; description?: string; price: number; roleId?: string }>>([]);
   const [newItem, setNewItem] = useState({ name: '', description: '', price: 100, roleId: '' });
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const [settingsRes, lbRes] = await Promise.all([
@@ -54,14 +54,14 @@ export default function EconomyPage() {
       }
       if (lbRes.success && lbRes.data) setLeaderboard(lbRes.data.entries ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur de chargement');
+      if (!silent) setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => { load(); }, [guildId]);
-  useAutoRefresh(load, 10000, [guildId]);
+  useBackgroundRefresh(load, 10000, [guildId]);
 
   const saveEconomy = async (data: EconomySettings) => {
     const res = await updateGuildSettings(guildId, { economy: { ...data, shopItems } });

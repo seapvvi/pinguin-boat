@@ -30,6 +30,7 @@ export interface User {
   globalName?: string;
   locale?: string;
   isOwner: boolean;
+  isDonor?: boolean;
   premium?: boolean;
 }
 

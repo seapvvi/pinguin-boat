@@ -13,7 +13,7 @@ import { formatDate } from '@/lib/utils';
 import type { Poll } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
-import { useAutoRefresh } from '@/lib/hooks';
+import { useBackgroundRefresh } from '@/lib/hooks';
 
 export default function PollsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -29,8 +29,8 @@ export default function PollsPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  const load = async (p: number) => {
-    setLoading(true);
+  const load = async (p: number, silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await fetchPolls(guildId, { page: String(p), limit: '15' });
@@ -39,14 +39,14 @@ export default function PollsPage() {
         setTotalPages(res.data.pagination.totalPages);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur de chargement');
+      if (!silent) setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => { load(page); }, [guildId, page]);
-  useAutoRefresh(() => load(page), 8000, [guildId, page]);
+  useBackgroundRefresh((silent) => load(page, silent), 8000, [guildId, page]);
 
   useEffect(() => {
     if (createOpen) {
