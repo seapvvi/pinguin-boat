@@ -16,6 +16,18 @@ const config = getConfig();
 const ownerPre = { preHandler: [authenticate, requireOwner] };
 
 export async function ownerRoutes(app: FastifyInstance) {
+  app.post('/verify-password', { preHandler: [authenticate, requireOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const body = request.body as { password?: string };
+      const expected = config.OWNER_PASSWORD;
+      if (!body.password || body.password !== expected) {
+        reply.status(401).send({ success: false, message: 'Mot de passe incorrect.' });
+        return;
+      }
+      reply.send({ success: true });
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
   app.get('/stats', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const stats = await getGlobalStats();

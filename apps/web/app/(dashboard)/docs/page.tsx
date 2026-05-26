@@ -197,7 +197,7 @@ const SECTIONS: Section[] = [
     description: 'Permettez aux membres de soumettre des suggestions via le bot.',
     features: [
       'Salon de suggestions configurable.',
-      'Soumission via commande, vote communautaire avec 👍/👎.',
+      'Soumission via commande, vote communautaire avec reactions (+1 / -1).',
       'Gestion des suggestions : approuver, refuser, commenter (staff).',
       'Notifications optionnelles à l\'auteur lors d\'une décision.',
     ],
@@ -281,7 +281,7 @@ const SECTIONS: Section[] = [
     features: [
       'Thèmes dashboard exclusifs : Gold, Aurora, Crimson, Synthwave, Everforest, Cobalt2, et plus à venir.',
       'Flocons de neige animés dans la sidebar.',
-      'Badge 💙 Donateur sur votre profil.',
+      'Badge Donateur sur votre profil (icone coeur).',
       'Rôle exclusif + salon privé sur le serveur Discord officiel.',
       'Accès anticipé aux nouvelles fonctionnalités en bêta.',
       'Vote prioritaire sur la roadmap du projet.',

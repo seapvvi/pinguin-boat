@@ -368,7 +368,7 @@ export default function OwnerDashboardPage() {
             {donors.map((d) => (
               <div key={d.id} className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] border border-[var(--border-color)]">
                 <div className="flex items-center gap-3">
-                  {d.avatarUrl ? <img src={d.avatarUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-[var(--bg-surface)] flex items-center justify-center text-sm">💙</div>}
+                  {d.avatarUrl ? <img src={d.avatarUrl} alt="" className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-[var(--bg-surface)] flex items-center justify-center"><Heart size={14} className="text-[var(--accent)]" /></div>}
                   <div>
                     <p className="text-sm font-medium text-[var(--text-primary)]">{d.username}</p>
                     <p className="text-xs text-[var(--text-secondary)]">{d.amount.toFixed(2)} € · ID: {d.userId}</p>

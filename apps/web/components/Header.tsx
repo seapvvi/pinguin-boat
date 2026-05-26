@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Avatar } from '@pinguin/ui';
-import { Menu, LogOut } from 'lucide-react';
+import { Menu, LogOut, Heart } from 'lucide-react';
 import ThemeSelector from './ThemeSelector';
 import ServerSelector from './ServerSelector';
 import { getAvatarUrl } from '@/lib/utils';
@@ -67,7 +67,9 @@ export default function Header({ user, onMenuToggle, onLogout, guildId }: Header
             >
               Bienvenue, {user.username}
               {isDonor && (
-                <span title="Donateur" style={{ fontSize: 16, lineHeight: 1 }}>💙</span>
+                <span title="Donateur" style={{ display: 'flex', alignItems: 'center', color: 'var(--accent)' }}>
+                  <Heart size={14} />
+                </span>
               )}
             </span>
           </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Heart, ExternalLink, Palette, MessageCircle, Star, Rocket,
-  Vote, Brush, Shield, Megaphone
+  Vote, Brush, Shield, Megaphone, Users
 } from 'lucide-react';
 import { Card, Skeleton, Button } from '@pinguin/ui';
 import { api } from '@/lib/api';
@@ -48,11 +48,11 @@ export default function SupportPage() {
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 max-w-3xl mx-auto space-y-6">
       <div className="text-center space-y-3">
         <Heart className="w-10 h-10 mx-auto text-[var(--accent)]" />
-        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Soutenir Pinguin Boat 🐧</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Soutenir Pinguin Boat</h1>
         <p className="text-sm text-[var(--text-secondary)] max-w-lg mx-auto">
           Pinguin Boat est un projet 100% open source. Vos dons couvrent directement l&apos;hébergement du serveur
           et me permettent de consacrer plus de temps au développement de nouvelles fonctionnalités.
-          Chaque contribution compte, même la plus petite. Merci du fond du cœur. 💙
+          Chaque contribution compte, même la plus petite. Merci du fond du cœur.
         </p>
         <button type="button" onClick={() => setShowPopup(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
           <Button>
@@ -84,7 +84,10 @@ export default function SupportPage() {
       </Card>
 
       <Card className="p-4">
-        <h2 className="text-lg font-medium text-[var(--text-primary)] mb-1">Ils soutiennent le projet ❤️</h2>
+        <div className="flex items-center gap-2 mb-1">
+          <Heart size={16} className="text-[var(--accent)]" />
+          <h2 className="text-lg font-medium text-[var(--text-primary)]">Ils soutiennent le projet</h2>
+        </div>
         <p className="text-xs text-[var(--text-secondary)] mb-4">
           Merci à toutes ces personnes qui rendent Pinguin Boat possible.
         </p>
@@ -100,7 +103,7 @@ export default function SupportPage() {
                 className="flex items-center gap-3 p-3 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-surface-alt)]"
               >
                 <div className="w-10 h-10 rounded-full bg-[var(--bg-surface)] flex items-center justify-center text-lg shrink-0">
-                  {d.avatarUrl ? <img src={d.avatarUrl} alt="" className="w-10 h-10 rounded-full" /> : '💙'}
+                  {d.avatarUrl ? <img src={d.avatarUrl} alt="" className="w-10 h-10 rounded-full" /> : <Heart size={18} className="text-[var(--accent)]" />}
                 </div>
                 <div className="min-w-0">
                   <p className="font-medium text-[var(--text-primary)] truncate">{d.username}</p>

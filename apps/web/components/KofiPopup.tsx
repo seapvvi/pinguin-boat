@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Heart, Pin } from 'lucide-react';
 
 const KOFI_URL = 'https://ko-fi.com/pvvi';
 const DELAY_MS = 3000;
@@ -53,7 +53,7 @@ export default function KofiPopup({ onClose }: KofiPopupProps) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 24 }}>💙</span>
+          <Heart size={22} style={{ color: 'var(--accent)', flexShrink: 0 }} />
           <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
             Avant de continuer
           </h2>
@@ -70,7 +70,9 @@ export default function KofiPopup({ onClose }: KofiPopupProps) {
             lineHeight: 1.6,
           }}
         >
-          <p style={{ margin: '0 0 8px 0', fontWeight: 500 }}>📌 Important pour débloquer vos privilèges :</p>
+          <p style={{ margin: '0 0 8px 0', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Pin size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} /> Important pour débloquer vos privilèges :
+          </p>
           <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)' }}>
             <li>La somme minimale pour obtenir les privilèges est de <strong style={{ color: 'var(--text-primary)' }}>5 €</strong>.</li>
             <li style={{ marginTop: 4 }}>

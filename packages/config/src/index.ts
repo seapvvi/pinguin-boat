@@ -56,6 +56,9 @@ const envSchema = z.object({
   DEPLOY_BACKUPS_PATH: z.string().default('/opt/pinguinboat/backups'),
   DEPLOY_CURRENT_LINK: z.string().default('/opt/pinguinboat/current'),
 
+  // Owner
+  OWNER_PASSWORD: z.string().min(8),
+
   // Feature Flags
   ALPHA_ALL_FREE: z
     .string()

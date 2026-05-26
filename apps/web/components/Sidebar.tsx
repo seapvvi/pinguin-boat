@@ -79,6 +79,18 @@ const categoryDefs: CategoryDef[] = [
     ],
   },
   {
+    label: 'Ressources',
+    items: [
+      { label: 'Documentation', icon: <BookOpen size={18} />, href: '/docs' },
+    ],
+  },
+  {
+    label: 'Soutien',
+    items: [
+      { label: 'Soutenir', icon: <Crown size={18} />, href: '/soutien', guildPage: true },
+    ],
+  },
+  {
     label: 'Gestion',
     items: [
       { label: 'Modération', icon: <Shield size={18} />, href: '/moderation', guildPage: true },
@@ -105,18 +117,6 @@ const categoryDefs: CategoryDef[] = [
       { label: 'Auto-rôles', icon: <UserPlus size={18} />, href: '/autoroles', guildPage: true },
       { label: 'Embeds', icon: <FileText size={18} />, href: '/embeds', guildPage: true },
       { label: 'Paramètres', icon: <Settings size={18} />, href: '/settings', guildPage: true },
-    ],
-  },
-  {
-    label: 'Ressources',
-    items: [
-      { label: 'Documentation', icon: <BookOpen size={18} />, href: '/docs' },
-    ],
-  },
-  {
-    label: 'Soutien',
-    items: [
-      { label: 'Soutenir', icon: <Crown size={18} />, href: '/soutien', guildPage: true },
     ],
   },
 ];

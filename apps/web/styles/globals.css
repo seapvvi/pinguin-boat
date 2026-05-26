@@ -90,3 +90,66 @@
     background: var(--text-secondary);
   }
 }
+
+@layer components {
+  /* Boutons interactifs globaux — hover thème-aware */
+  button:not([disabled]),
+  [role="button"]:not([disabled]) {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  }
+
+  /* Liens de navigation de la sidebar */
+  .sidebar-link {
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .sidebar-link:hover {
+    background-color: var(--bg-surface-alt);
+    color: var(--text-primary);
+  }
+  .sidebar-link.active {
+    background-color: var(--bg-sidebar-active);
+    color: var(--text-primary);
+  }
+
+  /* Boutons icon (icône seule) */
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    transition: background-color 0.15s ease, color 0.15s ease;
+    padding: 6px;
+  }
+  .btn-icon:hover {
+    background-color: var(--bg-surface-alt);
+    color: var(--text-primary);
+  }
+
+  /* Cartes cliquables */
+  .card-interactive {
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    cursor: pointer;
+  }
+  .card-interactive:hover {
+    border-color: var(--accent);
+    background-color: var(--bg-surface-alt);
+  }
+
+  /* Inputs focus */
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
+  }
+
+  /* Liens généraux */
+  a {
+    transition: color 0.15s ease, opacity 0.15s ease;
+  }
+}

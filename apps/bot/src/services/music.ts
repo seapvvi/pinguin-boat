@@ -2,10 +2,32 @@ import { GuildMember, VoiceChannel, TextChannel } from 'discord.js';
 import {
   joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus,
   VoiceConnectionStatus, entersState, NoSubscriberBehavior,
-  AudioPlayer, VoiceConnection,
+  AudioPlayer, VoiceConnection, StreamType,
 } from '@discordjs/voice';
 import type { TrackInfo } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
+
+async function createStreamFromUrl(url: string): Promise<{ stream: any; type: StreamType }> {
+  // Try ytdl-core first (most reliable for YouTube)
+  try {
+    const ytdl = await import('@distube/ytdl-core');
+    if (ytdl.default.validateURL(url)) {
+      const stream = ytdl.default(url, {
+        filter: 'audioonly',
+        quality: 'highestaudio',
+        highWaterMark: 1 << 25,
+      });
+      return { stream, type: StreamType.Arbitrary };
+    }
+  } catch (e: any) {
+    console.warn('[Music] ytdl-core failed, trying play-dl:', e.message);
+  }
+
+  // Fallback to play-dl
+  const playdl = await import('play-dl');
+  const result = await playdl.stream(url, { quality: 2 });
+  return { stream: result.stream, type: result.type as unknown as StreamType };
+}
 
 export enum LoopMode {
   NONE = 'NONE',
@@ -101,11 +123,9 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
   const state = getState(guildId);
   if (state.destroyed || !state.connection) return;
 
-  const playdl = await import('play-dl');
-
-  let stream: Awaited<ReturnType<typeof playdl.stream>>;
+  let streamData: { stream: any; type: StreamType };
   try {
-    stream = await playdl.stream(track.url, { quality: 2 });
+    streamData = await createStreamFromUrl(track.url);
   } catch (streamErr: any) {
     console.error(`[Music] Stream error for "${track.title}":`, streamErr.message);
     playNext(guildId).catch(() => {});
@@ -113,8 +133,8 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
   }
 
   try {
-    const resource = createAudioResource(stream.stream, {
-      inputType: stream.type as any,
+    const resource = createAudioResource(streamData.stream, {
+      inputType: streamData.type,
       inlineVolume: true,
     });
     resource.volume?.setVolume(state.volume / 100);
@@ -122,6 +142,7 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
     state.player = player;
     state.connection.subscribe(player);
     player.play(resource);
+    console.log(`[Music] Now playing: "${track.title}" in guild ${guildId}`);
 
     prisma.musicHistoryEntry.create({
       data: {
@@ -145,17 +166,46 @@ export async function play(guildId: string, query: string, requester: GuildMembe
   if (!voiceChannel) throw new Error('Tu dois être dans un salon vocal.');
 
   const playdl = await import('play-dl');
-  const searchResult = await playdl.search(query, { limit: 1 });
-  if (!searchResult.length) throw new Error('Aucun résultat trouvé.');
-  const r = searchResult[0];
-  const track: TrackInfo = {
-    title: (r as any).title ?? 'Inconnu',
-    url: (r as any).url ?? r.url,
-    duration: (r as any).durationInSec ?? 0,
-    thumbnail: (r as any).thumbnails?.[0]?.url ?? (r as any).thumbnail ?? '',
-    author: r.channel?.name ?? 'Inconnu',
-    source: r.url.includes('youtube') || r.url.includes('youtu.be') ? 'YOUTUBE' : 'OTHER',
-  };
+
+  let trackUrl: string;
+  let track: TrackInfo;
+
+  // If direct YouTube URL, validate and get info directly
+  try {
+    const ytdl = await import('@distube/ytdl-core');
+    if (ytdl.default.validateURL(query)) {
+      const info = await ytdl.default.getInfo(query);
+      const details = info.videoDetails;
+      track = {
+        title: details.title ?? 'Inconnu',
+        url: details.video_url,
+        duration: parseInt(details.lengthSeconds, 10) || 0,
+        thumbnail: details.thumbnails?.[details.thumbnails.length - 1]?.url ?? '',
+        author: details.author?.name ?? 'Inconnu',
+        source: 'YOUTUBE',
+      };
+      trackUrl = details.video_url;
+    } else {
+      throw new Error('Not a direct URL');
+    }
+  } catch {
+    // Search via play-dl
+    const searchResult = await playdl.search(query, { limit: 1, source: { youtube: 'video' } });
+    if (!searchResult.length) throw new Error('Aucun résultat trouvé.');
+    const r = searchResult[0];
+    trackUrl = (r as any).url ?? r.url ?? '';
+    if (!trackUrl) throw new Error('URL introuvable dans le résultat de recherche.');
+    track = {
+      title: (r as any).title ?? 'Inconnu',
+      url: trackUrl,
+      duration: (r as any).durationInSec ?? 0,
+      thumbnail: (r as any).thumbnails?.[0]?.url ?? (r as any).thumbnail ?? '',
+      author: r.channel?.name ?? 'Inconnu',
+      source: trackUrl.includes('youtube') || trackUrl.includes('youtu.be') ? 'YOUTUBE' : 'OTHER',
+    };
+  }
+
+  console.log(`[Music] Resolved track: "${track.title}" -> ${track.url}`);
 
   const botMember = voiceChannel.guild.members.me!;
   if (!voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
