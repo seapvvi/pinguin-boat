@@ -11,7 +11,7 @@ import { ErrorMessage } from '@pinguin/ui';
 import { fetchGiveaways, fetchGuildChannels, api } from '@/lib/api';
 import { useAutoRefresh } from '@/lib/hooks';
 import { formatDate } from '@/lib/utils';
-import type { Giveaway } from '@pinguin/shared';
+import type { APIResponse, Giveaway } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 
