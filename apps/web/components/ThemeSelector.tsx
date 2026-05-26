@@ -1,10 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ThemeName, themes, DONOR_THEMES } from '@pinguin/shared';
+import { ThemeName, themes } from '@pinguin/shared';
 import { useTheme } from '@pinguin/ui';
 import { Palette, Check, ChevronDown, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
+
+const DONOR_THEMES: ThemeName[] = Object.values(ThemeName).filter(
+  (t) => t !== ThemeName.OLED && t !== ThemeName.DARK && t !== ThemeName.LIGHT
+);
 
 const themeLabels: Record<ThemeName, string> = {
   [ThemeName.OLED]: 'OLED',

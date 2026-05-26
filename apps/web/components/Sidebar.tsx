@@ -30,6 +30,8 @@ import {
   X,
   Snowflake,
   LogOut,
+  BookOpen,
+  Lock,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -106,6 +108,12 @@ const categoryDefs: CategoryDef[] = [
     ],
   },
   {
+    label: 'Ressources',
+    items: [
+      { label: 'Documentation', icon: <BookOpen size={18} />, href: '/docs' },
+    ],
+  },
+  {
     label: 'Soutien',
     items: [
       { label: 'Soutenir', icon: <Crown size={18} />, href: '/soutien', guildPage: true },
@@ -115,6 +123,7 @@ const categoryDefs: CategoryDef[] = [
 
 export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProps) {
   const pathname = usePathname();
+  const isDonor = user?.isDonor ?? false;
   const { enabled: snowflakesEnabled, toggle: toggleSnowflakes } = useSnowflakes();
 
   const guildId = pathname.match(/^\/servers\/([^/]+)/)?.[1] ?? null;
@@ -314,8 +323,17 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Snowflake size={14} style={{ color: 'var(--text-secondary)' }} />
             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Flocons</span>
+            {!isDonor && <Lock size={11} style={{ color: 'var(--text-secondary)', opacity: 0.6 }} />}
           </div>
-          <Toggle checked={snowflakesEnabled} onChange={toggleSnowflakes} />
+          <div
+            title={isDonor ? undefined : 'Réservé aux donateurs'}
+            style={{ opacity: isDonor ? 1 : 0.4, cursor: isDonor ? 'pointer' : 'not-allowed' }}
+          >
+            <Toggle
+              checked={snowflakesEnabled}
+              onChange={isDonor ? toggleSnowflakes : () => {}}
+            />
+          </div>
         </div>
 
         {user && (

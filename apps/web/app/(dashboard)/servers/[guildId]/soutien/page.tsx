@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, Skeleton, Button } from '@pinguin/ui';
 import { api } from '@/lib/api';
+import KofiPopup from '@/components/KofiPopup';
 
 interface Donor {
   id: string;
@@ -17,8 +18,6 @@ interface Donor {
   amount: number;
   message: string | null;
 }
-
-const DONATION_URL = process.env.NEXT_PUBLIC_DONATION_URL || 'https://ko-fi.com';
 
 const PERKS = [
   { icon: <Shield size={18} />, title: 'Rôle Donateur Discord', desc: 'Un rôle exclusif avec une couleur distinctive sur notre serveur Discord officiel.' },
@@ -34,6 +33,7 @@ const PERKS = [
 export default function SupportPage() {
   const [donors, setDonors] = useState<Donor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showPopup, setShowPopup] = useState(false);
 
   useEffect(() => {
     api.get<any>('/api/donors')
@@ -54,11 +54,12 @@ export default function SupportPage() {
           et me permettent de consacrer plus de temps au développement de nouvelles fonctionnalités.
           Chaque contribution compte, même la plus petite. Merci du fond du cœur. 💙
         </p>
-        <a href={DONATION_URL} target="_blank" rel="noopener noreferrer">
+        <button type="button" onClick={() => setShowPopup(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
           <Button>
             <ExternalLink size={14} className="mr-2" /> Faire un don
           </Button>
-        </a>
+        </button>
+        {showPopup && <KofiPopup onClose={() => setShowPopup(false)} />}
         <p className="text-xs text-[var(--text-secondary)]">
           Tout don de 5€ ou plus débloque immédiatement tous les avantages ci-dessous.
         </p>

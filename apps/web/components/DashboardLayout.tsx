@@ -109,6 +109,60 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
         >
           {children}
         </main>
+
+        <footer
+          style={{
+            borderTop: '1px solid var(--border-color)',
+            backgroundColor: 'var(--bg-surface)',
+            padding: '8px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 8,
+            fontSize: 12,
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <span>
+            © 2026 Pinguin Empire by{' '}
+            <a
+              href="https://e-z.bio/pvi"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--accent)', textDecoration: 'none' }}
+              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+            >
+              pvvi
+            </a>
+          </span>
+          <a
+            href="https://discord.gg/EJHhcYkXMQ"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px',
+              border: '1px solid var(--border-color)',
+              borderRadius: 4,
+              color: 'var(--text-secondary)',
+              textDecoration: 'none',
+              fontSize: 12,
+              transition: 'border-color 0.15s, color 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent)';
+              e.currentTarget.style.color = 'var(--accent)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-color)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            Rejoindre Pinguin Empire
+          </a>
+        </footer>
       </div>
     </div>
   );
