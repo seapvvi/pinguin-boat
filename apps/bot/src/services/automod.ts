@@ -159,8 +159,10 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
 
   await message.delete().catch(() => {});
 
-  if (message.channel.isTextBased()) {
-    message.channel.send({ content: `<@${message.author.id}> ⚠️ Ce message a été supprimé (${reason}).` })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ch = message.channel as any;
+  if (typeof ch.send === 'function') {
+    (ch.send({ content: `<@${message.author.id}> ⚠️ Ce message a été supprimé (${reason}).` }) as Promise<import('discord.js').Message>)
       .then((warn) => { setTimeout(() => warn.delete().catch(() => {}), 5000); })
       .catch(() => {});
   }
