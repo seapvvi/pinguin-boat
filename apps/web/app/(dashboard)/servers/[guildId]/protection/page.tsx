@@ -221,7 +221,7 @@ export default function ProtectionPage() {
                 guildId={guildId}
                 label="Rôle après vérification captcha"
                 value={(local as { verifiedRoleId?: string }).verifiedRoleId ?? ''}
-                onChange={(id) => update('verifiedRoleId', id || null)}
+                onChange={(id) => update('captchaVerification', local.captchaVerification)}
               />
             </div>
           )}
