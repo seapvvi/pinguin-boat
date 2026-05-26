@@ -12,7 +12,10 @@ export function TicketSettingsForm({ guildId }: { guildId: string }) {
 
   useEffect(() => {
     api.get<{ data: Record<string, unknown> }>(`/api/guilds/${guildId}/tickets/settings`)
-      .then((res) => { if (res.success && res.data) setSettings(res.data as Record<string, unknown>); })
+      .then((res) => {
+        const payload = (res as any)?.data as Record<string, unknown> | undefined;
+        if (payload) setSettings(payload);
+      })
       .finally(() => setLoading(false));
   }, [guildId]);
 
