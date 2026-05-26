@@ -119,7 +119,7 @@ export default function OwnerDashboardPage() {
     setChangelogsLoading(true);
     try {
       const res = await api.get<any>('/api/owner/changelogs');
-      setChangelogs((res as any)?.data?.changelogs ?? []);
+      setChangelogs((res as any)?.data?.entries ?? (res as any)?.data?.changelogs ?? []);
     } catch { } finally { setChangelogsLoading(false); }
   }, []);
 

@@ -280,13 +280,50 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.post('/changelogs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const body = request.body as any;
-      if (!body.title || !body.content || !body.version)
-        return reply.status(400).send(error('Titre, contenu et version requis'));
+      if (!body.title || !body.content)
+        return reply.status(400).send(error('Titre et contenu requis'));
       const entry = await prisma.changelog.create({
-        data: { title: body.title, content: body.content, version: body.version, authorId: request.user!.id },
+        data: {
+          title: body.title,
+          content: body.content,
+          version: body.version ?? null,
+          published: body.published ?? true,
+          pinned: body.pinned ?? false,
+          authorId: request.user!.id,
+        },
       });
       await logOwnerAction(request, 'CHANGELOG_PUBLISH', { version: body.version, title: body.title });
       reply.status(201).send(success(entry, 'Changelog publié'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.patch('/changelogs/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { id } = request.params as any;
+      const body = request.body as any;
+      const existing = await prisma.changelog.findUnique({ where: { id } });
+      if (!existing) return reply.status(404).send(error('Changelog introuvable'));
+      const updated = await prisma.changelog.update({
+        where: { id },
+        data: {
+          title: body.title ?? existing.title,
+          content: body.content ?? existing.content,
+          version: body.version !== undefined ? body.version : existing.version,
+          published: body.published !== undefined ? body.published : existing.published,
+          pinned: body.pinned !== undefined ? body.pinned : existing.pinned,
+        },
+      });
+      reply.send(success(updated, 'Changelog mis à jour'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.delete('/changelogs/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { id } = request.params as any;
+      const existing = await prisma.changelog.findUnique({ where: { id } });
+      if (!existing) return reply.status(404).send(error('Changelog introuvable'));
+      await prisma.changelog.delete({ where: { id } });
+      reply.send(success(null, 'Changelog supprimé'));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
@@ -456,7 +493,7 @@ export async function ownerRoutes(app: FastifyInstance) {
   // --- Donors ---
   app.get('/donors', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const donors = await prisma.donor.findMany({ orderBy: { amount: 'desc' } });
+      const donors = await prisma.donor.findMany({ orderBy: { donatedAt: 'desc' } });
       reply.send(success({ donors }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
@@ -478,22 +515,28 @@ export async function ownerRoutes(app: FastifyInstance) {
       if (!body.userId || !body.username) {
         return reply.status(400).send(error('userId et username requis'));
       }
+      const amount = Number(body.amount ?? 0);
       const donor = await prisma.donor.upsert({
         where: { userId: body.userId },
         update: {
           username: body.username,
           avatarUrl: body.avatarUrl ?? null,
-          amount: body.amount ?? undefined,
+          amount,
           message: body.message ?? null,
           isPublic: body.isPublic ?? true,
+          isDonor: amount >= 5,
+          embedColor: body.embedColor ?? null,
+          donatedAt: new Date(),
         },
         create: {
           userId: body.userId,
           username: body.username,
           avatarUrl: body.avatarUrl ?? null,
-          amount: body.amount ?? 0,
+          amount,
           message: body.message ?? null,
           isPublic: body.isPublic ?? true,
+          isDonor: amount >= 5,
+          embedColor: body.embedColor ?? null,
         },
       });
       await logOwnerAction(request, 'DONOR_UPSERT', { userId: body.userId }, true);
@@ -501,11 +544,36 @@ export async function ownerRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
-  app.delete('/donors/:userId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.patch('/donors/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { userId } = request.params as any;
-      await prisma.donor.delete({ where: { userId } }).catch(() => null);
-      await logOwnerAction(request, 'DONOR_DELETE', { userId }, true);
+      const { id } = request.params as any;
+      const body = request.body as any;
+      const existing = await prisma.donor.findUnique({ where: { id } });
+      if (!existing) return reply.status(404).send(error('Donateur introuvable'));
+      const amount = body.amount !== undefined ? Number(body.amount) : existing.amount;
+      const updated = await prisma.donor.update({
+        where: { id },
+        data: {
+          username: body.username ?? existing.username,
+          avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : existing.avatarUrl,
+          amount,
+          message: body.message !== undefined ? body.message : existing.message,
+          isPublic: body.isPublic !== undefined ? body.isPublic : existing.isPublic,
+          isDonor: amount >= 5,
+          embedColor: body.embedColor !== undefined ? body.embedColor : existing.embedColor,
+        },
+      });
+      reply.send(success(updated, 'Donateur mis à jour'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.delete('/donors/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { id } = request.params as any;
+      const donor = await prisma.donor.findFirst({ where: { OR: [{ id }, { userId: id }] } });
+      if (!donor) return reply.status(404).send(error('Donateur introuvable'));
+      await prisma.donor.delete({ where: { id: donor.id } });
+      await logOwnerAction(request, 'DONOR_DELETE', { id }, true);
       reply.send(success(null, 'Donateur supprimé'));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
@@ -706,136 +774,6 @@ export async function ownerRoutes(app: FastifyInstance) {
     reply.header('Content-Type', 'application/sql');
     reply.header('Content-Disposition', 'attachment; filename="backup_latest.sql"');
     reply.send(content);
-  });
-
-  // --- Donors ---
-  app.get('/donors', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const donors = await prisma.donor.findMany({ orderBy: { donatedAt: 'desc' } });
-      reply.send(success({ donors }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/donors', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const body = request.body as any;
-      if (!body.userId || !body.username) return reply.status(400).send(error('userId et username requis'));
-      const donor = await prisma.donor.upsert({
-        where: { userId: body.userId },
-        update: {
-          username: body.username,
-          avatarUrl: body.avatarUrl ?? undefined,
-          amount: body.amount ?? 0,
-          message: body.message ?? undefined,
-          isPublic: body.isPublic ?? true,
-          isDonor: body.amount >= 5,
-          embedColor: body.embedColor ?? undefined,
-          donatedAt: new Date(),
-        },
-        create: {
-          userId: body.userId,
-          username: body.username,
-          avatarUrl: body.avatarUrl ?? null,
-          amount: body.amount ?? 0,
-          message: body.message ?? null,
-          isPublic: body.isPublic ?? true,
-          isDonor: (body.amount ?? 0) >= 5,
-          embedColor: body.embedColor ?? null,
-        },
-      });
-      await logOwnerAction(request, 'DONOR_UPSERT', { userId: body.userId });
-      reply.status(201).send(success(donor, 'Donateur enregistré'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.patch('/donors/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { id } = request.params as any;
-      const body = request.body as any;
-      const existing = await prisma.donor.findUnique({ where: { id } });
-      if (!existing) return reply.status(404).send(error('Donateur introuvable'));
-      const amount = body.amount !== undefined ? Number(body.amount) : existing.amount;
-      const updated = await prisma.donor.update({
-        where: { id },
-        data: {
-          username: body.username ?? existing.username,
-          avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : existing.avatarUrl,
-          amount,
-          message: body.message !== undefined ? body.message : existing.message,
-          isPublic: body.isPublic !== undefined ? body.isPublic : existing.isPublic,
-          isDonor: amount >= 5,
-          embedColor: body.embedColor !== undefined ? body.embedColor : existing.embedColor,
-        },
-      });
-      reply.send(success(updated, 'Donateur mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.delete('/donors/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { id } = request.params as any;
-      const existing = await prisma.donor.findUnique({ where: { id } });
-      if (!existing) return reply.status(404).send(error('Donateur introuvable'));
-      await prisma.donor.delete({ where: { id } });
-      await logOwnerAction(request, 'DONOR_DELETE', { id });
-      reply.send(success(null, 'Donateur supprimé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // --- Changelogs ---
-  app.get('/changelogs', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const changelogs = await prisma.changelog.findMany({ orderBy: { createdAt: 'desc' }, take: 50 });
-      reply.send(success({ changelogs }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/changelogs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const body = request.body as any;
-      if (!body.title || !body.content) return reply.status(400).send(error('title et content requis'));
-      const changelog = await prisma.changelog.create({
-        data: {
-          title: body.title,
-          content: body.content,
-          version: body.version ?? null,
-          published: body.published ?? true,
-          pinned: body.pinned ?? false,
-          authorId: request.user!.id,
-        },
-      });
-      reply.status(201).send(success(changelog, 'Changelog créé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.patch('/changelogs/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { id } = request.params as any;
-      const body = request.body as any;
-      const existing = await prisma.changelog.findUnique({ where: { id } });
-      if (!existing) return reply.status(404).send(error('Changelog introuvable'));
-      const updated = await prisma.changelog.update({
-        where: { id },
-        data: {
-          title: body.title ?? existing.title,
-          content: body.content ?? existing.content,
-          version: body.version !== undefined ? body.version : existing.version,
-          published: body.published !== undefined ? body.published : existing.published,
-          pinned: body.pinned !== undefined ? body.pinned : existing.pinned,
-        },
-      });
-      reply.send(success(updated, 'Changelog mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.delete('/changelogs/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { id } = request.params as any;
-      const existing = await prisma.changelog.findUnique({ where: { id } });
-      if (!existing) return reply.status(404).send(error('Changelog introuvable'));
-      await prisma.changelog.delete({ where: { id } });
-      reply.send(success(null, 'Changelog supprimé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Notes internes ---
