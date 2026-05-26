@@ -239,21 +239,21 @@ export default function GiveawaysPage() {
         ) : statsData ? (
           <div className="space-y-4 text-sm">
             <p><strong>Participants :</strong> {statsData.entryCount}</p>
-            {statsData.winners?.length > 0 && (
+            {(statsData.winners?.length ?? 0) > 0 && (
               <div>
                 <p className="font-medium mb-2">Gagnants</p>
                 <ul className="list-disc pl-4">
-                  {statsData.winners.map((w: { username: string; id: string }) => (
+                  {(statsData.winners ?? []).map((w: { username: string; id: string }) => (
                     <li key={w.id}>{w.username} <code className="text-xs">{w.id}</code></li>
                   ))}
                 </ul>
               </div>
             )}
-            {statsData.participants?.length > 0 && (
+            {(statsData.participants?.length ?? 0) > 0 && (
               <div>
                 <p className="font-medium mb-2">Liste des participants</p>
                 <ul className="max-h-48 overflow-y-auto space-y-1">
-                  {statsData.participants.map((p: { userId: string; username: string }) => (
+                  {(statsData.participants ?? []).map((p: { userId: string; username: string }) => (
                     <li key={p.userId} className="text-xs">{p.username}</li>
                   ))}
                 </ul>
