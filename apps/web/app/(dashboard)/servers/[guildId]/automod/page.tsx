@@ -39,7 +39,7 @@ export default function AutoModPage() {
     setError(null);
     try {
       const res = await api.get<{ data: AutoModSettings }>(`/api/guilds/${guildId}/automod`);
-      if (res.success && res.data) {
+      if (res?.data) {
         setSettings(res.data);
         setBannedWordsText(parseList(res.data.bannedWordsList).join(', '));
       }
