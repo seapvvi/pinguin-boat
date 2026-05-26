@@ -8,6 +8,7 @@ import { Card, Toggle, Input, Button, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { PermissionGate } from '@/components/PermissionGate';
 import { useAutoSave } from '@/lib/hooks';
 
 type AutoModSettings = Record<string, unknown>;
@@ -116,6 +117,7 @@ export default function AutoModPage() {
   const bool = (k: string) => !!settings[k];
 
   return (
+    <PermissionGate permission="manageMessages">
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
@@ -228,5 +230,6 @@ export default function AutoModPage() {
         {saving ? 'Enregistrement…' : saved ? '✓ Enregistré' : 'Enregistrer'}
       </Button>
     </motion.div>
+    </PermissionGate>
   );
 }

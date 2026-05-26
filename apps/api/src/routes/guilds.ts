@@ -670,6 +670,41 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
+  app.get('/:guildId/my-permissions', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const discordId = request.user!.discordId;
+      const member = await getGuildMember(guildId, discordId).catch(() => null);
+      if (!member) return reply.status(403).send(error('Membre introuvable dans ce serveur'));
+      const roles = await getGuildRoles(guildId).catch(() => [] as any[]);
+      const guild = await prisma.guild.findUnique({ where: { id: guildId } });
+      const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
+      let permissions = BigInt(0);
+      for (const role of roles) {
+        if (memberRoleIds.includes(role.id)) {
+          permissions |= BigInt(role.permissions ?? 0);
+        }
+      }
+      const isOwner = guild?.ownerId === discordId;
+      if (isOwner) permissions = BigInt('9007199254740991');
+      const ADMINISTRATOR = BigInt(0x8);
+      const MANAGE_GUILD = BigInt(0x20);
+      const MANAGE_ROLES = BigInt(0x10000000);
+      const MANAGE_MESSAGES = BigInt(0x2000);
+      const isAdmin = (permissions & ADMINISTRATOR) !== BigInt(0);
+      reply.send(success({
+        isOwner,
+        isAdmin,
+        permissions: permissions.toString(),
+        can: {
+          manageGuild: isAdmin || (permissions & MANAGE_GUILD) !== BigInt(0),
+          manageRoles: isAdmin || (permissions & MANAGE_ROLES) !== BigInt(0),
+          manageMessages: isAdmin || (permissions & MANAGE_MESSAGES) !== BigInt(0),
+        },
+      }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
   app.get('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
@@ -1371,9 +1406,13 @@ export async function guildRoutes(app: FastifyInstance) {
       const { guildId, id } = request.params as any;
       const p = await prisma.poll.findFirst({ where: { id, guildId } });
       if (!p) return reply.status(404).send(error('Sondage introuvable'));
+      await prisma.pollVote.deleteMany({ where: { pollId: id } });
       await prisma.poll.delete({ where: { id } });
       reply.send(success(null, 'Sondage supprimé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: any) {
+      console.error('[POLL DELETE ERROR]', err);
+      reply.status(500).send(error(sanitizeError(err)));
+    }
   });
 
   app.post('/:guildId/suggestions/send', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -2092,4 +2131,5 @@ export async function guildRoutes(app: FastifyInstance) {
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
+
 }

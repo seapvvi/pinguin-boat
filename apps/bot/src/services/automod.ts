@@ -159,6 +159,12 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
 
   await message.delete().catch(() => {});
 
+  if (message.channel.isTextBased()) {
+    message.channel.send({ content: `<@${message.author.id}> ⚠️ Ce message a été supprimé (${reason}).` })
+      .then((warn) => { setTimeout(() => warn.delete().catch(() => {}), 5000); })
+      .catch(() => {});
+  }
+
   const infKey = `${message.guild.id}:${message.author.id}`;
   const count = (infractions.get(infKey) ?? 0) + 1;
   infractions.set(infKey, count);

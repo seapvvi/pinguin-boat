@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Avatar } from '@pinguin/ui';
 import { Menu, LogOut } from 'lucide-react';
 import ThemeSelector from './ThemeSelector';
 import ServerSelector from './ServerSelector';
 import { getAvatarUrl } from '@/lib/utils';
+import { api } from '@/lib/api';
 
 interface HeaderProps {
   user: {
@@ -18,6 +20,18 @@ interface HeaderProps {
 }
 
 export default function Header({ user, onMenuToggle, onLogout, guildId }: HeaderProps) {
+  const [isDonor, setIsDonor] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    api.get<{ data: { donors: { userId: string }[] } }>('/api/donors')
+      .then((res) => {
+        const donors = (res as any)?.data?.donors as { userId: string }[] | undefined;
+        if (donors?.some((d) => d.userId === user.id)) setIsDonor(true);
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
   return (
     <header
       style={{
@@ -46,9 +60,15 @@ export default function Header({ user, onMenuToggle, onLogout, guildId }: Header
                 fontSize: 15,
                 fontWeight: 500,
                 color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
               Bienvenue, {user.username}
+              {isDonor && (
+                <span title="Donateur" style={{ fontSize: 16, lineHeight: 1 }}>💙</span>
+              )}
             </span>
           </div>
         )}

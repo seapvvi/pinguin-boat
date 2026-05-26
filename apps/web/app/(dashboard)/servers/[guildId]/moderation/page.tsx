@@ -15,6 +15,7 @@ import type { Column } from '@pinguin/ui';
 import { ModerationCaseType } from '@pinguin/shared';
 import { Trash2, Info } from 'lucide-react';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { PermissionGate } from '@/components/PermissionGate';
 
 const caseTypeLabels: Record<string, string> = {
   WARN: 'Avertissement',
@@ -186,6 +187,7 @@ export default function ModerationPage() {
         </div>
       </div>
 
+      <PermissionGate permission="manageMessages">
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="moderation" label="Modération" />
       </div>
@@ -267,6 +269,7 @@ export default function ModerationPage() {
           <Button variant="danger" size="sm" loading={deleting} onClick={handleDelete}>Supprimer</Button>
         </div>
       </Modal>
+      </PermissionGate>
     </motion.div>
   );
 }

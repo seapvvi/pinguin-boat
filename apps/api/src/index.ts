@@ -78,7 +78,8 @@ async function main() {
   app.get('/api/donors', async (_request, reply) => {
     try {
       const donors = await prisma.donor.findMany({
-        where: { isPublic: true },
+        where: { isPublic: true, isDonor: true },
+        select: { id: true, userId: true, username: true, avatarUrl: true, amount: true, message: true, donatedAt: true },
         orderBy: { amount: 'desc' },
         take: 50,
       });

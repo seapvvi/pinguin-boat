@@ -963,13 +963,14 @@ model Changelog {
   id        String   @id @default(cuid()) @map("id")
   title     String   @map("title")
   content   String   @map("content")
-  version   String   @map("version")
+  version   String?  @map("version")
   published Boolean  @default(true) @map("published")
-  authorId  String   @map("author_id")
+  pinned    Boolean  @default(false) @map("pinned")
+  authorId  String?  @map("author_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  author User @relation(fields: [authorId], references: [id])
+  author User? @relation(fields: [authorId], references: [id])
 
   @@index([createdAt])
   @@map("changelogs")
@@ -1145,15 +1146,27 @@ model TicketSettings {
 
 /// Donateur du projet
 model Donor {
-  id        String   @id @default(cuid()) @map("id")
-  userId    String   @unique @map("user_id")
-  username  String   @map("username")
-  avatarUrl String?  @map("avatar_url")
-  amount    Float    @default(0) @map("amount")
-  message   String?  @map("message")
-  isPublic  Boolean  @default(true) @map("is_public")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid()) @map("id")
+  userId     String   @unique @map("user_id")
+  username   String   @map("username")
+  avatarUrl  String?  @map("avatar_url")
+  amount     Float    @default(0) @map("amount")
+  message    String?  @map("message")
+  isPublic   Boolean  @default(true) @map("is_public")
+  isDonor    Boolean  @default(true) @map("is_donor")
+  embedColor String?  @map("embed_color")
+  donatedAt  DateTime @default(now()) @map("donated_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("donors")
+}
+
+/// Note interne du propriétaire
+model OwnerNote {
+  id        String   @id @default(cuid()) @map("id")
+  content   String   @default("") @map("content")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("owner_notes")
 }

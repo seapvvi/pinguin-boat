@@ -2,12 +2,13 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Shield, Swords, Sliders, Users, MessageSquare, Hash, AlertTriangle } from 'lucide-react';
-import { Card, Toggle, Input, Select, Button, Badge, Skeleton } from '@pinguin/ui';
+import { Swords, Sliders, Users, MessageSquare, Hash, AlertTriangle } from 'lucide-react';
+import { Card, Toggle, Input, Select, Button, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
 import type { GuildConfig, ProtectionSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { useAutoSave } from '@/lib/hooks';
 
@@ -96,24 +97,12 @@ export default function ProtectionPage() {
       </div>
       {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
 
+      <PermissionGate permission="manageGuild">
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="protection" label="Protection" />
       </div>
 
       <div className="space-y-6">
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Shield size={18} className="text-[var(--accent)]" />
-              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Protection</h2>
-            </div>
-            <Toggle checked={local.enabled} onChange={(v) => update('enabled', v)} />
-          </div>
-          <p className="text-xs text-[var(--text-secondary)]">
-            Activez ou désactivez l&apos;ensemble du module de protection.
-          </p>
-        </Card>
-
         <Card>
           <div className="flex items-center gap-2 mb-4">
             <Swords size={18} className="text-[var(--accent)]" />
@@ -220,8 +209,8 @@ export default function ProtectionPage() {
                 type="role"
                 guildId={guildId}
                 label="Rôle après vérification captcha"
-                value={(local as { verifiedRoleId?: string }).verifiedRoleId ?? ''}
-                onChange={(id) => update('captchaVerification', local.captchaVerification)}
+                value={(local as any).verifiedRoleId ?? ''}
+                onChange={(id) => update('verifiedRoleId' as any, id || null)}
               />
             </div>
           )}
@@ -263,6 +252,7 @@ export default function ProtectionPage() {
           </p>
         </Card>
       </div>
+      </PermissionGate>
     </motion.div>
   );
 }

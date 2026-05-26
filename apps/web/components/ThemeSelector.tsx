@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { ThemeName, themes } from '@pinguin/shared';
 import { useTheme } from '@pinguin/ui';
-import { Palette, Check, ChevronDown } from 'lucide-react';
+import { Palette, Check, ChevronDown, Lock } from 'lucide-react';
+import { api } from '@/lib/api';
 
 const themeLabels: Record<ThemeName, string> = {
   [ThemeName.OLED]: 'OLED',
@@ -18,10 +19,30 @@ const themeLabels: Record<ThemeName, string> = {
   [ThemeName.MONOKAI]: 'Monokai',
 };
 
+const DONOR_THEMES: { name: string; label: string; color: string }[] = [
+  { name: 'GOLD', label: '✨ Gold', color: '#b8860b' },
+  { name: 'AURORA', label: '🌌 Aurora', color: '#7b2ff7' },
+  { name: 'CRIMSON', label: '🔥 Crimson', color: '#9b1c2e' },
+];
+
 export default function ThemeSelector() {
   const { current, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
+  const [isDonor, setIsDonor] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    api.get<{ data: { donors: { userId: string }[] } }>('/api/donors')
+      .then((res) => {
+        const donors = (res as any)?.data?.donors as { userId: string }[] | undefined;
+        if (donors && donors.length > 0) {
+          const stored = typeof window !== 'undefined' ? localStorage.getItem('pinguin-user-id') : null;
+          if (stored && donors.some((d) => d.userId === stored)) setIsDonor(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -32,6 +53,11 @@ export default function ThemeSelector() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -128,6 +154,78 @@ export default function ThemeSelector() {
               </button>
             );
           })}
+
+          <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
+          <div style={{ padding: '4px 12px 2px', fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Donateurs
+          </div>
+          {DONOR_THEMES.map((dt) => (
+            <button
+              type="button"
+              key={dt.name}
+              onClick={() => {
+                if (!isDonor) {
+                  showToast('💙 Réservé aux donateurs — soutenez le projet !');
+                  setOpen(false);
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                width: '100%',
+                padding: '8px 12px',
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                cursor: isDonor ? 'pointer' : 'not-allowed',
+                fontSize: 13,
+                textAlign: 'left',
+                opacity: isDonor ? 1 : 0.55,
+                transition: 'background-color 0.1s',
+              }}
+              onMouseEnter={(e) => {
+                if (isDonor) e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <span
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  backgroundColor: dt.color,
+                  border: '2px solid var(--border-color)',
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ flex: 1 }}>{dt.label}</span>
+              {!isDonor && <Lock size={12} style={{ color: 'var(--text-secondary)' }} />}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {toast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 9999,
+            padding: '10px 16px',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 8,
+            fontSize: 13,
+            color: 'var(--text-primary)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+            pointerEvents: 'none',
+          }}
+        >
+          {toast}
         </div>
       )}
     </div>

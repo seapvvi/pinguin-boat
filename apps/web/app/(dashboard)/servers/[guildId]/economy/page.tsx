@@ -13,6 +13,7 @@ import { formatNumber } from '@/lib/utils';
 import type { GuildConfig, EconomySettings } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { useAutoRefresh, useAutoSave } from '@/lib/hooks';
 
@@ -124,6 +125,7 @@ export default function EconomyPage() {
       </div>
       {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
 
+      <PermissionGate permission="manageGuild">
       <div className="mb-4"><ModuleToggle guildId={guildId} moduleKey="economy" label="Économie" /></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -210,6 +212,7 @@ export default function EconomyPage() {
           )}
         </Card>
       </div>
+      </PermissionGate>
     </motion.div>
   );
 }

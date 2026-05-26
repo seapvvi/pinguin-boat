@@ -14,6 +14,7 @@ import type { TicketData } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { TicketStatus } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { PermissionGate } from '@/components/PermissionGate';
 import { TicketSettingsForm } from '@/components/TicketSettingsForm';
 
 const statusLabels: Record<string, string> = {
@@ -130,6 +131,7 @@ export default function TicketsPage() {
         <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={14} /> Nouveau ticket</Button>
       </div>
 
+      <PermissionGate permission="manageMessages">
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="tickets" label="Tickets" />
       </div>
@@ -221,6 +223,7 @@ export default function TicketsPage() {
           </div>
         )}
       </Modal>
+      </PermissionGate>
     </motion.div>
   );
 }

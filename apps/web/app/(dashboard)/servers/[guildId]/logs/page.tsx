@@ -5,12 +5,13 @@ import { motion } from 'motion/react';
 import {
   ScrollText, MessageSquare, Users, Hash, Activity
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Skeleton } from '@pinguin/ui';
+import { Card, Input, Button, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import type { LogSettings } from '@pinguin/shared';
 import { LogEventType } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { useAutoRefresh, useAutoSave } from '@/lib/hooks';
 
@@ -169,21 +170,12 @@ export default function LogsPage() {
       </div>
       {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
 
+      <PermissionGate permission="manageMessages">
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="logs" label="Logs" />
       </div>
 
       <div className="space-y-6">
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ScrollText size={18} className="text-[var(--accent)]" />
-              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Module de logs</h2>
-            </div>
-            <Toggle checked={local.enabled} onChange={(v) => setLocal({ ...local, enabled: v })} />
-          </div>
-        </Card>
-
         <Card className="p-4">
           <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Salon de logs</h2>
           <DiscordSelect
@@ -262,6 +254,7 @@ export default function LogsPage() {
           </div>
         </Card>
       </div>
+      </PermissionGate>
     </motion.div>
   );
 }

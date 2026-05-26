@@ -8,6 +8,7 @@ import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
 import type { WelcomeSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { useAutoSave } from '@/lib/hooks';
 
@@ -163,22 +164,13 @@ export default function WelcomePage() {
       </div>
       {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
 
+      <PermissionGate permission="manageGuild">
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="welcome" label="Bienvenue" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <DoorOpen size={18} className="text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">Module bienvenue</h2>
-              </div>
-              <Toggle checked={local.enabled} onChange={(v) => setLocal({ ...local, enabled: v })} />
-            </div>
-          </Card>
-
           <Card>
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Bienvenue</h2>
             <div className="space-y-4">
@@ -282,6 +274,7 @@ export default function WelcomePage() {
           </Card>
         </div>
       </div>
+      </PermissionGate>
     </motion.div>
   );
 }

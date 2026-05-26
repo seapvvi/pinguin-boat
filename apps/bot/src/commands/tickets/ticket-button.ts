@@ -27,57 +27,81 @@ export async function handleTicketButton(interaction: ButtonInteraction, client:
 async function handleTicketOpen(interaction: ButtonInteraction, client: Client): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  const existing = await prisma.ticket.findMany({
-    where: { guildId: interaction.guildId!, creatorId: interaction.user.id, status: { in: ['OPEN', 'CLAIMED', 'PENDING'] } },
-  });
+  try {
+    const existing = await prisma.ticket.findMany({
+      where: { guildId: interaction.guildId!, creatorId: interaction.user.id, status: { in: ['OPEN', 'CLAIMED', 'PENDING'] } },
+    });
 
-  const categories = await prisma.ticketCategory.findMany({ where: { guildId: interaction.guildId! } });
-  const maxTickets = categories.length > 0 ? categories[0].maxTicketsPerUser : 5;
+    const categories = await prisma.ticketCategory.findMany({ where: { guildId: interaction.guildId! } });
+    const maxTickets = categories.length > 0 ? categories[0].maxTicketsPerUser : 5;
 
-  if (existing.length >= maxTickets) {
-    await interaction.editReply({ embeds: [errorEmbed('Limite atteinte', `Tu as déjà **${existing.length}** ticket(s) ouverts.`)] });
-    return;
-  }
+    if (existing.length >= maxTickets) {
+      await interaction.editReply({ embeds: [errorEmbed('Limite atteinte', `Tu as déjà **${existing.length}** ticket(s) ouverts.`)] });
+      return;
+    }
 
-  await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
 
-  const ticketChannel = await interaction.guild!.channels.create({
-    name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
-    type: ChannelType.GuildText,
-    permissionOverwrites: [
+    const ticketSettings = await prisma.ticketSettings.findUnique({ where: { guildId: interaction.guildId! } });
+    const channelName = (ticketSettings?.channelFormat ?? 'ticket-{username}')
+      .replace('{username}', interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    const permissionOverwrites: any[] = [
       { id: interaction.guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
       { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
       { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
-    ],
-    reason: `Ticket ouvert par ${interaction.user.tag}`,
-  });
+    ];
 
-  const ticket = await prisma.ticket.create({
-    data: {
-      guildId: interaction.guildId!,
-      channelId: ticketChannel.id,
-      creatorId: interaction.user.id,
-      subject: 'Support',
-      status: 'OPEN',
-    },
-  });
+    if (ticketSettings?.moderatorRoles) {
+      const modRoles: string[] = JSON.parse(ticketSettings.moderatorRoles || '[]');
+      for (const roleId of modRoles) {
+        permissionOverwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+      }
+    }
 
-  const closeRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close').setLabel('Fermer').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-    new ButtonBuilder().setCustomId('ticket_claim').setLabel('Claim').setStyle(ButtonStyle.Success).setEmoji('🤚'),
-  );
+    const ticketChannel = await interaction.guild!.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      parent: ticketSettings?.categoryId ?? undefined,
+      permissionOverwrites,
+      reason: `Ticket ouvert par ${interaction.user.tag}`,
+    });
 
-  const ticketEmbed = createEmbed('ticket')
-    .setTitle('Ticket — Support')
-    .setDescription('Un membre de l\'équipe va te répondre sous peu.')
-    .addFields(
-      { name: 'Ouvert par', value: interaction.user.toString(), inline: true },
-      { name: 'Statut', value: '🟢 Ouvert', inline: true },
-    )
-    .setTimestamp();
+    await prisma.ticket.create({
+      data: {
+        guildId: interaction.guildId!,
+        channelId: ticketChannel.id,
+        creatorId: interaction.user.id,
+        subject: 'Support',
+        status: 'OPEN',
+      },
+    });
 
-  await ticketChannel.send({ content: interaction.user.toString(), embeds: [ticketEmbed], components: [closeRow] });
-  await interaction.editReply({ embeds: [successEmbed('Ticket ouvert', `Ton ticket a été créé : ${ticketChannel}`)] });
+    const closeRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('ticket_close').setLabel('Fermer').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+      new ButtonBuilder().setCustomId('ticket_claim').setLabel('Claim').setStyle(ButtonStyle.Success).setEmoji('🤚'),
+    );
+
+    const ticketEmbed = createEmbed('ticket')
+      .setTitle('Ticket — Support')
+      .setDescription(ticketSettings?.openMessage ?? 'Un membre de l\'équipe va te répondre sous peu.')
+      .addFields(
+        { name: 'Ouvert par', value: interaction.user.toString(), inline: true },
+        { name: 'Statut', value: '🟢 Ouvert', inline: true },
+      )
+      .setTimestamp();
+
+    const mentionContent = ticketSettings?.mentionModerators && ticketSettings.moderatorRoles
+      ? [interaction.user.toString(), ...JSON.parse(ticketSettings.moderatorRoles || '[]').map((r: string) => `<@&${r}>`)].join(' ')
+      : interaction.user.toString();
+
+    await ticketChannel.send({ content: mentionContent, embeds: [ticketEmbed], components: [closeRow] });
+    await interaction.editReply({ embeds: [successEmbed('Ticket ouvert', `Ton ticket a été créé : ${ticketChannel}`)] });
+  } catch (error) {
+    console.error('[TICKET OPEN ERROR]', error);
+    const errMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+    await interaction.editReply({ embeds: [errorEmbed('Erreur', `Impossible de créer le ticket. Vérifie les permissions du bot.\n\`${errMsg}\``)] }).catch(() => {});
+  }
 }
 
 async function handleTicketClose(interaction: ButtonInteraction): Promise<void> {
