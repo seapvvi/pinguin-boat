@@ -29,7 +29,10 @@ export default function SupportPage() {
 
   useEffect(() => {
     api.get<{ data: { donors: Donor[] } }>('/api/donors')
-      .then((res) => { if (res.success && res.data) setDonors((res.data as { donors: Donor[] }).donors ?? []); })
+      .then((res) => {
+        const payload = (res as any)?.data as { donors: Donor[] } | undefined;
+        if (payload?.donors) setDonors(payload.donors ?? []);
+      })
       .finally(() => setLoading(false));
   }, []);
 
