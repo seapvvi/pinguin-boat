@@ -22,7 +22,13 @@ export async function closeTicketWithTranscript(
   if (ticket.channelId && !ticket.channelId.startsWith('pending-')) {
     try {
       const messages = await getChannelMessages(ticket.channelId, 100);
-      const html = generateTicketTranscriptHtml(messages, ticket.subject);
+      const html = generateTicketTranscriptHtml(messages, ticket.subject, {
+        guildName,
+        openedAt: ticket.createdAt ? new Date(ticket.createdAt).toLocaleString('fr-FR') : '—',
+        closedAt: new Date().toLocaleString('fr-FR'),
+        closedBy: closedById,
+        closeReason: undefined,
+      });
       transcriptUrl = await uploadToPastebin(html, `Ticket: ${ticket.subject}`);
     } catch {
       transcriptUrl = null;

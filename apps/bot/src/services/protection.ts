@@ -6,7 +6,7 @@ import {
   TextChannel,
 } from 'discord.js';
 import { prisma } from '@pinguin/db';
-import { sendCaptcha } from './captcha';
+import { sendCaptcha, hasPendingCaptcha } from './captcha';
 
 const joinTimestamps = new Map<string, number[]>();
 const messageTimestamps = new Map<string, number[]>();
@@ -80,6 +80,14 @@ export async function handleMemberJoin(member: GuildMember): Promise<void> {
 
 export async function handleMessage(message: Message): Promise<boolean> {
   if (!message.guild || message.author.bot || !message.member) return false;
+
+  if (hasPendingCaptcha(message.guild.id, message.author.id)) {
+    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      await message.delete().catch(() => {});
+      return true;
+    }
+  }
+
   const settings = await getSettings(message.guild.id);
   if (!settings) return false;
 

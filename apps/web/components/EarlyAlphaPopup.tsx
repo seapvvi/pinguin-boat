@@ -1,12 +1,54 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@pinguin/ui';
+import { getUser } from '@/lib/auth';
 
 const DISCORD_URL = 'https://discord.gg/EJHhcYkXMQ';
+const STORAGE_PREFIX = 'pinguin-alpha-seen-';
+const WAIT_SECONDS = 5;
 
 export function EarlyAlphaPopup() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [countdown, setCountdown] = useState(WAIT_SECONDS);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const user = await getUser();
+      if (cancelled) return;
+      if (!user) return;
+      const key = `${STORAGE_PREFIX}${user.id}`;
+      if (localStorage.getItem(key) === '1') return;
+      setOpen(true);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    setCountdown(WAIT_SECONDS);
+    setReady(false);
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          setReady(true);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [open]);
+
+  const close = async () => {
+    if (!ready) return;
+    const user = await getUser();
+    if (user) localStorage.setItem(`${STORAGE_PREFIX}${user.id}`, '1');
+    setOpen(false);
+  };
 
   if (!open) return null;
 
@@ -33,12 +75,12 @@ export function EarlyAlphaPopup() {
           <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="flex-1">
             <Button className="w-full">Rejoindre le Discord</Button>
           </a>
-          <Button variant="secondary" className="flex-1" onClick={() => setOpen(false)}>
-            J&apos;ai compris
+          <Button variant="secondary" className="flex-1" onClick={close} disabled={!ready}>
+            {ready ? "J'ai compris" : `Patientez (${countdown}s)`}
           </Button>
         </div>
         <p className="text-xs text-[var(--text-secondary)] text-center">
-          Cette popup apparaît à chaque visite tant que le projet est en alpha.
+          Ce message ne s&apos;affichera qu&apos;une seule fois après votre première connexion.
         </p>
       </div>
     </div>

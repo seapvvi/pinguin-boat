@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn, Logo, Avatar, Toggle } from '@pinguin/ui';
+import { cn, Logo, Avatar, Toggle, Snowflakes } from '@pinguin/ui';
 import { useSnowflakes } from '@pinguin/ui';
 import { getAvatarUrl } from '@/lib/utils';
 import {
@@ -149,8 +149,14 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
         overflow: 'hidden',
         backgroundColor: 'var(--bg-sidebar)',
         borderRight: '1px solid var(--border-color)',
+        position: 'relative',
       }}
     >
+      {snowflakesEnabled && (
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 50, overflow: 'hidden' }}>
+          <Snowflakes enabled count={20} />
+        </div>
+      )}
       <div style={{ padding: '20px 16px', borderBottom: '1px solid var(--border-color)' }}>
         <Link href="/" onClick={onClose}>
           <Logo withText size={28} />

@@ -154,7 +154,16 @@ export async function play(guildId: string, query: string, requester: GuildMembe
     throw new Error('Je n\'ai pas la permission de rejoindre ce salon vocal.');
   }
 
-  if (!state.connection || state.connection.state.status === VoiceConnectionStatus.Disconnected) {
+  const needsJoin =
+    !state.connection ||
+    state.connection.state.status === VoiceConnectionStatus.Disconnected ||
+    state.voiceChannelId !== voiceChannel.id;
+
+  if (needsJoin) {
+    if (state.connection) {
+      state.connection.destroy();
+      state.connection = null;
+    }
     const connection = joinVoiceChannel({
       channelId: voiceChannel.id,
       guildId: voiceChannel.guild.id,
@@ -163,7 +172,8 @@ export async function play(guildId: string, query: string, requester: GuildMembe
     });
     connection.on('stateChange', (_oldState: any, newState: any) => {
       if (newState.status === VoiceConnectionStatus.Disconnected) {
-        destroyState(guildId);
+        state.connection = null;
+        state.voiceChannelId = null;
       }
     });
     try {
@@ -173,23 +183,18 @@ export async function play(guildId: string, query: string, requester: GuildMembe
       throw new Error('Impossible de se connecter au salon vocal.');
     }
     state.connection = connection;
-    const player = getPlayer(guildId);
-    connection.subscribe(player);
+    connection.subscribe(getPlayer(guildId));
+    state.voiceChannelId = voiceChannel.id;
   } else if (state.connection.state.status !== VoiceConnectionStatus.Ready) {
     try {
       await entersState(state.connection, VoiceConnectionStatus.Ready, 15_000);
     } catch {
       state.connection.destroy();
       state.connection = null;
+      state.voiceChannelId = null;
       throw new Error('Connexion vocale instable, réessayez.');
     }
     state.connection.subscribe(getPlayer(guildId));
-  }
-
-  if (state.voiceChannelId !== voiceChannel.id && state.connection) {
-    state.connection.destroy();
-    state.connection = null;
-    return play(guildId, query, requester, textChannel);
   }
 
   state.voiceChannelId = voiceChannel.id;

@@ -1,18 +1,18 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  ScrollText, MessageSquare, Users, Shield, Hash,
-  Music, Ticket, Activity
+  ScrollText, MessageSquare, Users, Hash, Activity
 } from 'lucide-react';
-import { Card, Toggle, Input, Select, Button, Badge, Skeleton } from '@pinguin/ui';
+import { Card, Toggle, Input, Button, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
-import type { GuildConfig, LogSettings } from '@pinguin/shared';
+import { api } from '@/lib/api';
+import type { LogSettings } from '@pinguin/shared';
 import { LogEventType } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { useAutoRefresh, useAutoSave } from '@/lib/hooks';
 
 const eventCategories: { label: string; icon: React.ReactNode; events: { value: LogEventType; label: string }[] }[] = [
   {
@@ -60,34 +60,72 @@ const eventCategories: { label: string; icon: React.ReactNode; events: { value: 
   },
 ];
 
+const defaultLogs: LogSettings = {
+  enabled: true,
+  logChannelId: null,
+  enabledEvents: [],
+  ignoreChannels: [],
+  ignoreUsers: [],
+};
+
 export default function LogsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [config, setConfig] = useState<GuildConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<LogSettings | null>(null);
   const [ignoreChannelsInput, setIgnoreChannelsInput] = useState('');
-  const [ignoreRolesInput, setIgnoreRolesInput] = useState('');
 
-  const load = async () => {
-    setLoading(true);
+  const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetchGuildSettings(guildId);
+      const res = await api.get<{ data: LogSettings & { enabledEvents?: LogEventType[] } }>(`/api/guilds/${guildId}/logs`);
       if (res.success && res.data) {
-        setConfig(res.data.guild);
-        setLocal({ ...res.data.guild.logs });
+        const d = res.data as any;
+        setLocal({
+          enabled: d.enabled ?? true,
+          logChannelId: d.logChannelId ?? null,
+          enabledEvents: d.enabledEvents ?? d.events ?? [],
+          ignoreChannels: d.ignoreChannels ?? d.ignoredChannels ?? [],
+          ignoreUsers: d.ignoreUsers ?? d.ignoredRoles ?? [],
+        });
+      } else {
+        setLocal({ ...defaultLogs });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
       setLoading(false);
     }
-  };
+  }, [guildId]);
 
-  useEffect(() => { load(); }, [guildId]);
+  useEffect(() => { load(); }, [load]);
+  useAutoRefresh(load, 10000, [guildId]);
+
+  const saveLogs = useCallback(async (data: LogSettings) => {
+    await api.put(`/api/guilds/${guildId}/logs`, {
+      logChannelId: data.logChannelId,
+      enabledEvents: data.enabledEvents,
+      ignoreChannels: data.ignoreChannels,
+      ignoreUsers: data.ignoreUsers,
+    });
+  }, [guildId]);
+
+  useAutoSave(local, saveLogs, { intervalMs: 10000, enabled: !!local });
+
+  const handleSave = async () => {
+    if (!local) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await saveLogs(local);
+    } catch (e: any) {
+      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleEvent = (event: LogEventType) => {
     if (!local) return;
@@ -101,43 +139,7 @@ export default function LogsPage() {
     });
   };
 
-  const addIgnoreChannel = () => {
-    if (!local || !ignoreChannelsInput.trim()) return;
-    setLocal({ ...local, ignoreChannels: [...(local.ignoreChannels ?? []), ignoreChannelsInput.trim()] });
-    setIgnoreChannelsInput('');
-  };
-
-  const addIgnoreRole = () => {
-    if (!local || !ignoreRolesInput.trim()) return;
-    setLocal({ ...local, ignoreUsers: [...(local.ignoreUsers ?? []), ignoreRolesInput.trim()] });
-    setIgnoreRolesInput('');
-  };
-
-  const removeIgnoreChannel = (id: string) => {
-    if (!local) return;
-    setLocal({ ...local, ignoreChannels: (local.ignoreChannels ?? []).filter((c) => c !== id) });
-  };
-
-  const removeIgnoreRole = (id: string) => {
-    if (!local) return;
-    setLocal({ ...local, ignoreUsers: (local.ignoreUsers ?? []).filter((u) => u !== id) });
-  };
-
-  const handleSave = async () => {
-    if (!local) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await updateGuildSettings(guildId, { logs: local });
-      if (res.success && res.data) setConfig(res.data.guild);
-    } catch (e: any) {
-      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (error) {
+  if (error && !local) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
@@ -147,7 +149,7 @@ export default function LogsPage() {
 
   if (loading || !local) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+      <motion.div className="space-y-4">
         {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-[var(--radius)]" />
         ))}
@@ -171,8 +173,8 @@ export default function LogsPage() {
       </div>
 
       <div className="space-y-6">
-        <Card>
-          <div className="flex items-center justify-between mb-4">
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ScrollText size={18} className="text-[var(--accent)]" />
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">Module de logs</h2>
@@ -181,7 +183,7 @@ export default function LogsPage() {
           </div>
         </Card>
 
-        <Card>
+        <Card className="p-4">
           <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Salon de logs</h2>
           <DiscordSelect
             type="channel"
@@ -191,7 +193,7 @@ export default function LogsPage() {
           />
         </Card>
 
-        <Card>
+        <Card className="p-4">
           <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Événements journalisés</h2>
           <div className="space-y-4">
             {eventCategories.map((cat) => (
@@ -202,7 +204,7 @@ export default function LogsPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {cat.events.map((evt) => (
-                    <label key={evt.value} className="flex items-center gap-2 p-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] cursor-pointer hover:bg-[var(--bg-surface)] transition-colors">
+                    <label key={evt.value} className="flex items-center gap-2 p-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] cursor-pointer">
                       <input
                         type="checkbox"
                         checked={(local.enabledEvents ?? []).includes(evt.value)}
@@ -218,43 +220,44 @@ export default function LogsPage() {
           </div>
         </Card>
 
-        <Card>
+        <Card className="p-4">
           <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Salons ignorés</h2>
           <div className="flex gap-2 mb-3">
-            <Input placeholder="ID du salon" value={ignoreChannelsInput} onChange={(e) => setIgnoreChannelsInput(e.target.value)} className="flex-1" />
-            <Button variant="secondary" size="sm" onClick={addIgnoreChannel}>Ajouter</Button>
+            <div className="flex-1">
+              <DiscordSelect
+                type="channel"
+                guildId={guildId}
+                value={ignoreChannelsInput}
+                onChange={setIgnoreChannelsInput}
+                placeholder="Choisir un salon"
+              />
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                if (!ignoreChannelsInput) return;
+                setLocal({
+                  ...local,
+                  ignoreChannels: [...(local.ignoreChannels ?? []), ignoreChannelsInput],
+                });
+                setIgnoreChannelsInput('');
+              }}
+            >
+              Ajouter
+            </Button>
           </div>
           <div className="flex flex-wrap gap-2">
             {(local.ignoreChannels ?? []).map((id) => (
-              <span key={id} onClick={() => removeIgnoreChannel(id)} className="cursor-pointer inline-flex">
-                <Badge variant="default">
-                  {id.slice(0, 8)}… <span className="ml-1">×</span>
-                </Badge>
-              </span>
+              <button
+                key={id}
+                type="button"
+                onClick={() => setLocal({ ...local, ignoreChannels: local.ignoreChannels?.filter((c) => c !== id) })}
+                className="text-xs px-2 py-1 rounded bg-[var(--bg-surface-alt)] border border-[var(--border-color)]"
+              >
+                {id} ×
+              </button>
             ))}
-            {(local.ignoreChannels ?? []).length === 0 && (
-              <span className="text-xs text-[var(--text-secondary)]">Aucun salon ignoré</span>
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Utilisateurs ignorés</h2>
-          <div className="flex gap-2 mb-3">
-            <Input placeholder="ID de l'utilisateur" value={ignoreRolesInput} onChange={(e) => setIgnoreRolesInput(e.target.value)} className="flex-1" />
-            <Button variant="secondary" size="sm" onClick={addIgnoreRole}>Ajouter</Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {(local.ignoreUsers ?? []).map((id) => (
-              <span key={id} onClick={() => removeIgnoreRole(id)} className="cursor-pointer inline-flex">
-                <Badge variant="default">
-                  {id.slice(0, 8)}… <span className="ml-1">×</span>
-                </Badge>
-              </span>
-            ))}
-            {(local.ignoreUsers ?? []).length === 0 && (
-              <span className="text-xs text-[var(--text-secondary)]">Aucun utilisateur ignoré</span>
-            )}
           </div>
         </Card>
       </div>

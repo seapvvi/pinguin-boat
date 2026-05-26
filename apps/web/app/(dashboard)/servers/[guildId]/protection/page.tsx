@@ -8,6 +8,8 @@ import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
 import type { GuildConfig, ProtectionSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { DiscordSelect } from '@/components/DiscordSelect';
+import { useAutoSave } from '@/lib/hooks';
 
 export default function ProtectionPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -39,6 +41,12 @@ export default function ProtectionPage() {
   };
 
   useEffect(() => { load(); }, [guildId]);
+
+  const saveProtection = async (data: ProtectionSettings) => {
+    await api.put(`/api/guilds/${guildId}/protection`, data);
+  };
+
+  useAutoSave(local, saveProtection, { enabled: !!local });
 
   const update = (key: keyof ProtectionSettings, value: unknown) => {
     if (!local) return;
@@ -206,6 +214,17 @@ export default function ProtectionPage() {
             </div>
             <Toggle checked={local.captchaVerification} onChange={(v) => update('captchaVerification', v)} />
           </div>
+          {local.captchaVerification && (
+            <div className="mt-4">
+              <DiscordSelect
+                type="role"
+                guildId={guildId}
+                label="Rôle après vérification captcha"
+                value={(local as { verifiedRoleId?: string }).verifiedRoleId ?? ''}
+                onChange={(id) => update('verifiedRoleId', id || null)}
+              />
+            </div>
+          )}
         </Card>
 
         <Card>

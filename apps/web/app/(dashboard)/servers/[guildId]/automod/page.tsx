@@ -8,6 +8,7 @@ import { Card, Toggle, Input, Button, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { useAutoSave } from '@/lib/hooks';
 
 type AutoModSettings = Record<string, unknown>;
 
@@ -50,6 +51,20 @@ export default function AutoModPage() {
   };
 
   useEffect(() => { load(); }, [guildId]);
+
+  const saveAutomod = async (s: AutoModSettings) => {
+    const payload = {
+      ...s,
+      bannedWordsList: bannedWordsText.split(',').map((x) => x.trim()).filter(Boolean),
+      whitelistRoles: parseList(s.whitelistRoles),
+      whitelistChannels: parseList(s.whitelistChannels),
+      forbiddenPingRoles: parseList(s.forbiddenPingRoles),
+      forbiddenMarkdownList: parseList(s.forbiddenMarkdownList),
+    };
+    await api.patch(`/api/guilds/${guildId}/automod`, payload);
+  };
+
+  useAutoSave(settings, saveAutomod, { enabled: !!settings });
 
   const update = (key: string, value: unknown) => {
     if (!settings) return;

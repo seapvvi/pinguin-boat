@@ -201,8 +201,18 @@ export default function LevelsPage() {
             <button type="button" onClick={() => setLbTab('guild')} className={`text-sm px-3 py-1 rounded ${lbTab === 'guild' ? 'bg-[var(--accent)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)]'}`}>Serveur</button>
             <button type="button" onClick={async () => {
               setLbTab('global');
-              const res = await api.get<{ data: { entries: LeaderboardEntry[] } }>('/api/overview/leaderboard/global');
-              if (res.success && res.data) setGlobalLb((res.data as any).entries ?? []);
+              const res = await api.get<{ data: { entries: any[] } }>('/api/overview/leaderboard/global');
+              if (res.success && res.data) {
+                const raw = (res.data as any).entries ?? [];
+                setGlobalLb(raw.map((e: any, i: number) => ({
+                  rank: e.rank ?? i + 1,
+                  userId: e.userId,
+                  username: e.username ?? 'Inconnu',
+                  avatar: e.avatar,
+                  xp: e.totalXp ?? e.xp ?? 0,
+                  level: e.level ?? 0,
+                })));
+              }
             }} className={`text-sm px-3 py-1 rounded ${lbTab === 'global' ? 'bg-[var(--accent)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)]'}`}>Global</button>
           </div>
           {(lbTab === 'guild' ? leaderboard : globalLb).length === 0 ? (

@@ -3,12 +3,13 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Gift, Plus, Trophy, Users, Clock,
+  Gift, Plus, Trophy, Users, Clock, BarChart3,
   ChevronLeft, ChevronRight, RotateCcw, XCircle
 } from 'lucide-react';
 import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGiveaways, fetchGuildChannels, api } from '@/lib/api';
+import { useAutoRefresh } from '@/lib/hooks';
 import { formatDate } from '@/lib/utils';
 import type { Giveaway } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -44,6 +45,9 @@ export default function GiveawaysPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [statsData, setStatsData] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   const load = async (p: number) => {
     setLoading(true);
@@ -62,6 +66,7 @@ export default function GiveawaysPage() {
   };
 
   useEffect(() => { load(page); }, [guildId, page]);
+  useAutoRefresh(() => load(page), 10000, [guildId, page]);
 
   useEffect(() => {
     if (createOpen) {
@@ -133,7 +138,19 @@ export default function GiveawaysPage() {
     {
       key: 'actions', label: 'Actions', render: (g) => (
         <div className="flex items-center gap-1">
-          {g.status === 'ENDED' && <Button variant="ghost" size="sm" onClick={() => handleAction(g.id, 'reroll')}><RotateCcw size={12} /></Button>}
+          {g.status === 'ENDED' && (
+            <>
+              <Button variant="ghost" size="sm" onClick={async () => {
+                setStatsLoading(true);
+                setStatsOpen(true);
+                try {
+                  const res = await api.get(`/api/guilds/${guildId}/giveaways/${g.id}/stats`);
+                  if (res.success) setStatsData(res.data);
+                } finally { setStatsLoading(false); }
+              }}><BarChart3 size={12} /></Button>
+              <Button variant="ghost" size="sm" onClick={() => handleAction(g.id, 'reroll')}><RotateCcw size={12} /></Button>
+            </>
+          )}
           {g.status === 'RUNNING' && <Button variant="ghost" size="sm" onClick={() => handleAction(g.id, 'end')}><Trophy size={12} /></Button>}
           {g.status !== 'CANCELLED' && g.status !== 'ENDED' && <Button variant="ghost" size="sm" onClick={() => handleAction(g.id, 'cancel')}><XCircle size={12} /></Button>}
         </div>
@@ -208,6 +225,36 @@ export default function GiveawaysPage() {
             <Button loading={submitting} onClick={handleCreate}>Créer</Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={statsOpen} onClose={() => { setStatsOpen(false); setStatsData(null); }} title="Statistiques du giveaway">
+        {statsLoading ? (
+          <Skeleton className="h-32" />
+        ) : statsData ? (
+          <div className="space-y-4 text-sm">
+            <p><strong>Participants :</strong> {statsData.entryCount}</p>
+            {statsData.winners?.length > 0 && (
+              <div>
+                <p className="font-medium mb-2">Gagnants</p>
+                <ul className="list-disc pl-4">
+                  {statsData.winners.map((w: { username: string; id: string }) => (
+                    <li key={w.id}>{w.username} <code className="text-xs">{w.id}</code></li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {statsData.participants?.length > 0 && (
+              <div>
+                <p className="font-medium mb-2">Liste des participants</p>
+                <ul className="max-h-48 overflow-y-auto space-y-1">
+                  {statsData.participants.map((p: { userId: string; username: string }) => (
+                    <li key={p.userId} className="text-xs">{p.username}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : null}
       </Modal>
     </motion.div>
   );

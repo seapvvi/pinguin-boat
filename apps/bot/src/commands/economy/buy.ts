@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
-import { getEconomySettings, getOrCreateWallet, formatCoins } from '../../services/economy';
+import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive } from '../../services/economy';
 import { errorEmbed, successEmbed } from '../../services/embed';
 
 export const data = new SlashCommandBuilder()
@@ -16,11 +16,11 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
   await interaction.deferReply();
   if (!interaction.guild) return;
 
-  const settings = await getEconomySettings(interaction.guild.id);
-  if (!settings.enabled) {
+  if (!(await isEconomyActive(interaction.guild.id))) {
     await interaction.editReply({ embeds: [errorEmbed('Module désactivé', 'L\'économie n\'est pas activée.')] });
     return;
   }
+  const settings = await getEconomySettings(interaction.guild.id);
 
   const query = interaction.options.getString('article', true).toLowerCase();
   const item = settings.shopItems.find((i: typeof settings.shopItems[number]) => i.name.toLowerCase() === query || i.id === query);

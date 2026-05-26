@@ -13,7 +13,7 @@ import { formatDate } from '@/lib/utils';
 import type { ModCase } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModerationCaseType } from '@pinguin/shared';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Info } from 'lucide-react';
 import { ModuleToggle } from '@/components/ModuleToggle';
 
 const caseTypeLabels: Record<string, string> = {
@@ -53,6 +53,8 @@ export default function ModerationPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [detailCase, setDetailCase] = useState<ModCase | null>(null);
+  const [detailUsers, setDetailUsers] = useState<{ user?: { id: string; username: string }; moderator?: { id: string; username: string } }>({});
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -134,9 +136,29 @@ export default function ModerationPage() {
     { key: 'createdAt', label: 'Date', sortable: true, render: (c) => <span className="text-xs text-[var(--text-secondary)]">{formatDate(c.createdAt)}</span> },
     { key: 'duration', label: 'Durée', render: (c) => <span className="text-xs">{c.duration ? `${c.duration}m` : '—'}</span> },
     { key: 'actions', label: '', render: (c) => (
-      <button onClick={() => setDeleteTarget(c.id)} className="text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors" title="Supprimer">
-        <Trash2 size={14} />
-      </button>
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={async () => {
+            setDetailCase(c);
+            const [userRes, modRes] = await Promise.all([
+              api.get<{ data: { id: string; username: string } }>(`/api/guilds/${guildId}/resolve-user/${c.userId}`),
+              api.get<{ data: { id: string; username: string } }>(`/api/guilds/${guildId}/resolve-user/${c.moderatorId}`),
+            ]);
+            setDetailUsers({
+              user: userRes.success ? userRes.data as { id: string; username: string } : undefined,
+              moderator: modRes.success ? modRes.data as { id: string; username: string } : undefined,
+            });
+          }}
+          className="text-[var(--text-secondary)] hover:text-[var(--accent)]"
+          title="Détails"
+        >
+          <Info size={14} />
+        </button>
+        <button type="button" onClick={() => setDeleteTarget(c.id)} className="text-[var(--text-secondary)] hover:text-[var(--error)]" title="Supprimer">
+          <Trash2 size={14} />
+        </button>
+      </div>
     )},
   ];
 
@@ -209,6 +231,27 @@ export default function ModerationPage() {
             <Button loading={submitting} onClick={handleCreate}>Créer le cas</Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={!!detailCase} onClose={() => { setDetailCase(null); setDetailUsers({}); }} title="Détails du cas">
+        {detailCase && (
+          <div className="space-y-3 text-sm">
+            <div>
+              <p className="text-[var(--text-secondary)] text-xs uppercase mb-1">Utilisateur sanctionné</p>
+              <p className="font-medium text-[var(--text-primary)]">{detailUsers.user?.username ?? '—'}</p>
+              <code className="text-xs block mt-1 p-2 bg-[var(--bg-surface-alt)] rounded select-all">{detailCase.userId}</code>
+            </div>
+            <div>
+              <p className="text-[var(--text-secondary)] text-xs uppercase mb-1">Modérateur</p>
+              <p className="font-medium text-[var(--text-primary)]">{detailUsers.moderator?.username ?? '—'}</p>
+              <code className="text-xs block mt-1 p-2 bg-[var(--bg-surface-alt)] rounded select-all">{detailCase.moderatorId}</code>
+            </div>
+            <div>
+              <p className="text-[var(--text-secondary)] text-xs uppercase mb-1">Type / Raison</p>
+              <p>{caseTypeLabels[detailCase.type]} — {detailCase.reason}</p>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Confirmer la suppression">

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Server, Search, Plus, Users } from 'lucide-react';
 import { Card, Input, Badge, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuilds } from '@/lib/api';
+import { fetchGuilds, api } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
 import type { GuildItemDTO } from '@pinguin/shared';
 
@@ -116,7 +116,14 @@ export default function ServersPage() {
                 </a>
               ) : (
                 <a
-                  href={`https://discord.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&permissions=8&scope=bot&guild_id=${g.id}`}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    api.get<{ data: { url: string } }>(`/api/bot/invite?guild_id=${g.id}`).then((res) => {
+                      const u = (res as { data?: { url: string } }).data?.url;
+                      if (u) window.open(u, '_blank');
+                    });
+                  }}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border text-[var(--text-primary)] border-[var(--border-color)] hover:bg-[var(--bg-surface-alt)] no-underline"

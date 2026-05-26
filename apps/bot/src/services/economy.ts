@@ -1,4 +1,5 @@
 import { prisma } from '@pinguin/db';
+import { ensureUser } from './user';
 
 const cache = new Map<string, { data: any; at: number }>();
 const CACHE_MS = 30_000;
@@ -21,6 +22,7 @@ export async function getEconomySettings(guildId: string) {
 }
 
 export async function getOrCreateWallet(guildId: string, userId: string, startupBalance = 100) {
+  await ensureUser(userId);
   let wallet = await prisma.economyWallet.findUnique({
     where: { guildId_userId: { guildId, userId } },
   });
@@ -34,4 +36,16 @@ export async function getOrCreateWallet(guildId: string, userId: string, startup
 
 export function formatCoins(amount: number, symbol: string, name: string): string {
   return `**${amount}** ${symbol} ${name}`;
+}
+
+export function invalidateEconomyCache(guildId: string): void {
+  cache.delete(guildId);
+}
+
+/** Module activé sur le serveur ou toggle « économie » dans le dashboard. */
+export async function isEconomyActive(guildId: string): Promise<boolean> {
+  const settings = await getEconomySettings(guildId);
+  if (settings.enabled) return true;
+  const mods = await prisma.moduleEnabled.findUnique({ where: { guildId } });
+  return mods?.economy ?? false;
 }

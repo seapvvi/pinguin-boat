@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { createEmbed, errorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
@@ -22,8 +22,8 @@ export const module = 'polls';
 
 const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
-export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
-  await interaction.deferReply();
+export async function execute(interaction: ChatInputCommandInteraction, _client: Client): Promise<void> {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const question = interaction.options.get('question')?.value as string;
   const options: string[] = [];
@@ -46,22 +46,29 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     .setFooter({ text: 'Réagissez avec l\'emoji correspondant pour voter !' })
     .setTimestamp();
 
-  const msg = await interaction.editReply({ embeds: [embed] });
+  if (!interaction.channel?.isTextBased()) {
+    await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Salon textuel requis.')] });
+    return;
+  }
+
+  const pollMessage = await interaction.channel.send({ embeds: [embed] });
 
   for (let i = 0; i < options.length; i++) {
-    await msg.react(numberEmojis[i]);
+    await pollMessage.react(numberEmojis[i]);
   }
 
   await prisma.poll.create({
     data: {
       guildId: interaction.guild.id,
       channelId: interaction.channelId,
-      messageId: msg.id,
+      messageId: pollMessage.id,
       question,
       options: JSON.stringify(options.map((o, i) => ({ id: String(i), label: o, votes: 0 }))),
       status: 'OPEN',
     },
   });
+
+  await interaction.editReply({ embeds: [successEmbed('Sondage créé', 'Le sondage a été publié dans ce salon avec les réactions numérotées.')] });
 
   log({ level: 'info', message: `Sondage créé: ${question}`, guildId: interaction.guild.id });
 }

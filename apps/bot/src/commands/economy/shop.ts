@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, CommandInteraction, Client } from 'discord.js';
-import { getEconomySettings } from '../../services/economy';
+import { getEconomySettings, isEconomyActive } from '../../services/economy';
 import { createEmbed, errorEmbed } from '../../services/embed';
 
 export const data = new SlashCommandBuilder()
@@ -11,11 +11,11 @@ export const module = 'economy';
 export async function execute(interaction: CommandInteraction, _client: Client): Promise<void> {
   if (!interaction.guild) return;
 
-  const settings = await getEconomySettings(interaction.guild.id);
-  if (!settings.enabled) {
+  if (!(await isEconomyActive(interaction.guild.id))) {
     await interaction.reply({ embeds: [errorEmbed('Module désactivé', 'L\'économie n\'est pas activée.')], ephemeral: true });
     return;
   }
+  const settings = await getEconomySettings(interaction.guild.id);
 
   const embed = createEmbed('economy')
     .setTitle(`🛒 Boutique — ${settings.currencyName}`)

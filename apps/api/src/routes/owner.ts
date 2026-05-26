@@ -411,16 +411,44 @@ export async function ownerRoutes(app: FastifyInstance) {
       }
       const [logs, total] = await Promise.all([
         prisma.ownerLog.findMany({
-          where,
+          where: {
+            ...where,
+            NOT: {
+              OR: [
+                { details: { contains: '/owner/logs' } },
+                { details: { contains: '/api/owner/logs' } },
+                { action: 'GET_OWNER_LOGS' },
+              ],
+            },
+          },
           orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
           include: { user: { select: { username: true, discordId: true } } },
         }),
-        prisma.ownerLog.count({ where }),
+        prisma.ownerLog.count({
+          where: {
+            ...where,
+            NOT: {
+              OR: [
+                { details: { contains: '/owner/logs' } },
+                { details: { contains: '/api/owner/logs' } },
+              ],
+            },
+          },
+        }),
       ]);
-      const entries = logs.map((l) => ({
-        ...l,
-        username: l.user?.username ?? 'Système',
-      }));
+      const entries = logs.map((l) => {
+        let details = l.details;
+        if (details) {
+          try {
+            const parsed = JSON.parse(details);
+            if (parsed?.path?.includes('/owner/logs')) details = null;
+            else if (typeof parsed === 'object') details = JSON.stringify(parsed, null, 2);
+          } catch {
+            if (details.includes('/owner/logs') || details.includes('/api/owner/logs')) details = null;
+          }
+        }
+        return { ...l, username: l.user?.username ?? 'Système', details };
+      }).filter((l) => l.details !== null || l.action !== 'GET_OWNER_LOGS');
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });

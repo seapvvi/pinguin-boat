@@ -14,6 +14,7 @@ import type { GuildConfig, EconomySettings } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { useAutoRefresh, useAutoSave } from '@/lib/hooks';
 
 interface EconomyEntry {
   rank: number;
@@ -59,14 +60,21 @@ export default function EconomyPage() {
   };
 
   useEffect(() => { load(); }, [guildId]);
+  useAutoRefresh(load, 10000, [guildId]);
+
+  const saveEconomy = async (data: EconomySettings) => {
+    const res = await updateGuildSettings(guildId, { economy: { ...data, shopItems } });
+    if (res.success && res.data) setConfig(res.data.guild);
+  };
+
+  useAutoSave(local, saveEconomy, { enabled: !!local });
 
   const handleSave = async () => {
     if (!local) return;
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await updateGuildSettings(guildId, { economy: { ...local, shopItems } });
-      if (res.success && res.data) setConfig(res.data.guild);
+      await saveEconomy(local);
     } catch (e: any) {
       setSaveError(e?.message || 'Erreur lors de la sauvegarde');
     } finally {

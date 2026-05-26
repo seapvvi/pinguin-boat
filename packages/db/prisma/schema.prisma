@@ -808,6 +808,7 @@ model ProtectionSettings {
   altAccountAge      Int      @default(7) @map("alt_account_age")
   verificationLevel  String   @default("NONE") @map("verification_level")
   captchaVerification Boolean @default(false) @map("captcha_verification")
+  verifiedRoleId     String?  @map("verified_role_id")
   punishment         String   @default("KICK") @map("punishment")
   emergencyMode      Boolean  @default(false) @map("emergency_mode")
   createdAt          DateTime @default(now()) @map("created_at")

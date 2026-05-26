@@ -39,7 +39,8 @@ export function Select({
         <select
           id={selectId}
           className={cn(
-            'w-full appearance-none px-3 py-2 pr-8 text-sm text-[var(--text-primary)] bg-transparent border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none transition-colors duration-150',
+            'w-full appearance-none px-3 py-2 pr-8 text-sm text-[var(--text-primary)] border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none transition-colors duration-150',
+            'bg-[var(--bg-surface)] [color-scheme:dark]',
             'focus:border-[var(--accent)]',
             error && 'border-[var(--error)] focus:border-[var(--error)]',
             className,

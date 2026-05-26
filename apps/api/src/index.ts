@@ -58,6 +58,23 @@ async function main() {
   await app.register(webhookRoutes, { prefix: '/api/webhooks' });
   await app.register(internalRoutes, { prefix: '/api/internal' });
 
+  app.get('/api/bot/invite', async (request, reply) => {
+    try {
+      const query = request.query as { guild_id?: string };
+      const clientId = config.DISCORD_CLIENT_ID;
+      if (!clientId) {
+        return reply.status(500).send(error('DISCORD_CLIENT_ID non configuré'));
+      }
+      const permissions = '274877910496';
+      const scope = encodeURIComponent('bot applications.commands');
+      let url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scope}`;
+      if (query.guild_id) url += `&guild_id=${query.guild_id}&disable_guild_select=true`;
+      reply.send(success({ url }));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message));
+    }
+  });
+
   app.get('/api/donors', async (_request, reply) => {
     try {
       const donors = await prisma.donor.findMany({

@@ -95,6 +95,17 @@ export async function guildRoutes(app: FastifyInstance) {
     shopItems: [],
   });
 
+  function mapLogsPayload(logSettings: { logChannelId: string | null; events: string; ignoredChannels: string; ignoredRoles: string } | null, modules?: { logs?: boolean } | null) {
+    const events = logSettings ? JSON.parse(logSettings.events || '[]') : [];
+    return {
+      enabled: modules?.logs ?? true,
+      logChannelId: logSettings?.logChannelId ?? null,
+      enabledEvents: events,
+      ignoreChannels: logSettings ? JSON.parse(logSettings.ignoredChannels || '[]') : [],
+      ignoreUsers: logSettings ? JSON.parse(logSettings.ignoredRoles || '[]') : [],
+    };
+  }
+
   async function getEconomySettings(guildId: string) {
     let es = await prisma.economySettings.findUnique({
       where: { guildId },
@@ -186,6 +197,7 @@ export async function guildRoutes(app: FastifyInstance) {
           roleRewards: [],
         } : undefined,
         welcome: guild.welcomeSettings || undefined,
+        logs: mapLogsPayload(guild.logSettings, guild.modulesEnabled),
         logSettings: guild.logSettings ? {
           logChannelId: guild.logSettings.logChannelId,
           events: JSON.parse(guild.logSettings.events),
@@ -399,20 +411,23 @@ export async function guildRoutes(app: FastifyInstance) {
       const logData = body.logSettings || body.logs;
       if (logData) {
         const ls = logData;
+        const eventsList = ls.enabledEvents ?? ls.events;
+        const ignoreCh = ls.ignoreChannels ?? ls.ignoredChannels;
+        const ignoreUs = ls.ignoreUsers ?? ls.ignoredRoles;
         await prisma.logSettings.upsert({
           where: { guildId },
           update: {
             logChannelId: ls.logChannelId ?? undefined,
-            events: Array.isArray(ls.events) ? JSON.stringify(ls.events) : undefined,
-            ignoredChannels: Array.isArray(ls.ignoredChannels) ? JSON.stringify(ls.ignoredChannels) : undefined,
-            ignoredRoles: Array.isArray(ls.ignoredRoles) ? JSON.stringify(ls.ignoredRoles) : undefined,
+            events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : undefined,
+            ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : undefined,
+            ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : undefined,
           },
           create: {
             guildId,
             logChannelId: ls.logChannelId ?? null,
-            events: Array.isArray(ls.events) ? JSON.stringify(ls.events) : '[]',
-            ignoredChannels: Array.isArray(ls.ignoredChannels) ? JSON.stringify(ls.ignoredChannels) : '[]',
-            ignoredRoles: Array.isArray(ls.ignoredRoles) ? JSON.stringify(ls.ignoredRoles) : '[]',
+            events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : '[]',
+            ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : '[]',
+            ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : '[]',
           },
         });
       }
@@ -529,7 +544,10 @@ export async function guildRoutes(app: FastifyInstance) {
           workMin: es.workMin, workMax: es.workMax, workCooldown: es.workCooldown,
           robberyEnabled: es.robberyEnabled, robberyMaxAmount: es.robberyMaxAmount,
           robberyCooldown: es.robberyCooldown, interestRate: es.interestRate,
-          interestInterval: es.interestInterval, bankCapacity: es.bankCapacity, shopItems: [],
+          interestInterval: es.interestInterval, bankCapacity: es.bankCapacity,
+          shopItems: (es as any).shopItems?.map((i: any) => ({
+            id: i.id, name: i.name, description: i.description, price: i.price, roleId: i.roleId,
+          })) ?? [],
         },
         protection: guild.protectionSettings || { enabled: false, emergencyMode: false, antiRaid: false, raidThreshold: 10, raidInterval: 10, antiSpam: false, spamThreshold: 5, spamInterval: 5, antiMassMention: false, mentionThreshold: 5, antiLink: false, antiAlts: false, altAccountAge: 7, verificationLevel: 'NONE', captchaVerification: false, punishment: 'KICK' },
         levels: guild.xpSettings ? {
@@ -543,6 +561,7 @@ export async function guildRoutes(app: FastifyInstance) {
           roleRewards: (guild as any).xpRoleRewards?.map((rr: any) => ({ level: rr.levelRequired, roleId: rr.roleId })) ?? [],
         } : undefined,
         welcome: guild.welcomeSettings || undefined,
+        logs: mapLogsPayload(guild.logSettings, guild.modulesEnabled),
         logSettings: guild.logSettings ? {
           logChannelId: guild.logSettings.logChannelId,
           events: JSON.parse(guild.logSettings.events),
@@ -902,12 +921,8 @@ export async function guildRoutes(app: FastifyInstance) {
       const { guildId } = request.params as any;
       let ls = await prisma.logSettings.findUnique({ where: { guildId } });
       if (!ls) ls = await prisma.logSettings.create({ data: { guildId } });
-      reply.send(success({
-        logChannelId: ls.logChannelId,
-        events: JSON.parse(ls.events),
-        ignoredChannels: JSON.parse(ls.ignoredChannels),
-        ignoredRoles: JSON.parse(ls.ignoredRoles),
-      }));
+      const modules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
+      reply.send(success(mapLogsPayload(ls, modules)));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
@@ -915,15 +930,24 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as any;
       const body = request.body as any;
+      const eventsList = body.enabledEvents ?? body.events;
+      const ignoreCh = body.ignoreChannels ?? body.ignoredChannels;
+      const ignoreUs = body.ignoreUsers ?? body.ignoredRoles;
       await prisma.logSettings.upsert({
         where: { guildId },
         update: {
           logChannelId: body.logChannelId ?? undefined,
-          events: body.events ? JSON.stringify(body.events) : undefined,
-          ignoredChannels: body.ignoredChannels ? JSON.stringify(body.ignoredChannels) : undefined,
-          ignoredRoles: body.ignoredRoles ? JSON.stringify(body.ignoredRoles) : undefined,
+          events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : undefined,
+          ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : undefined,
+          ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : undefined,
         },
-        create: { guildId, logChannelId: body.logChannelId || null, events: body.events ? JSON.stringify(body.events) : '[]', ignoredChannels: '[]', ignoredRoles: '[]' },
+        create: {
+          guildId,
+          logChannelId: body.logChannelId || null,
+          events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : '[]',
+          ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : '[]',
+          ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : '[]',
+        },
       });
       reply.send(success(null, 'Logs mis à jour'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
@@ -1058,7 +1082,7 @@ export async function guildRoutes(app: FastifyInstance) {
       ]);
       const entries = wallets.map((w, i) => ({
         rank: (page - 1) * limit + i + 1, userId: w.userId,
-        username: w.user.username, avatar: w.user.avatar,
+        username: w.user?.username ?? w.userId, avatar: w.user?.avatar ?? null,
         wallet: w.wallet, bank: w.bank, totalEarned: w.totalEarned,
         guildId,
       }));
@@ -1091,6 +1115,41 @@ export async function guildRoutes(app: FastifyInstance) {
       reply.send(success({
         giveaways: data,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.get('/:guildId/giveaways/:id/stats', { preHandler: [authenticate, validateParams(giveawayIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, id } = request.params as any;
+      const g = await prisma.giveaway.findFirst({
+        where: { id, guildId },
+        include: {
+          entries: { include: { user: { select: { id: true, discordId: true, username: true, avatar: true } } } },
+        },
+      });
+      if (!g) return reply.status(404).send(error('Giveaway introuvable'));
+      let winnerUsers: { id: string; username: string }[] = [];
+      if (g.winners) {
+        try {
+          const ids = JSON.parse(g.winners) as string[];
+          winnerUsers = await Promise.all(
+            ids.map(async (discordId) => {
+              const u = await prisma.user.findUnique({ where: { discordId } });
+              return { id: discordId, username: u?.username ?? discordId };
+            })
+          );
+        } catch { /* ignore */ }
+      }
+      reply.send(success({
+        giveaway: g,
+        entryCount: g.entries.length,
+        participants: g.entries.map((e) => ({
+          userId: e.user?.discordId ?? e.userId,
+          username: e.user?.username ?? e.userId,
+          joinedAt: e.joinedAt,
+        })),
+        winners: winnerUsers,
       }));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
@@ -1252,10 +1311,7 @@ export async function guildRoutes(app: FastifyInstance) {
               timestamp: new Date().toISOString(),
             }],
           });
-          const emojis =
-            options.length === 2
-              ? ['✅', '❌']
-              : options.slice(0, 10).map((_: unknown, i: number) => NUMBER_EMOJIS[i]);
+          const emojis = options.slice(0, 10).map((_: unknown, i: number) => NUMBER_EMOJIS[i]);
           for (const emoji of emojis) {
             await addMessageReaction(channelId, msg.id, emoji);
             await new Promise((r) => setTimeout(r, 350));
@@ -1603,6 +1659,7 @@ export async function guildRoutes(app: FastifyInstance) {
           altAccountAge: body.altAccountAge ?? undefined,
           verificationLevel: body.verificationLevel ?? undefined,
           captchaVerification: body.captchaVerification ?? undefined,
+          verifiedRoleId: body.verifiedRoleId ?? undefined,
           punishment: body.punishment ?? undefined,
         },
         create: { guildId, ...body },
@@ -1907,7 +1964,17 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.confirmName !== guild.name) {
         return reply.status(400).send(error('Nom du serveur incorrect'));
       }
-      await prisma.guild.delete({ where: { id: guildId } });
+      await prisma.$transaction([
+        prisma.ticket.deleteMany({ where: { guildId } }),
+        prisma.moderationCase.deleteMany({ where: { guildId } }),
+        prisma.poll.deleteMany({ where: { guildId } }),
+        prisma.giveaway.deleteMany({ where: { guildId } }),
+        prisma.suggestion.deleteMany({ where: { guildId } }),
+        prisma.xPProfile.deleteMany({ where: { guildId } }),
+        prisma.economyWallet.deleteMany({ where: { guildId } }),
+        prisma.auditLog.deleteMany({ where: { guildId } }),
+        prisma.guild.delete({ where: { id: guildId } }),
+      ]);
       reply.send(success(null, 'Données supprimées'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });

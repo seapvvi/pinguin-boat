@@ -1,4 +1,5 @@
-import { GuildMember, Message, DMChannel } from 'discord.js';
+import { GuildMember, Message } from 'discord.js';
+import { prisma } from '@pinguin/db';
 
 const pending = new Map<string, { code: string; expiresAt: number; verifiedRoleId?: string }>();
 
@@ -10,23 +11,37 @@ function randomCode(length = 5): string {
 }
 
 export async function sendCaptcha(member: GuildMember, timeoutMinutes = 5): Promise<void> {
+  const settings = await prisma.protectionSettings.findUnique({ where: { guildId: member.guild.id } });
   const code = randomCode();
   const key = `${member.guild.id}:${member.id}`;
-  pending.set(key, { code, expiresAt: Date.now() + timeoutMinutes * 60 * 1000 });
+  pending.set(key, {
+    code,
+    expiresAt: Date.now() + timeoutMinutes * 60 * 1000,
+    verifiedRoleId: settings?.verifiedRoleId ?? undefined,
+  });
 
   const text = [
     `**Vérification requise** sur **${member.guild.name}**`,
     '',
-    `Répondez à ce message avec le code suivant dans les **${timeoutMinutes} minutes** :`,
+    `Répondez à ce message privé avec le code suivant dans les **${timeoutMinutes} minutes** :`,
     '',
     `\`\`\`${code}\`\`\``,
+    '',
+    '_Vous ne pourrez pas écrire sur le serveur tant que la vérification n’est pas terminée._',
   ].join('\n');
 
-  await member.send(text).catch(() => {});
+  const sent = await member.send(text).catch(() => null);
+  if (!sent) {
+    const ch = member.guild.systemChannel;
+    if (ch?.isTextBased()) {
+      await ch.send(`${member}, vérifiez vos MP pour le code captcha.`).catch(() => {});
+    }
+  }
 
   setTimeout(async () => {
     const p = pending.get(key);
-    if (!p || Date.now() < p.expiresAt) return;
+    if (!p) return;
+    if (Date.now() < p.expiresAt) return;
     pending.delete(key);
     if (member.kickable) {
       await member.kick('Captcha non validé').catch(() => {});
@@ -44,13 +59,19 @@ export async function handleCaptchaDM(message: Message): Promise<boolean> {
       pending.delete(key);
       continue;
     }
-    if (message.content.trim().toUpperCase() !== data.code) continue;
+    if (message.content.trim().toUpperCase() !== data.code) {
+      await message.reply('❌ Code incorrect. Réessayez.').catch(() => {});
+      return true;
+    }
     pending.delete(key);
     const guildId = key.split(':')[0];
     const guild = message.client.guilds.cache.get(guildId);
     const member = guild ? await guild.members.fetch(userId).catch(() => null) : null;
     if (member) {
-      await message.reply('✅ Vérification réussie ! Bienvenue.').catch(() => {});
+      if (data.verifiedRoleId) {
+        await member.roles.add(data.verifiedRoleId, 'Captcha validé').catch(() => {});
+      }
+      await message.reply('✅ Vérification réussie ! Bienvenue sur le serveur.').catch(() => {});
     }
     return true;
   }
@@ -58,5 +79,11 @@ export async function handleCaptchaDM(message: Message): Promise<boolean> {
 }
 
 export function hasPendingCaptcha(guildId: string, userId: string): boolean {
-  return pending.has(`${guildId}:${userId}`);
+  const p = pending.get(`${guildId}:${userId}`);
+  if (!p) return false;
+  if (Date.now() > p.expiresAt) {
+    pending.delete(`${guildId}:${userId}`);
+    return false;
+  }
+  return true;
 }

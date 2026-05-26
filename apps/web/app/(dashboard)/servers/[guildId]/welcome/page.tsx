@@ -9,6 +9,7 @@ import { fetchGuildSettings, api } from '@/lib/api';
 import type { WelcomeSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { useAutoSave } from '@/lib/hooks';
 
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -67,6 +68,22 @@ export default function WelcomePage() {
 
   useEffect(() => { load(); }, [guildId]);
 
+  const saveWelcome = async (data: WelcomeSettings) => {
+    await api.put(`/api/guilds/${guildId}/welcome`, {
+      enabled: data.enabled,
+      welcomeChannelId: data.welcomeChannelId,
+      welcomeMessage: data.welcomeMessage,
+      welcomeEmbed: data.welcomeEmbed,
+      goodbyeChannelId: data.goodbyeChannelId,
+      goodbyeMessage: data.goodbyeMessage,
+      goodbyeEmbed: data.goodbyeEmbed,
+      welcomeDM: data.dmWelcome,
+      welcomeDMMessage: data.dmWelcomeMessage,
+    });
+  };
+
+  useAutoSave(local, saveWelcome, { enabled: !!local });
+
   const handleSave = async () => {
     if (!local) return;
     setSaving(true);
@@ -91,12 +108,20 @@ export default function WelcomePage() {
     }
   };
 
+  const previewReplace = (msg: string) => msg
+    .replace(/\{user\}/gi, 'JeanDupont')
+    .replace(/\{username\}/gi, 'jean_dupont')
+    .replace(/\{server\}/gi, 'Nom du serveur')
+    .replace(/\{members\}/gi, '42')
+    .replace(/\{count\}/gi, '42')
+    .replace(/\{inviter\}/gi, 'MarieInvite');
+
   const updatePreview = (msg: string) => {
-    setWelcomePreview(msg.replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
+    setWelcomePreview(previewReplace(msg));
   };
 
   const updateGoodbyePreview = (msg: string) => {
-    setGoodbyePreview(msg.replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
+    setGoodbyePreview(previewReplace(msg));
   };
 
 
@@ -119,9 +144,12 @@ export default function WelcomePage() {
   }
 
   const placeholders = [
-    { key: '{user}', desc: 'Mention du membre' },
+    { key: '{user}', desc: 'Pseudo affiché (sans mention)' },
+    { key: '{username}', desc: 'Nom d\'utilisateur Discord' },
     { key: '{server}', desc: 'Nom du serveur' },
-    { key: '{count}', desc: 'Nombre de membres' },
+    { key: '{members}', desc: 'Nombre de membres' },
+    { key: '{count}', desc: 'Alias de {members}' },
+    { key: '{inviter}', desc: 'Pseudo de l\'inviteur (sans mention)' },
   ];
 
   return (

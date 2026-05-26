@@ -10,15 +10,24 @@ import {
 import { Card, KPICard, Skeleton, EmptyState, Badge } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { getUser, type User } from '@/lib/auth';
-import { fetchBotStats, fetchChangelogs, fetchGuilds } from '@/lib/api';
+import { fetchBotStats, fetchChangelogs, fetchGuilds, api } from '@/lib/api';
+import { InviteBotButton } from '@/components/InviteBotButton';
 import { formatNumber, formatDuration } from '@/lib/utils';
 import type { BotStats, Changelog, GuildItemDTO, LeaderboardEntry } from '@pinguin/shared';
+
+interface Donor {
+  id: string;
+  username: string;
+  amount: number;
+  message: string | null;
+}
 
 interface OverviewData {
   stats: BotStats | null;
   changelogs: Changelog[];
   topXP: LeaderboardEntry[];
   topGuilds: GuildItemDTO[];
+  donors: Donor[];
 }
 
 export default function OverviewPage() {
@@ -38,16 +47,27 @@ export default function OverviewPage() {
         router.replace('/auth/login');
         return;
       }
-      const [statsRes, changelogsRes, guildsRes] = await Promise.allSettled([
+      const [statsRes, changelogsRes, guildsRes, donorsRes, lbRes] = await Promise.allSettled([
         fetchBotStats(),
         fetchChangelogs({ page: '1', limit: '5' }),
         fetchGuilds(),
+        api.get<{ data: { donors: Donor[] } }>('/api/donors'),
+        api.get<{ data: { entries: LeaderboardEntry[] } }>('/api/overview/leaderboard/global?limit=5'),
       ]);
       setData({
         stats: statsRes.status === 'fulfilled' ? statsRes.value.data ?? null : null,
         changelogs: changelogsRes.status === 'fulfilled' ? changelogsRes.value.data?.entries ?? [] : [],
-        topXP: [],
+        topXP: lbRes.status === 'fulfilled'
+          ? (lbRes.value.data as { entries?: LeaderboardEntry[] })?.entries?.map((e: any) => ({
+              userId: e.userId,
+              username: e.username,
+              avatar: e.avatar,
+              xp: e.totalXp ?? e.xp ?? 0,
+              level: e.level ?? 0,
+            })) ?? []
+          : [],
         topGuilds: guildsRes.status === 'fulfilled' ? guildsRes.value.data?.guilds?.slice(0, 5) ?? [] : [],
+        donors: donorsRes.status === 'fulfilled' ? (donorsRes.value.data as { donors?: Donor[] })?.donors?.slice(0, 5) ?? [] : [],
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
@@ -114,14 +134,7 @@ export default function OverviewPage() {
           >
             <Heart size={14} /> Nous soutenir
           </a>
-          <a
-            href={`https://discord.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&permissions=8&scope=bot`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border bg-[var(--accent)] text-[var(--bg-primary)] border-[var(--accent)] hover:opacity-90 no-underline cursor-pointer"
-          >
-            <Plus size={14} /> Inviter le bot
-          </a>
+          <InviteBotButton />
         </div>
       </div>
 
@@ -136,6 +149,23 @@ export default function OverviewPage() {
           ))
         )}
       </div>
+
+      {data && data.donors.length > 0 && (
+        <Card className="mb-8 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Nos donateurs</h2>
+            <Heart size={16} className="text-[var(--accent)]" />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {data.donors.map((d) => (
+              <div key={d.id} className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] border border-[var(--border-color)]">
+                <span className="text-sm font-medium text-[var(--text-primary)]">{d.username}</span>
+                <span className="text-xs text-[var(--text-secondary)]">{d.amount.toFixed(2)} €</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <Card className="lg:col-span-2">

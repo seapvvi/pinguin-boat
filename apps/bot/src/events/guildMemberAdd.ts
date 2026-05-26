@@ -27,15 +27,24 @@ export async function execute(member: GuildMember, client: Client): Promise<void
   if (welcomeEnabled) {
     const welcome = await prisma.welcomeSettings.findUnique({ where: { guildId } });
     if (welcome?.enabled) {
+      let inviterName = 'quelqu\'un';
+      try {
+        const logs = await member.guild.fetchAuditLogs({ limit: 1, type: 28 });
+        const entry = logs.entries.first();
+        if (entry?.executor && !entry.executor.bot) inviterName = entry.executor.username;
+      } catch { /* audit log indisponible */ }
+
+      const replacements = (s: string) => s
+            .replace(/\{user\}/gi, member.displayName)
+            .replace(/\{username\}/gi, member.user.username)
+            .replace(/\{server\}/gi, member.guild.name)
+            .replace(/\{members\}/gi, String(member.guild.memberCount))
+            .replace(/\{count\}/gi, String(member.guild.memberCount))
+            .replace(/\{inviter\}/gi, inviterName);
+
       if (welcome.welcomeChannelId) {
         const channel = member.guild.channels.cache.get(welcome.welcomeChannelId);
         if (channel?.isTextBased()) {
-          const replacements = (s: string) => s
-            .replace('{user}', member.toString())
-            .replace('{server}', member.guild.name)
-            .replace('{members}', String(member.guild.memberCount))
-            .replace('{count}', String(member.guild.memberCount));
-
           const mention = welcome.mentionMember !== false ? `${member} ` : '';
           if (welcome.welcomeEmbed) {
             const embed = new EmbedBuilder()
@@ -54,7 +63,7 @@ export async function execute(member: GuildMember, client: Client): Promise<void
           } else {
             const msg = welcome.welcomeMessage
               ? replacements(welcome.welcomeMessage)
-              : `Bienvenue ${member.toString()} sur **${member.guild.name}** !`;
+              : `Bienvenue ${member.displayName} sur **${member.guild.name}** !`;
             await channel.send(mention + msg).catch(() => {});
           }
         }
@@ -62,10 +71,12 @@ export async function execute(member: GuildMember, client: Client): Promise<void
 
       if (welcome.welcomeDM) {
         const dmMsg = (welcome.welcomeDMMessage || `Bienvenue sur **${member.guild.name}**, ${member.user.username} !`)
-          .replace('{user}', member.user.username)
-          .replace('{server}', member.guild.name)
-          .replace('{members}', String(member.guild.memberCount))
-          .replace('{count}', String(member.guild.memberCount));
+          .replace(/\{user\}/gi, member.displayName)
+          .replace(/\{username\}/gi, member.user.username)
+          .replace(/\{server\}/gi, member.guild.name)
+          .replace(/\{members\}/gi, String(member.guild.memberCount))
+          .replace(/\{count\}/gi, String(member.guild.memberCount))
+          .replace(/\{inviter\}/gi, inviterName);
         await member.send(dmMsg).catch(() => {});
       }
     }

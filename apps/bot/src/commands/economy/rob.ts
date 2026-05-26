@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
-import { getEconomySettings, getOrCreateWallet, formatCoins } from '../../services/economy';
+import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive } from '../../services/economy';
 import { successEmbed, errorEmbed } from '../../services/embed';
 
 const robCooldowns = new Map<string, number>();
@@ -17,8 +17,12 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
   await interaction.deferReply();
   if (!interaction.guild) return;
 
+  if (!(await isEconomyActive(interaction.guild.id))) {
+    await interaction.editReply({ embeds: [errorEmbed('Module désactivé', 'L\'économie n\'est pas activée.')] });
+    return;
+  }
   const settings = await getEconomySettings(interaction.guild.id);
-  if (!settings.enabled || !settings.robberyEnabled) {
+  if (!settings.robberyEnabled) {
     await interaction.editReply({ embeds: [errorEmbed('Interdit', 'Le vol n\'est pas activé sur ce serveur.')] });
     return;
   }

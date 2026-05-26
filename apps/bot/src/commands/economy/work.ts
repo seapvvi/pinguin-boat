@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, CommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
-import { getEconomySettings, getOrCreateWallet, formatCoins } from '../../services/economy';
+import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive } from '../../services/economy';
 import { successEmbed, errorEmbed } from '../../services/embed';
 
 const workCooldowns = new Map<string, number>();
@@ -16,11 +16,11 @@ export async function execute(interaction: CommandInteraction, _client: Client):
   await interaction.deferReply();
   if (!interaction.guild) return;
 
-  const settings = await getEconomySettings(interaction.guild.id);
-  if (!settings.enabled) {
-    await interaction.editReply({ embeds: [errorEmbed('Module désactivé', 'L\'économie n\'est pas activée sur ce serveur.')] });
+  if (!(await isEconomyActive(interaction.guild.id))) {
+    await interaction.editReply({ embeds: [errorEmbed('Module désactivé', 'L\'économie n\'est pas activée.')] });
     return;
   }
+  const settings = await getEconomySettings(interaction.guild.id);
 
   await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
   const key = `${interaction.guild.id}:${interaction.user.id}`;

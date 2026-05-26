@@ -1,5 +1,6 @@
-export function formatNumber(n: number): string {
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+export function formatNumber(n: number | null | undefined): string {
+  const v = n ?? 0;
+  return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
 export function formatDuration(seconds: number): string {

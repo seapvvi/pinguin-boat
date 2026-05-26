@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/utils';
 import type { Poll } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { useAutoRefresh } from '@/lib/hooks';
 
 export default function PollsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -45,6 +46,7 @@ export default function PollsPage() {
   };
 
   useEffect(() => { load(page); }, [guildId, page]);
+  useAutoRefresh(() => load(page), 8000, [guildId, page]);
 
   useEffect(() => {
     if (createOpen) {

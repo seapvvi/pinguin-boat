@@ -62,7 +62,17 @@ export default function OwnerLogsPage() {
       if (actionFilter) params.action = actionFilter;
       const res = await fetchOwnerLogs(params);
       if (res.success && res.data) {
-        setLogs(res.data.entries ?? []);
+        const entries = (res.data.entries ?? []).filter((l: OwnerLog) => {
+          if (l.action === 'GET_OWNER_LOGS') return false;
+          if (!l.details) return true;
+          if (l.details.includes('/owner/logs') || l.details.includes('/api/owner/logs')) return false;
+          try {
+            const p = JSON.parse(l.details);
+            if (p?.path?.includes('/owner/logs')) return false;
+          } catch { /* texte brut */ }
+          return true;
+        });
+        setLogs(entries);
         setTotalPages(res.data.pagination?.totalPages ?? 1);
       }
     } catch (e) {
