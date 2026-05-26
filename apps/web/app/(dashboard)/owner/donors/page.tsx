@@ -21,8 +21,16 @@ export default function OwnerDonorsPage() {
   const [form, setForm] = useState({ userId: '', username: '', amount: 0, message: '', isPublic: true });
 
   const load = () => {
-    api.get<{ data: { donors: Donor[] } }>('/api/owner/donors')
-      .then((res) => { if (res.success && res.data) setDonors((res.data as any).donors ?? []); })
+    api.get<{ donors: Donor[] }>('/api/owner/donors')
+      .then((res: any) => {
+        // api layer returns the JSON body directly; shared APIResponse shape is { success, data?, error? }
+        if (res?.success && (res?.data ?? res)?.donors) {
+          const payload = (res.data ?? res) as { donors?: Donor[] };
+          setDonors(payload.donors ?? []);
+        } else if (res?.data?.donors) {
+          setDonors(res.data.donors ?? []);
+        }
+      })
       .finally(() => setLoading(false));
   };
 
