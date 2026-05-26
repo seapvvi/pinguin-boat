@@ -444,7 +444,7 @@ export async function ownerRoutes(app: FastifyInstance) {
             if (parsed?.path?.includes('/owner/logs')) details = null;
             else if (typeof parsed === 'object') details = JSON.stringify(parsed, null, 2);
           } catch {
-            if (details.includes('/owner/logs') || details.includes('/api/owner/logs')) details = null;
+            if (typeof details === 'string' && (details.includes('/owner/logs') || details.includes('/api/owner/logs'))) details = null;
           }
         }
         return { ...l, username: l.user?.username ?? 'Système', details };
