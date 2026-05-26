@@ -81,8 +81,9 @@ export default function LogsPage() {
     setError(null);
     try {
       const res = await api.get<{ data: LogSettings & { enabledEvents?: LogEventType[] } }>(`/api/guilds/${guildId}/logs`);
-      if (res.success && res.data) {
-        const d = res.data as any;
+      const payload = (res as any)?.data;
+      if (payload) {
+        const d = payload as any;
         setLocal({
           enabled: d.enabled ?? true,
           logChannelId: d.logChannelId ?? null,

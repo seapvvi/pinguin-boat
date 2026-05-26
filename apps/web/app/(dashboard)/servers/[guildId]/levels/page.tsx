@@ -37,15 +37,19 @@ export default function LevelsPage() {
         fetchGuildSettings(guildId),
         fetchXPLeaderboard(guildId, { page: '1', limit: '20' }),
       ]);
-      if (settingsRes.success && settingsRes.data) {
-        setConfig(settingsRes.data.guild);
-        const levels = settingsRes.data.guild.levels;
+      const settingsPayload = (settingsRes as any)?.data;
+      if (settingsPayload) {
+        setConfig(settingsPayload.guild);
+        const levels = settingsPayload.guild.levels;
         setLocal({
           ...levels,
           roleRewards: levels?.roleRewards ?? [],
         });
+      } else {
+        setLocal(null);
       }
-      if (lbRes.success && lbRes.data) setLeaderboard(lbRes.data.entries ?? []);
+      const lbPayload = (lbRes as any)?.data;
+      if (lbPayload) setLeaderboard(lbPayload.entries ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {

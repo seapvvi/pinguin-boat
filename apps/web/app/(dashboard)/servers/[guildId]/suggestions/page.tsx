@@ -50,9 +50,10 @@ export default function SuggestionsPage() {
     setError(null);
     try {
       const res = await fetchSuggestions(guildId, { page: String(p), limit: '15' });
-      if (res.success && res.data) {
-        setSuggestions(res.data.suggestions);
-        setTotalPages(res.data.pagination.totalPages);
+      const payload = (res as any)?.data;
+      if (payload) {
+        setSuggestions(payload.suggestions);
+        setTotalPages(payload.pagination.totalPages);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
