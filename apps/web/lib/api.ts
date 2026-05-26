@@ -31,7 +31,7 @@ function getBearerToken(): string | null {
   return null;
 }
 
-async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+async function apiFetch<T = APIResponse<unknown>>(endpoint: string, options: FetchOptions = {}): Promise<T> {
   const { params, ...fetchOptions } = options;
 
   let url = endpoint;
@@ -75,19 +75,19 @@ async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promis
 }
 
 export const api = {
-  get: <T>(endpoint: string, params?: Record<string, string>) =>
+  get: <T = APIResponse<unknown>>(endpoint: string, params?: Record<string, string>) =>
     apiFetch<T>(endpoint, { params, method: 'GET' }),
 
-  post: <T>(endpoint: string, body?: unknown) =>
+  post: <T = APIResponse<unknown>>(endpoint: string, body?: unknown) =>
     apiFetch<T>(endpoint, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
 
-  put: <T>(endpoint: string, body?: unknown) =>
+  put: <T = APIResponse<unknown>>(endpoint: string, body?: unknown) =>
     apiFetch<T>(endpoint, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
 
-  patch: <T>(endpoint: string, body?: unknown) =>
+  patch: <T = APIResponse<unknown>>(endpoint: string, body?: unknown) =>
     apiFetch<T>(endpoint, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
 
-  delete: <T>(endpoint: string) =>
+  delete: <T = APIResponse<unknown>>(endpoint: string) =>
     apiFetch<T>(endpoint, { method: 'DELETE' }),
 };
 
@@ -191,7 +191,14 @@ export async function fetchDeploymentStatus(id: string): Promise<APIResponse<{
   startedAt: string;
   completedAt: string | null;
 }>> {
-  return api.get(`/api/deploy/status/${id}`);
+  return api.get<APIResponse<{
+    id: string;
+    version: string;
+    status: string;
+    log: string[];
+    startedAt: string;
+    completedAt: string | null;
+  }>>(`/api/deploy/status/${id}`);
 }
 
 export async function fetchChangelogs(params?: Record<string, string>): Promise<APIResponse<ChangelogListDTO>> {
