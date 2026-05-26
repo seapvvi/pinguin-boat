@@ -58,6 +58,19 @@ async function main() {
   await app.register(webhookRoutes, { prefix: '/api/webhooks' });
   await app.register(internalRoutes, { prefix: '/api/internal' });
 
+  app.get('/api/donors', async (_request, reply) => {
+    try {
+      const donors = await prisma.donor.findMany({
+        where: { isPublic: true },
+        orderBy: { amount: 'desc' },
+        take: 50,
+      });
+      reply.send(success({ donors }));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message));
+    }
+  });
+
   app.get('/api/health', async () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -76,14 +89,39 @@ async function main() {
     }
   });
 
-  app.get('/api/stats', { preHandler: [authenticate] }, async (_request, reply) => {
+  app.get('/api/stats', { preHandler: [authenticate] }, async (request, reply) => {
     try {
+      const discordId = request.user!.discordId;
+      const isOwner = discordId === config.DISCORD_OWNER_ID;
+
+      if (!isOwner) {
+        const guilds = await prisma.guild.findMany({
+          where: { botPresent: true },
+          select: { memberCount: true },
+        });
+        let onlineMembers = 0;
+        try {
+          const botStats = await botFetch('/internal/stats');
+          onlineMembers = botStats?.data?.onlineMembers ?? 0;
+        } catch { /* bot offline */ }
+        const totalMembers = guilds.reduce((s, g) => s + g.memberCount, 0);
+        return reply.send(success({
+          isOwner: false,
+          totalGuilds: guilds.length,
+          totalUsers: totalMembers,
+          activeMembers: onlineMembers,
+          onlineMembers,
+          activeChannels: 0,
+        }));
+      }
+
       const [globalStats, metrics, commandCount] = await Promise.all([
         getGlobalStats(),
         getSystemMetrics(),
         prisma.auditLog.count(),
       ]);
       reply.send(success({
+        isOwner: true,
         totalGuilds: globalStats.guilds,
         totalUsers: globalStats.users,
         totalCommands: commandCount,

@@ -13,6 +13,7 @@ import { formatNumber } from '@/lib/utils';
 import type { GuildConfig, EconomySettings } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { DiscordSelect } from '@/components/DiscordSelect';
 
 interface EconomyEntry {
   rank: number;
@@ -32,6 +33,8 @@ export default function EconomyPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<EconomySettings | null>(null);
+  const [shopItems, setShopItems] = useState<Array<{ id?: string; name: string; description?: string; price: number; roleId?: string }>>([]);
+  const [newItem, setNewItem] = useState({ name: '', description: '', price: 100, roleId: '' });
 
   const load = async () => {
     setLoading(true);
@@ -43,7 +46,9 @@ export default function EconomyPage() {
       ]);
       if (settingsRes.success && settingsRes.data) {
         setConfig(settingsRes.data.guild);
-        setLocal({ ...settingsRes.data.guild.economy });
+        const ec = settingsRes.data.guild.economy as EconomySettings & { shopItems?: typeof shopItems };
+        setLocal({ ...ec });
+        setShopItems(ec.shopItems ?? []);
       }
       if (lbRes.success && lbRes.data) setLeaderboard(lbRes.data.entries ?? []);
     } catch (e) {
@@ -60,7 +65,7 @@ export default function EconomyPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await updateGuildSettings(guildId, { economy: local });
+      const res = await updateGuildSettings(guildId, { economy: { ...local, shopItems } });
       if (res.success && res.data) setConfig(res.data.guild);
     } catch (e: any) {
       setSaveError(e?.message || 'Erreur lors de la sauvegarde');
@@ -156,6 +161,32 @@ export default function EconomyPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input label="Montant max de vol" type="number" value={String(local.robberyMaxAmount)} onChange={(e) => setLocal({ ...local, robberyMaxAmount: Number(e.target.value) })} />
               <Input label="Cooldown vol (s)" type="number" value={String(local.robberyCooldown)} onChange={(e) => setLocal({ ...local, robberyCooldown: Number(e.target.value) })} />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 mb-4">
+              <ShoppingCart size={18} className="text-[var(--accent)]" />
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Articles boutique</h2>
+            </div>
+            {shopItems.map((item, i) => (
+              <div key={i} className="flex items-center justify-between p-2 mb-2 rounded bg-[var(--bg-surface-alt)]">
+                <span className="text-sm">{item.name} — {item.price} {local.currencySymbol}</span>
+                <Button variant="secondary" size="sm" onClick={() => setShopItems(shopItems.filter((_, j) => j !== i))}>Supprimer</Button>
+              </div>
+            ))}
+            <div className="grid grid-cols-1 gap-3 mt-3">
+              <Input label="Nom" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} />
+              <Input label="Prix" type="number" value={String(newItem.price)} onChange={(e) => setNewItem({ ...newItem, price: Number(e.target.value) })} />
+              <Input label="Description" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} />
+              <DiscordSelect type="role" guildId={guildId} label="Rôle à attribuer (optionnel)" value={newItem.roleId} onChange={(id) => setNewItem({ ...newItem, roleId: id })} />
+              <Button variant="secondary" onClick={() => {
+                if (!newItem.name.trim()) return;
+                setShopItems([...shopItems, { ...newItem, roleId: newItem.roleId || undefined }]);
+                setNewItem({ name: '', description: '', price: 100, roleId: '' });
+              }}>
+                <Plus size={14} className="mr-1" /> Ajouter l&apos;article
+              </Button>
             </div>
           </Card>
         </div>

@@ -6,6 +6,7 @@ import {
   TextChannel,
 } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { sendCaptcha } from './captcha';
 
 const joinTimestamps = new Map<string, number[]>();
 const messageTimestamps = new Map<string, number[]>();
@@ -49,6 +50,16 @@ export async function handleMemberJoin(member: GuildMember): Promise<void> {
   joinTimestamps.set(key, recent);
 
   if (settings.emergencyMode || (settings.antiRaid && recent.length >= settings.raidThreshold)) {
+    if (settings.antiRaid && recent.length >= settings.raidThreshold) {
+      const everyone = member.guild.roles.everyone;
+      for (const ch of member.guild.channels.cache.values()) {
+        if (ch.isTextBased() && 'permissionOverwrites' in ch) {
+          await (ch as TextChannel).permissionOverwrites
+            .edit(everyone.id, { SendMessages: false })
+            .catch(() => {});
+        }
+      }
+    }
     await applyPunishment(member, settings.punishment, 'Protection anti-raid');
     return;
   }
@@ -58,7 +69,12 @@ export async function handleMemberJoin(member: GuildMember): Promise<void> {
       (Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24);
     if (accountAgeDays < settings.altAccountAge) {
       await applyPunishment(member, settings.punishment, 'Compte trop récent');
+      return;
     }
+  }
+
+  if (settings.captchaVerification) {
+    await sendCaptcha(member, 5);
   }
 }
 
@@ -77,7 +93,8 @@ export async function handleMessage(message: Message): Promise<boolean> {
 
   const content = message.content;
 
-  if (settings.antiLink && LINK_REGEX.test(content)) {
+  const hasLink = LINK_REGEX.test(content) || /discord\.gg\/|discord\.com\/invite\//i.test(content);
+  if (settings.antiLink && hasLink) {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
       await message.delete().catch(() => {});
       return true;

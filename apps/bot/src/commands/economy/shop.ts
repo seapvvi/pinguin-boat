@@ -1,18 +1,6 @@
 import { SlashCommandBuilder, CommandInteraction, Client } from 'discord.js';
-import { infoEmbed, errorEmbed, createEmbed } from '../../services/embed';
-
-interface ShopItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-}
-
-const defaultShop: ShopItem[] = [
-  { id: 'role_color', name: 'Rôle coloré', description: 'Un rôle avec une couleur personnalisée', price: 500 },
-  { id: 'nickname', name: 'Changer de surnom', description: 'Permet de changer le surnom d\'un membre', price: 200 },
-  { id: 'lucky', name: 'Ticket de loterie', description: 'Un ticket pour la loterie hebdomadaire', price: 100 },
-];
+import { getEconomySettings } from '../../services/economy';
+import { createEmbed, errorEmbed } from '../../services/embed';
 
 export const data = new SlashCommandBuilder()
   .setName('shop')
@@ -20,17 +8,29 @@ export const data = new SlashCommandBuilder()
 
 export const module = 'economy';
 
-export async function execute(interaction: CommandInteraction, client: Client): Promise<void> {
+export async function execute(interaction: CommandInteraction, _client: Client): Promise<void> {
+  if (!interaction.guild) return;
+
+  const settings = await getEconomySettings(interaction.guild.id);
+  if (!settings.enabled) {
+    await interaction.reply({ embeds: [errorEmbed('Module désactivé', 'L\'économie n\'est pas activée.')], ephemeral: true });
+    return;
+  }
+
   const embed = createEmbed('economy')
-    .setTitle('🛒 Boutique')
-    .setDescription('Voici les articles disponibles à l\'achat.')
+    .setTitle(`🛒 Boutique — ${settings.currencyName}`)
+    .setDescription('Utilisez `/buy` avec le nom de l\'article.')
     .setTimestamp();
 
-  for (const item of defaultShop) {
-    embed.addFields({
-      name: `${item.name} — ${item.price} 🪙`,
-      value: item.description,
-    });
+  if (settings.shopItems.length === 0) {
+    embed.addFields({ name: 'Vide', value: 'Aucun article configuré sur le dashboard.' });
+  } else {
+    for (const item of settings.shopItems) {
+      embed.addFields({
+        name: `${item.name} — ${item.price} ${settings.currencySymbol}`,
+        value: item.description || (item.roleId ? `Rôle: <@&${item.roleId}>` : '—'),
+      });
+    }
   }
 
   await interaction.reply({ embeds: [embed] });

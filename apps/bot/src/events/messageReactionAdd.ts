@@ -24,9 +24,9 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   if (suggestion && suggestion.status === 'PENDING') {
     const voters: Record<string, 'up' | 'down'> = JSON.parse(suggestion.voters || '{}');
 
-    if (reaction.emoji.name === '👍') {
+    if (reaction.emoji.name === '👍' || reaction.emoji.name === '✅') {
       voters[user.id] = 'up';
-    } else if (reaction.emoji.name === '👎') {
+    } else if (reaction.emoji.name === '👎' || reaction.emoji.name === '❌') {
       voters[user.id] = 'down';
     } else return;
 

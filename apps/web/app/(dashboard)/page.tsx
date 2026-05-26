@@ -66,18 +66,33 @@ export default function OverviewPage() {
     );
   }
 
-  const kpis = data?.stats ? [
-    { icon: <Server size={20} />, label: 'Nombre de serveurs', value: formatNumber(data.stats.totalGuilds) },
-    { icon: <Users size={20} />, label: 'Membres totaux', value: formatNumber(data.stats.totalUsers) },
-    { icon: <Terminal size={20} />, label: 'Commandes exécutées', value: formatNumber(data.stats.totalCommands) },
-    { icon: <Clock size={20} />, label: 'Uptime', value: formatDuration(data.stats.uptime) },
-    { icon: <Cpu size={20} />, label: 'CPU', value: `${data.stats.cpuUsage}%` },
-    { icon: <Activity size={20} />, label: 'RAM', value: `${data.stats.ramUsage}%` },
-    { icon: <DollarSign size={20} />, label: 'Revenus premium', value: '0 €' },
-    { icon: <Wifi size={20} />, label: 'Membres en ligne', value: formatNumber(Math.round(data.stats.totalUsers * 0.3)) },
-    { icon: <MessageSquare size={20} />, label: 'Messages aujourd\'hui', value: formatNumber(0) },
-    { icon: <Activity size={20} />, label: 'Salons actifs', value: formatNumber(0) },
-  ] : [];
+  const stats = data?.stats as (BotStats & {
+    isOwner?: boolean;
+    activeMembers?: number;
+    onlineMembers?: number;
+    activeChannels?: number;
+  }) | null;
+
+  const kpis = stats
+    ? stats.isOwner === true
+      ? [
+          { icon: <Server size={20} />, label: 'Nombre de serveurs', value: formatNumber(stats.totalGuilds) },
+          { icon: <Users size={20} />, label: 'Membres totaux', value: formatNumber(stats.totalUsers) },
+          { icon: <Terminal size={20} />, label: 'Commandes exécutées', value: formatNumber(stats.totalCommands ?? 0) },
+          { icon: <Clock size={20} />, label: 'Uptime', value: formatDuration(stats.uptime ?? 0) },
+          { icon: <Cpu size={20} />, label: 'CPU', value: `${stats.cpuUsage ?? 0}%` },
+          { icon: <Activity size={20} />, label: 'RAM', value: `${stats.ramUsage ?? 0}%` },
+          { icon: <DollarSign size={20} />, label: 'Revenus premium', value: '0 €' },
+          { icon: <Wifi size={20} />, label: 'Membres en ligne', value: formatNumber(stats.onlineMembers ?? 0) },
+        ]
+      : [
+          { icon: <Server size={20} />, label: 'Nombre de serveurs', value: formatNumber(stats.totalGuilds) },
+          { icon: <Users size={20} />, label: 'Membres totaux', value: formatNumber(stats.totalUsers) },
+          { icon: <TrendingUp size={20} />, label: 'Membres actifs', value: formatNumber(stats.activeMembers ?? stats.onlineMembers ?? 0) },
+          { icon: <MessageSquare size={20} />, label: 'Salons actifs', value: formatNumber(stats.activeChannels ?? 0) },
+          { icon: <Wifi size={20} />, label: 'Membres en ligne', value: formatNumber(stats.onlineMembers ?? 0) },
+        ]
+    : [];
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
@@ -112,7 +127,7 @@ export default function OverviewPage() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {loading ? (
-          Array.from({ length: 10 }).map((_, i) => (
+          Array.from({ length: kpis.length || 5 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-[var(--radius)]" />
           ))
         ) : (

@@ -79,6 +79,7 @@ const categoryDefs: CategoryDef[] = [
     label: 'Gestion',
     items: [
       { label: 'Modération', icon: <Shield size={18} />, href: '/moderation', guildPage: true },
+      { label: 'Auto-Modération', icon: <Shield size={18} />, href: '/automod', guildPage: true },
       { label: 'Protection', icon: <Swords size={18} />, href: '/protection', guildPage: true },
       { label: 'Tickets', icon: <Ticket size={18} />, href: '/tickets', guildPage: true },
       { label: 'Logs', icon: <ScrollText size={18} />, href: '/logs', guildPage: true },
@@ -106,7 +107,7 @@ const categoryDefs: CategoryDef[] = [
   {
     label: 'Premium',
     items: [
-      { label: 'Premium', icon: <Crown size={18} />, href: '/premium', guildPage: true },
+      { label: 'Soutenir', icon: <Crown size={18} />, href: '/premium', guildPage: true },
     ],
   },
 ];
@@ -196,7 +197,7 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
                 </motion.div>
               </button>
 
-              {visibleItems.map((item) => {
+              {isExpanded && visibleItems.map((item) => {
                 const href = guildHref(guildId, item.href, !!item.guildPage);
                 const active = isActive(href, !!item.guildPage);
                 return (

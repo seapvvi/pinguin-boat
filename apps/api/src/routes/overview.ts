@@ -1,21 +1,87 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '@pinguin/db';
+import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
 import { success, error, sanitizeError } from '../utils/response';
 import { getSystemMetrics, getGlobalStats } from '../services/metrics';
+import { botFetch } from '../services/bot-proxy';
+
+const config = getConfig();
+
+function isOwner(discordId: string): boolean {
+  return discordId === config.DISCORD_OWNER_ID;
+}
 
 export async function overviewRoutes(app: FastifyInstance) {
-  app.get('/', { preHandler: [authenticate] }, async (_request, reply) => {
+  app.get('/public', { preHandler: [authenticate] }, async (request, reply) => {
     try {
-      const [globalStats, guildCount, userCount, caseCount] =
-        await Promise.all([
-          getGlobalStats(),
-          prisma.guild.count(),
-          prisma.user.count(),
-          prisma.moderationCase.count(),
-        ]);
+      const guilds = await prisma.guild.findMany({
+        where: { botPresent: true },
+        select: { id: true, memberCount: true },
+      });
 
-      const metrics = getSystemMetrics();
+      let onlineMembers = 0;
+      try {
+        const botGuilds = await botFetch('/internal/stats').catch(() => null);
+        if (botGuilds?.data) {
+          onlineMembers = botGuilds.data.onlineMembers ?? 0;
+        }
+      } catch {
+        onlineMembers = 0;
+      }
+
+      const totalMembers = guilds.reduce((s, g) => s + g.memberCount, 0);
+      const activeChannels = await prisma.auditLog.count({
+        where: {
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          action: 'MESSAGE_CREATE' as any,
+        },
+      }).catch(() => 0);
+
+      reply.send(
+        success({
+          guildCount: guilds.length,
+          totalMembers,
+          activeMembers: onlineMembers,
+          activeChannels: activeChannels || 0,
+          onlineMembers,
+        })
+      );
+    } catch (err: any) {
+      reply.status(500).send(error(sanitizeError(err)));
+    }
+  });
+
+  app.get('/', { preHandler: [authenticate] }, async (request, reply) => {
+    try {
+      const discordId = request.user!.discordId;
+      if (!isOwner(discordId)) {
+        const guilds = await prisma.guild.findMany({
+          where: { botPresent: true },
+          select: { id: true, memberCount: true },
+        });
+        let onlineMembers = 0;
+        try {
+          const botStats = await botFetch('/internal/stats');
+          onlineMembers = botStats?.data?.onlineMembers ?? 0;
+        } catch { /* bot offline */ }
+        const totalMembers = guilds.reduce((s, g) => s + g.memberCount, 0);
+        return reply.send(
+          success({
+            isOwner: false,
+            guildCount: guilds.length,
+            totalMembers,
+            activeMembers: onlineMembers,
+            activeChannels: 0,
+            onlineMembers,
+          })
+        );
+      }
+
+      const [globalStats, metrics] = await Promise.all([
+        getGlobalStats(),
+        Promise.resolve(getSystemMetrics()),
+      ]);
 
       reply.send(
         success({
@@ -25,8 +91,39 @@ export async function overviewRoutes(app: FastifyInstance) {
           uptime: metrics.uptime,
           processUptime: metrics.processUptime,
           systemStatus: 'OPERATIONAL',
+          isOwner: true,
         })
       );
+    } catch (err: any) {
+      reply.status(500).send(error(sanitizeError(err)));
+    }
+  });
+
+  app.get('/leaderboard/global', { preHandler: [authenticate] }, async (request, reply) => {
+    try {
+      const grouped = await prisma.xPProfile.groupBy({
+        by: ['userId'],
+        _sum: { xp: true },
+        orderBy: { _sum: { xp: 'desc' } },
+        take: 100,
+      });
+
+      const userIds = grouped.map((g) => g.userId);
+      const users = await prisma.user.findMany({
+        where: { discordId: { in: userIds } },
+        select: { discordId: true, username: true, avatar: true },
+      });
+      const userMap = new Map(users.map((u) => [u.discordId, u]));
+
+      const entries = grouped.map((g, i) => ({
+        rank: i + 1,
+        userId: g.userId,
+        username: userMap.get(g.userId)?.username ?? 'Inconnu',
+        avatar: userMap.get(g.userId)?.avatar ?? null,
+        totalXp: g._sum.xp ?? 0,
+      }));
+
+      reply.send(success({ entries }));
     } catch (err: any) {
       reply.status(500).send(error(sanitizeError(err)));
     }
@@ -79,15 +176,9 @@ export async function overviewRoutes(app: FastifyInstance) {
           icon: true,
           ownerId: true,
           memberCount: true,
-          _count: {
-            select: {
-              moderationCases: true,
-              xpProfiles: true,
-            },
-          },
+          _count: { select: { moderationCases: true, xpProfiles: true } },
         },
       });
-
       reply.send(success({ guilds }));
     } catch (err: any) {
       reply.status(500).send(error(sanitizeError(err)));
@@ -106,9 +197,7 @@ export async function overviewRoutes(app: FastifyInstance) {
           orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit,
           take: limit,
-          include: {
-            author: { select: { username: true, avatar: true } },
-          },
+          include: { author: { select: { username: true, avatar: true } } },
         }),
         prisma.changelog.count({ where: { published: true } }),
       ]);
@@ -119,26 +208,21 @@ export async function overviewRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get('/system', { preHandler: [authenticate] }, async (_request, reply) => {
+  app.get('/system', { preHandler: [authenticate] }, async (request, reply) => {
     try {
+      if (!isOwner(request.user!.discordId)) {
+        return reply.status(403).send(error('Réservé au propriétaire'));
+      }
       const metrics = getSystemMetrics();
       const recentSnapshots = await prisma.systemMetricsSnapshot.findFirst({
         orderBy: { timestamp: 'desc' },
       });
-
-      const status = 'OPERATIONAL';
-
       reply.send(
         success({
-          status,
+          status: 'OPERATIONAL',
           metrics,
           lastSnapshot: recentSnapshots,
-          services: {
-            api: { status: 'up' },
-            database: { status: 'up' },
-            bot: { status: 'unknown' },
-            web: { status: 'unknown' },
-          },
+          services: { api: { status: 'up' }, database: { status: 'up' }, bot: { status: 'unknown' }, web: { status: 'unknown' } },
         })
       );
     } catch (err: any) {

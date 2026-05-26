@@ -154,11 +154,12 @@ export async function play(guildId: string, query: string, requester: GuildMembe
     throw new Error('Je n\'ai pas la permission de rejoindre ce salon vocal.');
   }
 
-  if (!state.connection || state.connection.state.status !== VoiceConnectionStatus.Ready) {
+  if (!state.connection || state.connection.state.status === VoiceConnectionStatus.Disconnected) {
     const connection = joinVoiceChannel({
       channelId: voiceChannel.id,
       guildId: voiceChannel.guild.id,
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+      selfDeaf: true,
     });
     connection.on('stateChange', (_oldState: any, newState: any) => {
       if (newState.status === VoiceConnectionStatus.Disconnected) {
@@ -172,6 +173,23 @@ export async function play(guildId: string, query: string, requester: GuildMembe
       throw new Error('Impossible de se connecter au salon vocal.');
     }
     state.connection = connection;
+    const player = getPlayer(guildId);
+    connection.subscribe(player);
+  } else if (state.connection.state.status !== VoiceConnectionStatus.Ready) {
+    try {
+      await entersState(state.connection, VoiceConnectionStatus.Ready, 15_000);
+    } catch {
+      state.connection.destroy();
+      state.connection = null;
+      throw new Error('Connexion vocale instable, réessayez.');
+    }
+    state.connection.subscribe(getPlayer(guildId));
+  }
+
+  if (state.voiceChannelId !== voiceChannel.id && state.connection) {
+    state.connection.destroy();
+    state.connection = null;
+    return play(guildId, query, requester, textChannel);
   }
 
   state.voiceChannelId = voiceChannel.id;
@@ -185,7 +203,7 @@ export async function play(guildId: string, query: string, requester: GuildMembe
 
   state.currentTrack = track;
   state.player = getPlayer(guildId);
-  state.connection.subscribe(state.player);
+  state.connection?.subscribe(state.player);
   saveQueueToDb(guildId);
   await playTrack(guildId, track);
   return track;

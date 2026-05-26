@@ -95,7 +95,7 @@ export function Snowflakes({ enabled = true, count = 35 }: SnowflakesProps) {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: -9999,
+        zIndex: 50,
         pointerEvents: 'none',
         overflow: 'hidden',
       }}

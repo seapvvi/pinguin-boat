@@ -1,6 +1,5 @@
 'use client';
 import React from 'react';
-import { motion } from 'motion/react';
 import { cn } from '../utils/cn';
 
 interface ToggleProps {
@@ -25,20 +24,20 @@ export function Toggle({ checked, onChange, disabled = false, className, label }
         role="switch"
         aria-checked={checked}
         disabled={disabled}
-        onClick={() => onChange(!checked)}
+        onClick={() => !disabled && onChange(!checked)}
         className={cn(
-          'relative inline-flex h-6 w-10 items-center rounded-[0px] border-2 transition-colors duration-150',
+          'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
           checked
-            ? 'bg-[var(--accent)] border-[var(--accent)]'
-            : 'bg-[var(--bg-surface-alt)] border-[var(--border-color)]',
+            ? 'bg-[var(--accent)] focus-visible:ring-[var(--accent)]'
+            : 'bg-[var(--bg-surface-alt)] focus-visible:ring-[var(--border-color)]',
         )}
       >
-        <motion.span
-          layout
-          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        <span
           className={cn(
-            'block h-4 w-4 rounded-[0px] shadow-md',
-            checked ? 'translate-x-[18px] bg-white' : 'translate-x-[2px] bg-[var(--text-secondary)]',
+            'inline-block h-4 w-4 rounded-full shadow-sm transition-all duration-300 ease-in-out',
+            checked
+              ? 'translate-x-6 bg-white opacity-100'
+              : 'translate-x-1 bg-white/30 opacity-60',
           )}
         />
       </button>

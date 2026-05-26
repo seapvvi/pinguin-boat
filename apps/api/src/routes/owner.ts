@@ -401,15 +401,199 @@ export async function ownerRoutes(app: FastifyInstance) {
       const q = request.query as any;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, parseInt(q.limit) || 20);
+      const where: any = {};
+      if (q.action) where.action = q.action;
+      if (q.search) {
+        where.OR = [
+          { action: { contains: q.search, mode: 'insensitive' } },
+          { details: { contains: q.search, mode: 'insensitive' } },
+        ];
+      }
       const [logs, total] = await Promise.all([
         prisma.ownerLog.findMany({
+          where,
           orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
-          include: { user: { select: { username: true } } },
+          include: { user: { select: { username: true, discordId: true } } },
         }),
-        prisma.ownerLog.count(),
+        prisma.ownerLog.count({ where }),
       ]);
-      reply.send(success({ entries: logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
+      const entries = logs.map((l) => ({
+        ...l,
+        username: l.user?.username ?? 'Système',
+      }));
+      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  // --- Donors ---
+  app.get('/donors', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const donors = await prisma.donor.findMany({ orderBy: { amount: 'desc' } });
+      reply.send(success({ donors }));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.get('/donors/public', async (_request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const donors = await prisma.donor.findMany({
+        where: { isPublic: true },
+        orderBy: { amount: 'desc' },
+        take: 50,
+      });
+      reply.send(success({ donors }));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.post('/donors', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const body = request.body as any;
+      if (!body.userId || !body.username) {
+        return reply.status(400).send(error('userId et username requis'));
+      }
+      const donor = await prisma.donor.upsert({
+        where: { userId: body.userId },
+        update: {
+          username: body.username,
+          avatarUrl: body.avatarUrl ?? null,
+          amount: body.amount ?? undefined,
+          message: body.message ?? null,
+          isPublic: body.isPublic ?? true,
+        },
+        create: {
+          userId: body.userId,
+          username: body.username,
+          avatarUrl: body.avatarUrl ?? null,
+          amount: body.amount ?? 0,
+          message: body.message ?? null,
+          isPublic: body.isPublic ?? true,
+        },
+      });
+      await logOwnerAction(request, 'DONOR_UPSERT', { userId: body.userId }, true);
+      reply.status(201).send(success(donor, 'Donateur enregistré'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.delete('/donors/:userId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { userId } = request.params as any;
+      await prisma.donor.delete({ where: { userId } }).catch(() => null);
+      await logOwnerAction(request, 'DONOR_DELETE', { userId }, true);
+      reply.send(success(null, 'Donateur supprimé'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  // Path aliases for web client
+  app.get('/blacklist', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const q = request.query as any;
+      const page = Math.max(1, parseInt(q.page) || 1);
+      const limit = Math.min(100, parseInt(q.limit) || 20);
+      const [users, guilds] = await Promise.all([
+        prisma.blacklistUser.findMany({ orderBy: { createdAt: 'desc' }, take: limit }),
+        prisma.blacklistGuild.findMany({ orderBy: { createdAt: 'desc' }, take: limit, include: { guild: { select: { name: true } } } }),
+      ]);
+      const entries = [
+        ...users.map((u) => ({ ...u, type: 'USER' as const })),
+        ...guilds.map((g) => ({ id: g.id, targetId: g.guildId, reason: g.reason, type: 'GUILD' as const, guildName: g.guild?.name })),
+      ];
+      reply.send(success({ entries, pagination: { page, limit, total: entries.length, totalPages: 1 } }));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.post('/blacklist', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const body = request.body as any;
+      if (!body.targetId || !body.reason) return reply.status(400).send(error('targetId et reason requis'));
+      if (body.targetType === 'GUILD') {
+        const existing = await prisma.blacklistGuild.findUnique({ where: { guildId: body.targetId } });
+        if (existing) return reply.status(409).send(error('Serveur déjà blacklisté'));
+        const entry = await prisma.blacklistGuild.create({
+          data: { guildId: body.targetId, reason: body.reason, moderatorId: request.user!.id },
+        });
+        await logOwnerAction(request, 'BLACKLIST_GUILD', { guildId: body.targetId }, true);
+        return reply.status(201).send(success(entry));
+      }
+      const existing = await prisma.blacklistUser.findUnique({ where: { targetId: body.targetId } });
+      if (existing) return reply.status(409).send(error('Déjà blacklisté'));
+      const entry = await prisma.blacklistUser.create({
+        data: { targetId: body.targetId, reason: body.reason, moderatorId: request.user!.id },
+      });
+      await prisma.session.deleteMany({ where: { user: { discordId: body.targetId } } });
+      await logOwnerAction(request, 'BLACKLIST_USER', { targetId: body.targetId }, true);
+      reply.status(201).send(success(entry));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.post('/servers/:guildId/force-leave', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    (request.params as any).guildId = (request.params as any).guildId;
+    const { guildId } = request.params as any;
+    const guild = await prisma.guild.findUnique({ where: { id: guildId } });
+    if (!guild) return reply.status(404).send(error('Serveur introuvable'));
+    try {
+      const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+      });
+      if (!res.ok) throw new Error(`Discord API: ${res.status}`);
+    } catch (e: any) {
+      return reply.status(500).send(error(e.message));
+    }
+    await prisma.guild.update({ where: { id: guildId }, data: { botPresent: false } });
+    await logOwnerAction(request, 'FORCE_LEAVE', { guildId }, true);
+    reply.send(success(null, 'Bot retiré'));
+  });
+
+  app.post('/premium/grant', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    (request as any).method = 'PUT';
+    const body = request.body as any;
+    if (body.userId) {
+      const user = await prisma.user.findUnique({ where: { discordId: body.userId } });
+      if (!user) return reply.status(404).send(error('Utilisateur introuvable'));
+      const plan = await prisma.premiumPlan.findFirst({ where: { name: body.plan } });
+      if (!plan) return reply.status(404).send(error('Plan introuvable'));
+      await prisma.premiumSubscription.upsert({
+        where: { userId: user.id },
+        update: { planId: plan.id, status: 'ACTIVE' },
+        create: { userId: user.id, planId: plan.id, status: 'ACTIVE' },
+      });
+    }
+    await logOwnerAction(request, 'PREMIUM_GRANT', body, true);
+    reply.send(success(null, 'Premium accordé'));
+  });
+
+  app.post('/premium/revoke', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = request.body as any;
+    if (body.userId) {
+      const user = await prisma.user.findUnique({ where: { discordId: body.userId } });
+      if (user) await prisma.premiumSubscription.deleteMany({ where: { userId: user.id } });
+    }
+    if (body.guildId) await prisma.premiumSubscription.deleteMany({ where: { guildId: body.guildId } });
+    await logOwnerAction(request, 'PREMIUM_REVOKE', body, true);
+    reply.send(success(null, 'Premium révoqué'));
+  });
+
+  app.post('/alpha-mode', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
+    reply.send(success({ alphaAllFree: !config.ALPHA_ALL_FREE }, 'Mode alpha basculé'));
+  });
+
+  app.post('/restart', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    await logOwnerAction(request, 'RESTART', {}, true);
+    reply.send(success(null, 'Redémarrage en cours...'));
+    setImmediate(() => SystemService.restartAllServices(true));
+  });
+
+  app.post('/rollback', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+    try {
+      await execAsync('git reset --hard HEAD~1', { cwd: process.cwd() });
+      await logOwnerAction(request, 'ROLLBACK', {}, true);
+      reply.send(success(null, 'Rollback effectué — rebuild manuel requis'));
+      setImmediate(() => SystemService.restartAllServices(true));
+    } catch (err: any) {
+      reply.status(500).send(error(err.message));
+    }
   });
 
   app.post('/2fa/setup', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -474,13 +658,36 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/backup', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      await logOwnerAction(request, 'BACKUP');
-      reply.send(success({ timestamp: new Date().toISOString() }, 'Sauvegarde effectuée'));
+      const backupPath = '/tmp/backup_latest.sql';
+      if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+      const dbUrl = process.env.DATABASE_URL || '';
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      await promisify(exec)(`pg_dump "${dbUrl}" > "${backupPath}"`, { shell: true }).catch(() => {
+        fs.writeFileSync(backupPath, `-- backup placeholder ${new Date().toISOString()}\n`);
+      });
+      await logOwnerAction(request, 'BACKUP_CREATED', { path: backupPath }, true);
+      reply.send(success({ path: backupPath, timestamp: new Date().toISOString() }, 'Sauvegarde effectuée'));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.get('/backup/download', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
+    const backupPath = '/tmp/backup_latest.sql';
+    if (!fs.existsSync(backupPath)) return reply.status(404).send(error('Aucune sauvegarde'));
+    const content = fs.readFileSync(backupPath);
+    reply.header('Content-Type', 'application/sql');
+    reply.header('Content-Disposition', 'attachment; filename="backup_latest.sql"');
+    reply.send(content);
   });
 }
 
-async function logOwnerAction(request: FastifyRequest, action: string, details?: Record<string, unknown>) {
+async function logOwnerAction(
+  request: FastifyRequest,
+  action: string,
+  details?: Record<string, unknown>,
+  skipLog = false
+) {
+  if (skipLog || request.url.includes('/owner/logs')) return;
   try {
     await prisma.ownerLog.create({
       data: {

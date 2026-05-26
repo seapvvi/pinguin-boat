@@ -12,6 +12,7 @@ import { fetchGuildSettings, updateGuildSettings } from '@/lib/api';
 import type { GuildConfig, LogSettings } from '@pinguin/shared';
 import { LogEventType } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { DiscordSelect } from '@/components/DiscordSelect';
 
 const eventCategories: { label: string; icon: React.ReactNode; events: { value: LogEventType; label: string }[] }[] = [
   {
@@ -182,10 +183,11 @@ export default function LogsPage() {
 
         <Card>
           <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Salon de logs</h2>
-          <Input
-            placeholder="ID du salon (ex: 123456789)"
+          <DiscordSelect
+            type="channel"
+            guildId={guildId}
             value={local.logChannelId ?? ''}
-            onChange={(e) => setLocal({ ...local, logChannelId: e.target.value || null })}
+            onChange={(id) => setLocal({ ...local, logChannelId: id || null })}
           />
         </Card>
 

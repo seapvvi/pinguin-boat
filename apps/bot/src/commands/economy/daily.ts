@@ -1,7 +1,8 @@
 import { SlashCommandBuilder, CommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
-import { infoEmbed, errorEmbed, successEmbed } from '../../services/embed';
+import { getEconomySettings, getOrCreateWallet, formatCoins } from '../../services/economy';
+import { errorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 
 export const data = new SlashCommandBuilder()
@@ -16,23 +17,14 @@ export async function execute(interaction: CommandInteraction, client: Client): 
   if (!interaction.guild) return;
 
   try {
-    await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
-
-    let wallet = await prisma.economyWallet.findUnique({
-      where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
-    });
-
-    if (!wallet) {
-      wallet = await prisma.economyWallet.create({
-        data: {
-          guildId: interaction.guild.id,
-          userId: interaction.user.id,
-          wallet: 0,
-          bank: 0,
-          totalEarned: 0,
-        },
-      });
+    const settings = await getEconomySettings(interaction.guild.id);
+    if (!settings.enabled) {
+      await interaction.editReply({ embeds: [errorEmbed('Module désactivé', 'L\'économie n\'est pas activée.')] });
+      return;
     }
+
+    await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    const wallet = await getOrCreateWallet(interaction.guild.id, interaction.user.id, settings.startupBalance);
 
     if (wallet.lastDailyAt) {
       const now = new Date();
@@ -49,7 +41,7 @@ export async function execute(interaction: CommandInteraction, client: Client): 
       }
     }
 
-    const dailyAmount = 100;
+    const dailyAmount = settings.dailyAmount;
     const newWallet = wallet.wallet + dailyAmount;
 
     await prisma.economyWallet.update({
@@ -72,7 +64,7 @@ export async function execute(interaction: CommandInteraction, client: Client): 
     });
 
     await interaction.editReply({
-      embeds: [successEmbed('Récompense quotidienne', `Vous avez reçu **${dailyAmount} 🪙** !\nNouveau solde : **${newWallet} 🪙**`)],
+      embeds: [successEmbed('Récompense quotidienne', `Vous avez reçu ${formatCoins(dailyAmount, settings.currencySymbol, settings.currencyName)} !\nNouveau solde : ${formatCoins(newWallet, settings.currencySymbol, settings.currencyName)}`)],
     });
   } catch (error) {
     console.error(error);

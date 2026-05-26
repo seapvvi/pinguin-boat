@@ -14,6 +14,7 @@ import type { TicketData } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { TicketStatus } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { TicketSettingsForm } from '@/components/TicketSettingsForm';
 
 const statusLabels: Record<string, string> = {
   OPEN: 'Ouvert',
@@ -132,6 +133,8 @@ export default function TicketsPage() {
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="tickets" label="Tickets" />
       </div>
+
+      <TicketSettingsForm guildId={guildId} />
 
       <Card padding={false}>
         {loading ? (

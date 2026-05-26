@@ -3,26 +3,31 @@ import { prisma } from '@pinguin/db';
 import { addMessageXp } from '../services/xp';
 import { isModuleEnabled } from '../guards/module';
 import { handleMessage as handleProtectionMessage } from '../services/protection';
+import { checkAutoMod } from '../services/automod';
+import { handleCaptchaDM } from '../services/captcha';
 
 export async function execute(message: Message, client: Client): Promise<void> {
-  if (message.author.bot || !message.guild) return;
+  if (message.author.bot) return;
+
+  if (!message.guild) {
+    await handleCaptchaDM(message);
+    return;
+  }
 
   if (await handleProtectionMessage(message)) return;
+  if (await checkAutoMod(message)) return;
 
   const levelsEnabled = await isModuleEnabled(message.guild.id, 'levels');
   if (!levelsEnabled) return;
 
   const settings = await prisma.xPSettings.findUnique({ where: { guildId: message.guild.id } });
 
-  if (settings) {
-    const ignoredChannels: string[] = JSON.parse(settings.ignoredChannels);
-    const ignoredRoles: string[] = JSON.parse(settings.ignoredRoles);
-
-    if (ignoredChannels.includes(message.channel.id)) return;
-    if (message.member && ignoredRoles.some((r) => message.member!.roles.cache.has(r))) return;
-  }
-
-  const result = await addMessageXp(message.guild.id, message.author.id);
+  const result = await addMessageXp(message.guild.id, message.author.id, {
+    channelId: message.channel.id,
+    roleIds: message.member ? [...message.member.roles.cache.keys()] : [],
+    contentLength: message.content.length,
+    isThread: message.channel.isThread(),
+  });
 
   if (result.leveledUp) {
     const rewards = await prisma.xPRoleReward.findMany({

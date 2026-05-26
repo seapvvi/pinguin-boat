@@ -64,7 +64,7 @@ h1{color:#14b8a6;border-bottom:1px solid #333;padding-bottom:10px}
 </style></head>
 <body>
 <h1>🎫 Ticket: ${escapeHtml(ticketSubject)}</h1>
-<p>${lines.length} message(s)</p>
+<p>${messages.length} message(s)</p>
 ${lines}
 </body></html>`;
 }

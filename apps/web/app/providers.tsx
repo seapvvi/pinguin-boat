@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { useTheme, useSnowflakes, useMediaQuery, Snowflakes } from '@pinguin/ui';
+import { EarlyAlphaPopup } from '@/components/EarlyAlphaPopup';
 
 export function Providers({ children }: { children: ReactNode }) {
   const prefersReduced = useMediaQuery('(prefers-reduced-motion: reduce)');
@@ -11,6 +12,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <SafeTheme>
       <SafeSnowflakes disabled={prefersReduced}>
+        <EarlyAlphaPopup />
         {children}
       </SafeSnowflakes>
     </SafeTheme>

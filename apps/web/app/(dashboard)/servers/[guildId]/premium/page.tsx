@@ -1,104 +1,85 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { motion } from 'motion/react'
-import { Crown, Check, X as XIcon } from 'lucide-react'
-import { Card, Badge, Skeleton, Button, Toggle } from '@pinguin/ui'
-import { api } from '@/lib/api'
-import { getUser } from '@/lib/auth'
-import { useParams } from 'next/navigation'
+import { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
+import { Heart, ExternalLink } from 'lucide-react';
+import { Card, Skeleton, Button } from '@pinguin/ui';
+import { api } from '@/lib/api';
 
-interface PremiumInfo {
-  plan: string
-  status: string
-  features: { key: string; name: string; enabled: boolean }[]
-  alphaAllFree: boolean
+interface Donor {
+  id: string;
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  amount: number;
+  message: string | null;
 }
 
-const plans = [
-  { name: 'FREE', price: '0 €', servers: 1, features: ['Modération', 'Protection basique', 'Niveaux/XP', 'Logs'] },
-  { name: 'BASIC', price: '2 €/mois', servers: 3, features: ['Tout du FREE', 'Tickets', 'Économie', 'Musique', 'Giveaways', 'Sondages', 'Suggestions'] },
-  { name: 'PRO', price: '5 €/mois', servers: 10, features: ['Tout du BASIC', 'Priorité support', 'Auto-rôles avancés', 'Embeds personnalisés', 'Protection avancée'] },
-  { name: 'ENTERPRISE', price: 'Sur devis', servers: 'Illimité', features: ['Tout du PRO', 'Support prioritaire', 'Fonctionnalités sur mesure', 'SLA garanti'] },
-]
+const DONATION_URL = process.env.NEXT_PUBLIC_DONATION_URL || 'https://ko-fi.com';
 
-export default function PremiumPage() {
-  const params = useParams<{ guildId: string }>()
-  const [premium, setPremium] = useState<PremiumInfo | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isOwner, setIsOwner] = useState(false)
+export default function SupportPage() {
+  const [donors, setDonors] = useState<Donor[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      api.get<PremiumInfo>(`/guilds/${params.guildId}/premium`),
-      getUser(),
-    ]).then(([prem, user]) => {
-      setPremium(prem)
-      setIsOwner(user?.isOwner ?? false)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }, [params.guildId])
-
-  if (loading) return <div className="p-6 space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64" /></div>
-
-  if (!isOwner) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
-        <Card>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Cette page est réservée au propriétaire du bot. Vous ne pouvez pas modifier les abonnements premium.
-          </p>
-        </Card>
-      </motion.div>
-    )
-  }
+    api.get<{ data: { donors: Donor[] } }>('/api/donors')
+      .then((res) => {
+        if (res.success && res.data) setDonors((res.data as any).donors ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Crown className="w-6 h-6" style={{ color: 'var(--warning)' }} />
-        <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>Premium</h1>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 max-w-3xl space-y-6">
+      <div className="text-center space-y-3">
+        <Heart className="w-10 h-10 mx-auto text-[var(--accent)]" />
+        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Soutenir Pinguin Boat</h1>
+        <p className="text-sm text-[var(--text-secondary)] max-w-lg mx-auto">
+          Pinguin Boat est un projet communautaire gratuit. Si vous appréciez le bot, un petit don aide à
+          couvrir l&apos;hébergement et le développement — sans aucune obligation.
+        </p>
+        <a href={DONATION_URL} target="_blank" rel="noopener noreferrer">
+          <Button>
+            <ExternalLink size={14} className="mr-2" /> Faire un don
+          </Button>
+        </a>
       </div>
 
-      {premium?.alphaAllFree && (
-        <Card className="border-2" style={{ borderColor: 'var(--success)' }}>
-          <p className="font-medium" style={{ color: 'var(--success)' }}>Mode Alpha — Tout est gratuit</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-            Pendant la phase alpha, toutes les fonctionnalités sont débloquées gratuitement.
-            Aucune limite de serveur n&apos;est appliquée pour le moment.
-          </p>
-        </Card>
-      )}
-
-      <Card>
-        <h2 className="text-lg font-medium mb-4" style={{ color: 'var(--text-primary)' }}>Plan actuel</h2>
-        <div className="flex items-center gap-3">
-          <Badge>{premium?.plan || 'FREE'}</Badge>
-          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Statut : {premium?.status || 'Actif'}</span>
-        </div>
+      <Card className="p-4">
+        <h2 className="text-lg font-medium text-[var(--text-primary)] mb-4">Nos donateurs</h2>
+        {loading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : donors.length === 0 ? (
+          <p className="text-sm text-[var(--text-secondary)]">Soyez le premier à soutenir le projet !</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {donors.map((d) => (
+              <div
+                key={d.id}
+                className="flex items-center gap-3 p-3 rounded-[var(--radius-sm)] border border-[var(--border-color)]"
+              >
+                <div className="w-10 h-10 rounded-full bg-[var(--bg-surface-alt)] flex items-center justify-center text-lg">
+                  {d.avatarUrl ? (
+                    <img src={d.avatarUrl} alt="" className="w-10 h-10 rounded-full" />
+                  ) : (
+                    '💙'
+                  )}
+                </div>
+                <div>
+                  <p className="font-medium text-[var(--text-primary)]">{d.username}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{d.amount.toFixed(2)} €</p>
+                  {d.message && <p className="text-xs text-[var(--text-secondary)] mt-1 italic">&quot;{d.message}&quot;</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {plans.map(plan => (
-          <Card key={plan.name} hover className={`relative ${plan.name === (premium?.plan || 'FREE') ? 'ring-2 ring-[var(--accent)]' : ''}`}>
-            {plan.name === (premium?.plan || 'FREE') && (
-              <div className="absolute -top-2 -right-2">
-                <Badge>Actuel</Badge>
-              </div>
-            )}
-            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{plan.name}</h3>
-            <p className="text-2xl font-bold mt-2" style={{ color: 'var(--accent)' }}>{plan.price}</p>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Jusqu&apos;à {plan.servers} serveur{plan.servers !== 1 ? 's' : ''}</p>
-            <ul className="mt-4 space-y-2">
-              {plan.features.map(f => (
-                <li key={f} className="flex items-center gap-2 text-sm">
-                  <Check className="w-4 h-4" style={{ color: 'var(--success)' }} />
-                  <span style={{ color: 'var(--text-primary)' }}>{f}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        ))}
-      </div>
+      <p className="text-xs text-center text-[var(--text-secondary)]">
+        Merci à tous ceux qui contribuent à faire vivre Pinguin Boat 💙
+      </p>
     </motion.div>
-  )
+  );
 }

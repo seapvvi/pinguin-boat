@@ -8,6 +8,7 @@ import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
 import type { WelcomeSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { DiscordSelect } from '@/components/DiscordSelect';
 
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -153,7 +154,7 @@ export default function WelcomePage() {
           <Card>
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Bienvenue</h2>
             <div className="space-y-4">
-              <Input label="Salon de bienvenue (ID)" value={local.welcomeChannelId ?? ''} onChange={(e) => setLocal({ ...local, welcomeChannelId: e.target.value || null })} placeholder="ID du salon" />
+              <DiscordSelect type="channel" guildId={guildId} label="Salon de bienvenue" value={local.welcomeChannelId ?? ''} onChange={(id) => setLocal({ ...local, welcomeChannelId: id || null })} />
               <div>
                 <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Message</label>
                 <textarea
@@ -216,7 +217,7 @@ export default function WelcomePage() {
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">Au revoir</h2>
             </div>
             <div className="space-y-4">
-              <Input label="Salon de départ (ID)" value={local.goodbyeChannelId ?? ''} onChange={(e) => setLocal({ ...local, goodbyeChannelId: e.target.value || null })} placeholder="ID du salon" />
+              <DiscordSelect type="channel" guildId={guildId} label="Salon de départ" value={local.goodbyeChannelId ?? ''} onChange={(id) => setLocal({ ...local, goodbyeChannelId: id || null })} />
               <div>
                 <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Message</label>
                 <textarea

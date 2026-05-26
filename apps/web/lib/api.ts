@@ -213,7 +213,7 @@ export async function fetchOwnerServers(params?: Record<string, string>): Promis
 }
 
 export async function forceLeaveGuild(guildId: string): Promise<APIResponse<{ success: boolean }>> {
-  return api.post<APIResponse<{ success: boolean }>>(`/api/owner/servers/${guildId}/force-leave`);
+  return api.post<APIResponse<{ success: boolean }>>(`/api/owner/force-leave/${guildId}`);
 }
 
 export async function blacklistTarget(targetId: string, reason: string, targetType: 'USER' | 'GUILD'): Promise<APIResponse<{ success: boolean }>> {

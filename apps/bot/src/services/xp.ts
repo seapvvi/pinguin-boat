@@ -1,6 +1,11 @@
 import { prisma } from '@pinguin/db';
 import { ensureUser } from './user';
 
+/** Constantes XP — non modifiables depuis le dashboard */
+export const XP_PER_MESSAGE = 10;
+export const XP_PER_VOCAL_MINUTE = 15;
+export const MESSAGE_COOLDOWN_MS = 60_000;
+
 export function calculateLevel(xp: number): number {
   return Math.floor(0.1 * Math.sqrt(xp));
 }
@@ -14,18 +19,45 @@ export function calculateXpForNextLevel(currentXp: number): number {
   return calculateXpForLevel(currentLevel + 1);
 }
 
-export function randomMessageXp(): number {
-  return Math.floor(Math.random() * 10) + 10;
+function parseJsonIds(raw: string): string[] {
+  try {
+    const p = JSON.parse(raw);
+    return Array.isArray(p) ? p.map(String) : [];
+  } catch {
+    return [];
+  }
 }
 
-export function randomVoiceXp(): number {
-  return Math.floor(Math.random() * 5) + 5;
-}
-
-export async function addMessageXp(guildId: string, userId: string): Promise<{ xp: number; level: number; leveledUp: boolean }> {
+export async function addMessageXp(
+  guildId: string,
+  userId: string,
+  options?: { channelId?: string; roleIds?: string[]; contentLength?: number; isThread?: boolean }
+): Promise<{ xp: number; level: number; leveledUp: boolean }> {
   const now = new Date();
-
   await ensureUser(userId);
+
+  const settings = await prisma.xPSettings.findUnique({ where: { guildId } });
+  if (settings && !settings.enabled) {
+    const p = await prisma.xPProfile.findUnique({ where: { guildId_userId: { guildId, userId } } });
+    return { xp: p?.xp ?? 0, level: p?.level ?? 0, leveledUp: false };
+  }
+
+  if (settings) {
+    const noXpChannels = parseJsonIds(settings.noXpChannels);
+    const noXpRoles = parseJsonIds(settings.noXpRoles);
+    if (options?.channelId && noXpChannels.includes(options.channelId)) {
+      const p = await prisma.xPProfile.findUnique({ where: { guildId_userId: { guildId, userId } } });
+      return { xp: p?.xp ?? 0, level: p?.level ?? 0, leveledUp: false };
+    }
+    if (options?.roleIds?.some((r) => noXpRoles.includes(r))) {
+      const p = await prisma.xPProfile.findUnique({ where: { guildId_userId: { guildId, userId } } });
+      return { xp: p?.xp ?? 0, level: p?.level ?? 0, leveledUp: false };
+    }
+    if (!settings.xpInThreads && options?.isThread) {
+      const p = await prisma.xPProfile.findUnique({ where: { guildId_userId: { guildId, userId } } });
+      return { xp: p?.xp ?? 0, level: p?.level ?? 0, leveledUp: false };
+    }
+  }
 
   let profile = await prisma.xPProfile.findUnique({
     where: { guildId_userId: { guildId, userId } },
@@ -37,17 +69,21 @@ export async function addMessageXp(guildId: string, userId: string): Promise<{ x
     });
   }
 
-  const settings = await prisma.xPSettings.findUnique({ where: { guildId } });
-  const cooldown = settings?.messageCooldown ?? 60;
-
   if (profile.lastMessageAt) {
-    const secondsSinceLast = (now.getTime() - profile.lastMessageAt.getTime()) / 1000;
-    if (secondsSinceLast < cooldown) {
+    const msSince = now.getTime() - profile.lastMessageAt.getTime();
+    if (msSince < MESSAGE_COOLDOWN_MS) {
       return { xp: profile.xp, level: profile.level, leveledUp: false };
     }
   }
 
-  const xpGain = randomMessageXp();
+  let xpGain = XP_PER_MESSAGE;
+  if (settings?.doubleXpLongMessages && (options?.contentLength ?? 0) > 250) {
+    xpGain *= 2;
+  }
+  if (settings?.xpMultiplier && settings.xpMultiplier !== 1) {
+    xpGain = Math.floor(xpGain * settings.xpMultiplier);
+  }
+
   const newXp = profile.xp + xpGain;
   const newLevel = calculateLevel(newXp);
   const leveledUp = newLevel > profile.level;
@@ -65,10 +101,19 @@ export async function addMessageXp(guildId: string, userId: string): Promise<{ x
   return { xp: newXp, level: newLevel, leveledUp };
 }
 
-export async function addVoiceXp(guildId: string, userId: string, minutes: number): Promise<{ xp: number; level: number; leveledUp: boolean }> {
+export async function addVoiceXp(
+  guildId: string,
+  userId: string,
+  minutes: number
+): Promise<{ xp: number; level: number; leveledUp: boolean }> {
   const now = new Date();
-
   await ensureUser(userId);
+
+  const settings = await prisma.xPSettings.findUnique({ where: { guildId } });
+  if (settings && !settings.enabled) {
+    const p = await prisma.xPProfile.findUnique({ where: { guildId_userId: { guildId, userId } } });
+    return { xp: p?.xp ?? 0, level: p?.level ?? 0, leveledUp: false };
+  }
 
   let profile = await prisma.xPProfile.findUnique({
     where: { guildId_userId: { guildId, userId } },
@@ -80,17 +125,19 @@ export async function addVoiceXp(guildId: string, userId: string, minutes: numbe
     });
   }
 
-  const settings = await prisma.xPSettings.findUnique({ where: { guildId } });
-  const cooldown = settings?.voiceCooldown ?? 120;
-
+  const voiceCooldown = (settings?.voiceCooldown ?? 120) * 1000;
   if (profile.lastVoiceAt) {
-    const secondsSinceLast = (now.getTime() - profile.lastVoiceAt.getTime()) / 1000;
-    if (secondsSinceLast < cooldown) {
+    const msSince = now.getTime() - profile.lastVoiceAt.getTime();
+    if (msSince < voiceCooldown) {
       return { xp: profile.xp, level: profile.level, leveledUp: false };
     }
   }
 
-  const xpGain = randomVoiceXp() * minutes;
+  let xpGain = XP_PER_VOCAL_MINUTE * Math.max(1, minutes);
+  if (settings?.xpMultiplier && settings.xpMultiplier !== 1) {
+    xpGain = Math.floor(xpGain * settings.xpMultiplier);
+  }
+
   const newXp = profile.xp + xpGain;
   const newLevel = calculateLevel(newXp);
   const leveledUp = newLevel > profile.level;

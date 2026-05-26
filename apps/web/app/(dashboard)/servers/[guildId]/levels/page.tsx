@@ -12,6 +12,8 @@ import { formatNumber } from '@/lib/utils';
 import type { GuildConfig, LevelSettings, LeaderboardEntry, RoleReward } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { DiscordSelect } from '@/components/DiscordSelect';
+import { api } from '@/lib/api';
 
 export default function LevelsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -24,6 +26,8 @@ export default function LevelsPage() {
   const [local, setLocal] = useState<LevelSettings | null>(null);
   const [rewardModal, setRewardModal] = useState(false);
   const [newReward, setNewReward] = useState({ level: 1, roleId: '' });
+  const [lbTab, setLbTab] = useState<'guild' | 'global'>('guild');
+  const [globalLb, setGlobalLb] = useState<LeaderboardEntry[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -143,7 +147,10 @@ export default function LevelsPage() {
           <Card>
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Paramètres</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input label="XP par message" type="number" value={String(local.xpRate)} onChange={(e) => setLocal({ ...local, xpRate: Number(e.target.value) })} />
+              <div className="p-3 rounded bg-[var(--bg-surface-alt)] text-sm text-[var(--text-secondary)]">
+                <strong className="text-[var(--text-primary)]">XP fixe (non modifiable)</strong>
+                <p className="mt-1">10 XP / message · 15 XP / min en vocal · cooldown 60s</p>
+              </div>
               <Input label="XP vocal (par minute)" type="number" value={String(local.voiceXpRate)} onChange={(e) => setLocal({ ...local, voiceXpRate: Number(e.target.value) })} />
               <Input label="Cooldown XP (secondes)" type="number" value={String(local.xpCooldown)} onChange={(e) => setLocal({ ...local, xpCooldown: Number(e.target.value) })} />
               <div className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] self-end">
@@ -190,13 +197,18 @@ export default function LevelsPage() {
         </div>
 
         <Card padding={false}>
-          <div className="p-5 border-b border-[var(--border-color)]">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Classement</h2>
+          <div className="p-5 border-b border-[var(--border-color)] flex gap-2">
+            <button type="button" onClick={() => setLbTab('guild')} className={`text-sm px-3 py-1 rounded ${lbTab === 'guild' ? 'bg-[var(--accent)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)]'}`}>Serveur</button>
+            <button type="button" onClick={async () => {
+              setLbTab('global');
+              const res = await api.get<{ data: { entries: LeaderboardEntry[] } }>('/api/overview/leaderboard/global');
+              if (res.success && res.data) setGlobalLb((res.data as any).entries ?? []);
+            }} className={`text-sm px-3 py-1 rounded ${lbTab === 'global' ? 'bg-[var(--accent)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)]'}`}>Global</button>
           </div>
-          {leaderboard.length === 0 ? (
+          {(lbTab === 'guild' ? leaderboard : globalLb).length === 0 ? (
             <EmptyState title="Aucune donnée" description="Le classement est vide." />
           ) : (
-            <Table columns={lbColumns} data={leaderboard} keyExtractor={(e) => e.userId} />
+            <Table columns={lbColumns} data={lbTab === 'guild' ? leaderboard : globalLb} keyExtractor={(e) => e.userId} />
           )}
         </Card>
       </div>
@@ -204,7 +216,7 @@ export default function LevelsPage() {
       <Modal open={rewardModal} onClose={() => setRewardModal(false)} title="Ajouter une récompense">
         <div className="space-y-4">
           <Input label="Niveau requis" type="number" value={String(newReward.level)} onChange={(e) => setNewReward({ ...newReward, level: Number(e.target.value) })} />
-          <Input label="ID du rôle" value={newReward.roleId} onChange={(e) => setNewReward({ ...newReward, roleId: e.target.value })} placeholder="ID du rôle Discord" />
+          <DiscordSelect type="role" guildId={guildId} label="Rôle" value={newReward.roleId} onChange={(id) => setNewReward({ ...newReward, roleId: id })} />
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setRewardModal(false)}>Annuler</Button>
             <Button onClick={addReward}>Ajouter</Button>

@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/utils';
 import type { Suggestion } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { DiscordSelect } from '@/components/DiscordSelect';
 
 const statusLabels: Record<string, string> = {
   PENDING: 'En attente',
@@ -40,6 +41,9 @@ export default function SuggestionsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [votingId, setVotingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [sendContent, setSendContent] = useState('');
+  const [sendChannelId, setSendChannelId] = useState('');
+  const [sending, setSending] = useState(false);
 
   const load = async (p: number) => {
     setLoading(true);
@@ -58,6 +62,28 @@ export default function SuggestionsPage() {
   };
 
   useEffect(() => { load(page); }, [guildId, page]);
+
+  useEffect(() => {
+    const interval = setInterval(() => load(page), 10000);
+    return () => clearInterval(interval);
+  }, [guildId, page]);
+
+  const handleSend = async () => {
+    if (!sendContent.trim() || !sendChannelId) return;
+    setSending(true);
+    try {
+      await api.post(`/api/guilds/${guildId}/suggestions/send`, {
+        content: sendContent.trim(),
+        channelId: sendChannelId,
+      });
+      setSendContent('');
+      load(page);
+    } catch (e: any) {
+      setActionError(e?.message || 'Erreur envoi');
+    } finally {
+      setSending(false);
+    }
+  };
 
   const handleVote = async (suggestionId: string, vote: 'up' | 'down') => {
     setVotingId(suggestionId);
@@ -143,6 +169,20 @@ export default function SuggestionsPage() {
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="suggestions" label="Suggestions" />
       </div>
+
+      <Card className="p-4 mb-6 space-y-3">
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Envoyer une suggestion</h2>
+        <textarea
+          value={sendContent}
+          onChange={(e) => setSendContent(e.target.value)}
+          placeholder="Votre suggestion..."
+          className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-[var(--radius-sm)] bg-transparent min-h-[80px]"
+        />
+        <DiscordSelect type="channel" guildId={guildId} label="Salon" value={sendChannelId} onChange={setSendChannelId} />
+        <Button loading={sending} onClick={handleSend} disabled={!sendContent.trim() || !sendChannelId}>
+          <Send size={14} className="mr-1" /> Envoyer sur Discord
+        </Button>
+      </Card>
 
       <Card padding={false}>
         {loading ? (

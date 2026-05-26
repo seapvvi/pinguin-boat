@@ -1,9 +1,22 @@
 import { GuildMember, Client, PartialGuildMember, EmbedBuilder } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { sendGuildLog } from '../services/logs';
 
 export async function execute(member: GuildMember | PartialGuildMember, client: Client): Promise<void> {
   if (member.user?.bot) return;
   const guildId = member.guild.id;
+
+  await sendGuildLog(
+    client,
+    guildId,
+    'MEMBER_LEAVE',
+    new EmbedBuilder({
+      title: '👋 Membre parti',
+      color: 0xff8800,
+      description: `${member.user?.tag ?? 'Inconnu'} (\`${member.id}\`)`,
+      timestamp: new Date().toISOString(),
+    })
+  );
 
   const welcome = await prisma.welcomeSettings.findUnique({ where: { guildId } });
   if (!welcome || !welcome.goodbyeEnabled) return;

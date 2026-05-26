@@ -27,6 +27,27 @@ export function startInternalBotApi(client: Client): void {
         return;
       }
 
+      if (path === '/internal/stats' && req.method === 'GET') {
+        let onlineMembers = 0;
+        let totalMembers = 0;
+        for (const g of client.guilds.cache.values()) {
+          totalMembers += g.memberCount;
+          onlineMembers += g.members.cache.filter(
+            (m) => m.presence?.status && m.presence.status !== 'offline'
+          ).size;
+        }
+        res.end(JSON.stringify({
+          success: true,
+          data: {
+            guildCount: client.guilds.cache.size,
+            totalMembers,
+            onlineMembers,
+            activeMembers: onlineMembers,
+          },
+        }));
+        return;
+      }
+
       if (!guildId) {
         res.statusCode = 400;
         res.end(JSON.stringify({ error: 'Missing guildId' }));

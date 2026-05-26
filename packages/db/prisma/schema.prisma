@@ -267,6 +267,8 @@ model Guild {
   economySettings EconomySettings?
   protectionSettings ProtectionSettings?
   autoroleSettings AutoroleSettings?
+  autoModSettings  AutoModSettings?
+  ticketSettings   TicketSettings?
   musicQueues     MusicQueue?
   blacklist       BlacklistGuild?
   premiumSubscription PremiumSubscription?
@@ -479,6 +481,24 @@ model XPSettings {
   ignoredRoles        String   @default("[]") @map("ignored_roles")
   announcementChannelId String? @map("announcement_channel_id")
   announcementMessage String?  @map("announcement_message")
+  xpCurve               String   @default("exponential") @map("xp_curve")
+  xpMultiplier          Float    @default(1.0) @map("xp_multiplier")
+  noXpRoles             String   @default("[]") @map("no_xp_roles")
+  noXpChannels          String   @default("[]") @map("no_xp_channels")
+  boosterRoles          String   @default("[]") @map("booster_roles")
+  boosterChannels       String   @default("[]") @map("booster_channels")
+  xpInThreads           Boolean  @default(true) @map("xp_in_threads")
+  xpInForumPosts        Boolean  @default(true) @map("xp_in_forum_posts")
+  xpVocalMessages       Boolean  @default(false) @map("xp_vocal_messages")
+  showOtherLevels       Boolean  @default(true) @map("show_other_levels")
+  resetOnLeave          Boolean  @default(false) @map("reset_on_leave")
+  resetOnBan            Boolean  @default(false) @map("reset_on_ban")
+  doubleXpLongMessages  Boolean  @default(false) @map("double_xp_long_messages")
+  onlineLeaderboard     Boolean  @default(true) @map("online_leaderboard")
+  discordLeaderboard    Boolean  @default(true) @map("discord_leaderboard")
+  levelColor            String   @default("#14b8a6") @map("level_color")
+  rewardAnnounce        Boolean  @default(true) @map("reward_announce")
+  rewardMessage         String?  @map("reward_message")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
@@ -517,6 +537,7 @@ model XPRoleReward {
   guildId       String   @map("guild_id")
   roleId        String   @map("role_id")
   levelRequired Int      @map("level_required")
+  removeOnLevel Boolean  @default(false) @map("remove_on_level")
   createdAt     DateTime @default(now()) @map("created_at")
 
   guild Guild @relation(fields: [guildId], references: [id])
@@ -711,6 +732,7 @@ model WelcomeSettings {
   welcomeEmbedImage      String?  @map("welcome_embed_image")
   welcomeDM              Boolean  @default(false) @map("welcome_dm")
   welcomeDMMessage       String?  @map("welcome_dm_message")
+  mentionMember          Boolean  @default(true) @map("mention_member")
   goodbyeEnabled         Boolean  @default(true) @map("goodbye_enabled")
   goodbyeChannelId       String?  @map("goodbye_channel_id")
   goodbyeMessage         String?  @map("goodbye_message")
@@ -746,9 +768,26 @@ model EconomySettings {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  guild Guild @relation(fields: [guildId], references: [id])
+  guild     Guild      @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  shopItems ShopItem[]
 
   @@map("economy_settings")
+}
+
+/// Article de la boutique économique
+model ShopItem {
+  id                String          @id @default(cuid()) @map("id")
+  economySettingsId String          @map("economy_settings_id")
+  name              String          @map("name")
+  description       String?         @map("description")
+  price             Int             @map("price")
+  roleId            String?         @map("role_id")
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  economySettings EconomySettings @relation(fields: [economySettingsId], references: [id], onDelete: Cascade)
+
+  @@index([economySettingsId])
+  @@map("shop_items")
 }
 
 /// Configuration du module de protection anti-raid/anti-spam
@@ -1036,4 +1075,84 @@ model FeatureFlag {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("feature_flags")
+}
+
+/// Paramètres auto-modération
+model AutoModSettings {
+  id                    String   @id @default(cuid()) @map("id")
+  guildId               String   @unique @map("guild_id")
+  bannedWords           Boolean  @default(false) @map("banned_words")
+  bannedWordsList       String   @default("[]") @map("banned_words_list")
+  discordInvites        Boolean  @default(false) @map("discord_invites")
+  externalLinks         Boolean  @default(false) @map("external_links")
+  excessiveCaps         Boolean  @default(false) @map("excessive_caps")
+  capsThreshold         Int      @default(70) @map("caps_threshold")
+  excessiveEmojis       Boolean  @default(false) @map("excessive_emojis")
+  emojisThreshold       Int      @default(10) @map("emojis_threshold")
+  excessiveMentions     Boolean  @default(false) @map("excessive_mentions")
+  mentionsThreshold     Int      @default(5) @map("mentions_threshold")
+  forbiddenPings        Boolean  @default(false) @map("forbidden_pings")
+  forbiddenPingRoles    String   @default("[]") @map("forbidden_ping_roles")
+  messageSpam           Boolean  @default(false) @map("message_spam")
+  spamThreshold         Int      @default(5) @map("spam_threshold")
+  spamInterval          Int      @default(5) @map("spam_interval")
+  forbiddenMarkdown     Boolean  @default(false) @map("forbidden_markdown")
+  forbiddenMarkdownList String   @default("[]") @map("forbidden_markdown_list")
+  warnEnabled           Boolean  @default(true) @map("warn_enabled")
+  muteEnabled           Boolean  @default(false) @map("mute_enabled")
+  muteDuration          Int      @default(10) @map("mute_duration")
+  kickEnabled           Boolean  @default(false) @map("kick_enabled")
+  banEnabled            Boolean  @default(false) @map("ban_enabled")
+  autoSanctionThreshold Int      @default(3) @map("auto_sanction_threshold")
+  whitelistRoles        String   @default("[]") @map("whitelist_roles")
+  whitelistChannels     String   @default("[]") @map("whitelist_channels")
+  logChannelId          String?  @map("log_channel_id")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("auto_mod_settings")
+}
+
+/// Paramètres du module tickets
+model TicketSettings {
+  id                     String   @id @default(cuid()) @map("id")
+  guildId                String   @unique @map("guild_id")
+  enabled                Boolean  @default(false) @map("enabled")
+  categoryId             String?  @map("category_id")
+  logChannelId           String?  @map("log_channel_id")
+  validationChannelId    String?  @map("validation_channel_id")
+  requireValidation      Boolean  @default(false) @map("require_validation")
+  requireOpenReason      Boolean  @default(false) @map("require_open_reason")
+  requireCloseReason     Boolean  @default(false) @map("require_close_reason")
+  channelFormat          String   @default("ticket-{username}") @map("channel_format")
+  moderatorRoles         String   @default("[]") @map("moderator_roles")
+  accessRoles            String   @default("[]") @map("access_roles")
+  mentionModerators      Boolean  @default(true) @map("mention_moderators")
+  maxOpenPerUser         Int      @default(1) @map("max_open_per_user")
+  autoDelete             Boolean  @default(false) @map("auto_delete")
+  welcomeMessageNoReason String   @default("Un membre de l'équipe va te répondre sous peu.") @map("welcome_message_no_reason")
+  openMessage            String   @default("Bienvenue ! Décris ton problème.") @map("open_message")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_settings")
+}
+
+/// Donateur du projet
+model Donor {
+  id        String   @id @default(cuid()) @map("id")
+  userId    String   @unique @map("user_id")
+  username  String   @map("username")
+  avatarUrl String?  @map("avatar_url")
+  amount    Float    @default(0) @map("amount")
+  message   String?  @map("message")
+  isPublic  Boolean  @default(true) @map("is_public")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("donors")
 }
