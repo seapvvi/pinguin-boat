@@ -58,13 +58,16 @@ export default function OverviewPage() {
         stats: statsRes.status === 'fulfilled' ? statsRes.value.data ?? null : null,
         changelogs: changelogsRes.status === 'fulfilled' ? changelogsRes.value.data?.entries ?? [] : [],
         topXP: lbRes.status === 'fulfilled'
-          ? (lbRes.value.data as { entries?: LeaderboardEntry[] })?.entries?.map((e: any) => ({
-              userId: e.userId,
-              username: e.username,
-              avatar: e.avatar,
-              xp: e.totalXp ?? e.xp ?? 0,
-              level: e.level ?? 0,
-            })) ?? []
+          ? (lbRes.value.data as { entries?: Array<Partial<LeaderboardEntry>> } | undefined)?.entries
+              ?.map((e: any) => ({
+                rank: e.rank ?? 0,
+                userId: String(e.userId ?? ''),
+                username: String(e.username ?? 'Inconnu'),
+                avatar: String(e.avatar ?? ''),
+                xp: Number(e.totalXp ?? e.xp ?? 0),
+                level: Number(e.level ?? 0),
+                guildId: String(e.guildId ?? ''),
+              })) ?? []
           : [],
         topGuilds: guildsRes.status === 'fulfilled' ? guildsRes.value.data?.guilds?.slice(0, 5) ?? [] : [],
         donors: donorsRes.status === 'fulfilled' ? (donorsRes.value.data as { donors?: Donor[] })?.donors?.slice(0, 5) ?? [] : [],
