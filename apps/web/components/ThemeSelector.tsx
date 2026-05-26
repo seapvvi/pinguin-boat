@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ThemeName, themes } from '@pinguin/shared';
+import { ThemeName, themes, DONOR_THEMES } from '@pinguin/shared';
 import { useTheme } from '@pinguin/ui';
 import { Palette, Check, ChevronDown, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -17,13 +17,10 @@ const themeLabels: Record<ThemeName, string> = {
   [ThemeName.TOKYO_NIGHT]: 'Tokyo Night',
   [ThemeName.ROSE_PINE]: 'Rose Pine',
   [ThemeName.MONOKAI]: 'Monokai',
+  [ThemeName.GOLD]: '✨ Gold',
+  [ThemeName.AURORA]: '🌌 Aurora',
+  [ThemeName.CRIMSON]: '🩸 Crimson',
 };
-
-const DONOR_THEMES: { name: string; label: string; color: string }[] = [
-  { name: 'GOLD', label: '✨ Gold', color: '#b8860b' },
-  { name: 'AURORA', label: '🌌 Aurora', color: '#7b2ff7' },
-  { name: 'CRIMSON', label: '🔥 Crimson', color: '#9b1c2e' },
-];
 
 export default function ThemeSelector() {
   const { current, setTheme } = useTheme();
@@ -33,13 +30,10 @@ export default function ThemeSelector() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.get<{ data: { donors: { userId: string }[] } }>('/api/donors')
+    api.get<any>('/api/auth/me')
       .then((res) => {
-        const donors = (res as any)?.data?.donors as { userId: string }[] | undefined;
-        if (donors && donors.length > 0) {
-          const stored = typeof window !== 'undefined' ? localStorage.getItem('pinguin-user-id') : null;
-          if (stored && donors.some((d) => d.userId === stored)) setIsDonor(true);
-        }
+        const user = (res as any)?.data ?? res;
+        if (user?.isDonor) setIsDonor(true);
       })
       .catch(() => {});
   }, []);
@@ -110,11 +104,18 @@ export default function ThemeSelector() {
           {Object.values(ThemeName).map((name) => {
             const theme = themes[name];
             const isSelected = current === name;
+            const isDonorTheme = DONOR_THEMES.includes(name);
+            const locked = isDonorTheme && !isDonor;
             return (
               <button
                 type="button"
                 key={name}
                 onClick={() => {
+                  if (locked) {
+                    showToast('💙 Réservé aux donateurs — soutenez le projet !');
+                    setOpen(false);
+                    return;
+                  }
                   setTheme(name);
                   setOpen(false);
                 }}
@@ -127,13 +128,14 @@ export default function ThemeSelector() {
                   border: 'none',
                   background: isSelected ? 'var(--bg-surface-alt)' : 'transparent',
                   color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
+                  cursor: locked ? 'not-allowed' : 'pointer',
                   fontSize: 13,
                   textAlign: 'left',
+                  opacity: locked ? 0.55 : 1,
                   transition: 'background-color 0.1s',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
+                  if (!locked) e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = isSelected ? 'var(--bg-surface-alt)' : 'transparent';
@@ -144,67 +146,17 @@ export default function ThemeSelector() {
                     width: 16,
                     height: 16,
                     borderRadius: '50%',
-                    backgroundColor: theme.colors.background,
-                    border: '2px solid var(--border-color)',
+                    backgroundColor: theme.colors.accent,
+                    border: `2px solid ${theme.colors.border}`,
                     flexShrink: 0,
                   }}
                 />
                 <span style={{ flex: 1 }}>{themeLabels[name]}</span>
-                {isSelected && <Check size={14} style={{ color: 'var(--accent)' }} />}
+                {locked && <Lock size={12} style={{ color: 'var(--text-secondary)' }} />}
+                {isSelected && !locked && <Check size={14} style={{ color: 'var(--accent)' }} />}
               </button>
             );
           })}
-
-          <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
-          <div style={{ padding: '4px 12px 2px', fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Donateurs
-          </div>
-          {DONOR_THEMES.map((dt) => (
-            <button
-              type="button"
-              key={dt.name}
-              onClick={() => {
-                if (!isDonor) {
-                  showToast('💙 Réservé aux donateurs — soutenez le projet !');
-                  setOpen(false);
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                width: '100%',
-                padding: '8px 12px',
-                border: 'none',
-                background: 'transparent',
-                color: 'var(--text-secondary)',
-                cursor: isDonor ? 'pointer' : 'not-allowed',
-                fontSize: 13,
-                textAlign: 'left',
-                opacity: isDonor ? 1 : 0.55,
-                transition: 'background-color 0.1s',
-              }}
-              onMouseEnter={(e) => {
-                if (isDonor) e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-            >
-              <span
-                style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  backgroundColor: dt.color,
-                  border: '2px solid var(--border-color)',
-                  flexShrink: 0,
-                }}
-              />
-              <span style={{ flex: 1 }}>{dt.label}</span>
-              {!isDonor && <Lock size={12} style={{ color: 'var(--text-secondary)' }} />}
-            </button>
-          ))}
         </div>
       )}
 
