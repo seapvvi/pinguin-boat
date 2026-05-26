@@ -31,7 +31,7 @@ export async function execute(member: GuildMember, client: Client): Promise<void
       try {
         const logs = await member.guild.fetchAuditLogs({ limit: 1, type: 28 });
         const entry = logs.entries.first();
-        if (entry?.executor && !entry.executor.bot) inviterName = entry.executor.username;
+        if (entry?.executor && !entry.executor.bot) inviterName = entry.executor.username ?? "quelqu\u0027un";
       } catch { /* audit log indisponible */ }
 
       const replacements = (s: string) => s

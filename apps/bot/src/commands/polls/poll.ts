@@ -51,7 +51,9 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     return;
   }
 
-  const pollMessage = await interaction.channel.send({ embeds: [embed] });
+  // TypeScript: `isTextBased()` ne suffit pas toujours à affiner correctement le type du channel
+  const channel = interaction.channel;
+  const pollMessage = await (channel as any).send({ embeds: [embed] });
 
   for (let i = 0; i < options.length; i++) {
     await pollMessage.react(numberEmojis[i]);

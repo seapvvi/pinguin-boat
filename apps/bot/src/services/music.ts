@@ -185,16 +185,19 @@ export async function play(guildId: string, query: string, requester: GuildMembe
     state.connection = connection;
     connection.subscribe(getPlayer(guildId));
     state.voiceChannelId = voiceChannel.id;
-  } else if (state.connection.state.status !== VoiceConnectionStatus.Ready) {
-    try {
-      await entersState(state.connection, VoiceConnectionStatus.Ready, 15_000);
-    } catch {
-      state.connection.destroy();
-      state.connection = null;
-      state.voiceChannelId = null;
-      throw new Error('Connexion vocale instable, réessayez.');
+  } else {
+    const connection = state.connection;
+    if (connection && connection.state.status !== VoiceConnectionStatus.Ready) {
+      try {
+        await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
+      } catch {
+        connection.destroy();
+        state.connection = null;
+        state.voiceChannelId = null;
+        throw new Error('Connexion vocale instable, réessayez.');
+      }
+      connection.subscribe(getPlayer(guildId));
     }
-    state.connection.subscribe(getPlayer(guildId));
   }
 
   state.voiceChannelId = voiceChannel.id;
