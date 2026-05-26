@@ -29,6 +29,12 @@ const statusVariants: Record<string, 'success' | 'warning' | 'error' | 'info' | 
   CANCELLED: 'error',
 };
 
+type GiveawayStats = {
+  entryCount: number;
+  winners?: { username: string; id: string }[];
+  participants?: { userId: string; username: string }[];
+};
+
 export default function GiveawaysPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
@@ -46,7 +52,7 @@ export default function GiveawaysPage() {
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
-  const [statsData, setStatsData] = useState<any>(null);
+  const [statsData, setStatsData] = useState<GiveawayStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
   const load = async (p: number) => {
@@ -144,8 +150,8 @@ export default function GiveawaysPage() {
                 setStatsLoading(true);
                 setStatsOpen(true);
                 try {
-                  const res = await api.get(`/api/guilds/${guildId}/giveaways/${g.id}/stats`);
-                  if (res.success) setStatsData(res.data);
+                  const res = await api.get<APIResponse<GiveawayStats>>(`/api/guilds/${guildId}/giveaways/${g.id}/stats`);
+                  if (res.success && res.data) setStatsData(res.data);
                 } finally { setStatsLoading(false); }
               }}><BarChart3 size={12} /></Button>
               <Button variant="ghost" size="sm" onClick={() => handleAction(g.id, 'reroll')}><RotateCcw size={12} /></Button>
