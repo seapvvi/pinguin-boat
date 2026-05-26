@@ -2098,6 +2098,7 @@ export async function guildRoutes(app: FastifyInstance) {
   app.get('/:guildId/resolve-user/:userId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId, userId } = request.params as any;
+      if (!userId) return reply.send(success({ id: userId, username: userId ?? 'Inconnu', avatar: null }));
       const member = await getGuildMember(guildId, userId).catch(() => null);
       if (member) {
         return reply.send(success({

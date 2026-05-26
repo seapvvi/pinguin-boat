@@ -157,10 +157,26 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
 
   if (!violation) return false;
 
-  await message.delete().catch(() => {});
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ch = message.channel as any;
+
+  if (violation && reason === 'Spam' && typeof ch.bulkDelete === 'function') {
+    const windowMs = Math.max(settings.spamInterval, 1) * 1000;
+    const cutoff = Date.now() - windowMs;
+    const toDelete = ch.messages?.cache
+      ? (ch.messages.cache as import('discord.js').Collection<string, import('discord.js').Message>)
+          .filter((m: import('discord.js').Message) => m.author.id === message.author.id && m.createdTimestamp >= cutoff)
+          .map((m: import('discord.js').Message) => m.id)
+      : [message.id];
+    if (toDelete.length > 1) {
+      await (ch.bulkDelete(toDelete.slice(0, 100), true) as Promise<unknown>).catch(() => message.delete().catch(() => {}));
+    } else {
+      await message.delete().catch(() => {});
+    }
+  } else {
+    await message.delete().catch(() => {});
+  }
+
   if (typeof ch.send === 'function') {
     (ch.send({ content: `<@${message.author.id}> ⚠️ Ce message a été supprimé (${reason}).` }) as Promise<import('discord.js').Message>)
       .then((warn) => { setTimeout(() => warn.delete().catch(() => {}), 5000); })

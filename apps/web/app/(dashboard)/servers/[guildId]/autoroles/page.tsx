@@ -138,16 +138,6 @@ export default function AutorolesPage() {
           <Card>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <UserPlus size={18} className="text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">Module auto-rôles</h2>
-              </div>
-              <Toggle checked={local.enabled} onChange={(v) => setLocal({ ...local, enabled: v })} />
-            </div>
-          </Card>
-
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
                 <Users size={18} className="text-[var(--accent)]" />
                 <h2 className="text-sm font-semibold text-[var(--text-primary)]">Rôles à l&apos;arrivée</h2>
               </div>

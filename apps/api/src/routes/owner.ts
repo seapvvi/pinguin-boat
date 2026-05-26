@@ -303,14 +303,15 @@ export async function ownerRoutes(app: FastifyInstance) {
       const body = request.body as any;
       const existing = await prisma.changelog.findUnique({ where: { id } });
       if (!existing) return reply.status(404).send(error('Changelog introuvable'));
-      const updated = await prisma.changelog.update({
+      const ex = existing as any;
+      const updated = await (prisma.changelog.update as any)({
         where: { id },
         data: {
-          title: body.title ?? existing.title,
-          content: body.content ?? existing.content,
-          version: body.version !== undefined ? body.version : existing.version,
-          published: body.published !== undefined ? body.published : existing.published,
-          pinned: body.pinned !== undefined ? body.pinned : existing.pinned,
+          title: body.title ?? ex.title,
+          content: body.content ?? ex.content,
+          version: body.version !== undefined ? body.version : ex.version,
+          published: body.published !== undefined ? body.published : ex.published,
+          pinned: body.pinned !== undefined ? body.pinned : ex.pinned,
         },
       });
       reply.send(success(updated, 'Changelog mis à jour'));
@@ -455,6 +456,8 @@ export async function ownerRoutes(app: FastifyInstance) {
                 { details: { contains: '/owner/logs' } },
                 { details: { contains: '/api/owner/logs' } },
                 { action: 'GET_OWNER_LOGS' },
+                { details: { contains: '"method":"GET"' } },
+                { details: { contains: '"method": "GET"' } },
               ],
             },
           },
@@ -539,7 +542,7 @@ export async function ownerRoutes(app: FastifyInstance) {
           embedColor: body.embedColor ?? null,
         },
       });
-      await logOwnerAction(request, 'DONOR_UPSERT', { userId: body.userId }, true);
+      await logOwnerAction(request, 'DONOR_UPSERT', { userId: body.userId });
       reply.status(201).send(success(donor, 'Donateur enregistré'));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
@@ -573,7 +576,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       const donor = await prisma.donor.findFirst({ where: { OR: [{ id }, { userId: id }] } });
       if (!donor) return reply.status(404).send(error('Donateur introuvable'));
       await prisma.donor.delete({ where: { id: donor.id } });
-      await logOwnerAction(request, 'DONOR_DELETE', { id }, true);
+      await logOwnerAction(request, 'DONOR_DELETE', { id });
       reply.send(success(null, 'Donateur supprimé'));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
@@ -805,7 +808,7 @@ async function logOwnerAction(
   details?: Record<string, unknown>,
   skipLog = false
 ) {
-  if (skipLog || request.url.includes('/owner/logs')) return;
+  if (skipLog || request.method === 'GET' || request.url.includes('/owner/logs')) return;
   try {
     await prisma.ownerLog.create({
       data: {

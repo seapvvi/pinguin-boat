@@ -64,6 +64,7 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
       type: ChannelType.GuildText,
       parent: ticketSettings?.categoryId ?? undefined,
       permissionOverwrites,
+      lockPermissions: false,
       reason: `Ticket ouvert par ${interaction.user.tag}`,
     });
 

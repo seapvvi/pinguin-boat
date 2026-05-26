@@ -139,24 +139,12 @@ export default function LevelsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="space-y-6">
           <Card>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Trophy size={18} className="text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">Module XP</h2>
-              </div>
-              <Toggle checked={local.enabled} onChange={(v) => setLocal({ ...local, enabled: v })} />
-            </div>
-          </Card>
-
-          <Card>
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Paramètres</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-3 rounded bg-[var(--bg-surface-alt)] text-sm text-[var(--text-secondary)]">
+              <div className="p-3 rounded bg-[var(--bg-surface-alt)] text-sm text-[var(--text-secondary)] col-span-2">
                 <strong className="text-[var(--text-primary)]">XP fixe (non modifiable)</strong>
                 <p className="mt-1">10 XP / message · 15 XP / min en vocal · cooldown 60s</p>
               </div>
-              <Input label="XP vocal (par minute)" type="number" value={String(local.voiceXpRate)} onChange={(e) => setLocal({ ...local, voiceXpRate: Number(e.target.value) })} />
-              <Input label="Cooldown XP (secondes)" type="number" value={String(local.xpCooldown)} onChange={(e) => setLocal({ ...local, xpCooldown: Number(e.target.value) })} />
               <div className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] self-end">
                 <div>
                   <span className="text-sm text-[var(--text-primary)]">Cumul des rôles</span>

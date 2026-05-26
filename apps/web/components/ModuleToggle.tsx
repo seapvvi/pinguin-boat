@@ -11,7 +11,7 @@ interface ModuleToggleProps {
 }
 
 export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleToggleProps) {
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleT
           <p className="text-sm font-semibold text-[var(--text-primary)]">{label}</p>
           {description && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>}
         </div>
-        <Toggle checked={enabled} onChange={handleToggle} disabled={toggling} />
+        {enabled !== null && <Toggle checked={enabled} onChange={handleToggle} disabled={toggling} />}
       </div>
       {error && <p className="text-xs text-[var(--error)] mt-1">{error}</p>}
     </div>

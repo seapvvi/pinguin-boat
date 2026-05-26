@@ -105,9 +105,9 @@ const categoryDefs: CategoryDef[] = [
     ],
   },
   {
-    label: 'Premium',
+    label: 'Soutien',
     items: [
-      { label: 'Soutenir', icon: <Crown size={18} />, href: '/premium', guildPage: true },
+      { label: 'Soutenir', icon: <Crown size={18} />, href: '/soutien', guildPage: true },
     ],
   },
 ];

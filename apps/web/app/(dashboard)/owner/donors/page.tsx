@@ -21,15 +21,10 @@ export default function OwnerDonorsPage() {
   const [form, setForm] = useState({ userId: '', username: '', amount: 0, message: '', isPublic: true });
 
   const load = () => {
-    api.get<{ donors: Donor[] }>('/api/owner/donors')
+    api.get<any>('/api/owner/donors')
       .then((res: any) => {
-        // api layer returns the JSON body directly; shared APIResponse shape is { success, data?, error? }
-        if (res?.success && (res?.data ?? res)?.donors) {
-          const payload = (res.data ?? res) as { donors?: Donor[] };
-          setDonors(payload.donors ?? []);
-        } else if (res?.data?.donors) {
-          setDonors(res.data.donors ?? []);
-        }
+        const list = res?.data?.donors ?? res?.donors ?? [];
+        setDonors(list);
       })
       .finally(() => setLoading(false));
   };
@@ -38,13 +33,13 @@ export default function OwnerDonorsPage() {
 
   const add = async () => {
     if (!form.userId || !form.username) return;
-    await api.post('/api/owner/donors', form);
+    await api.post('/api/owner/donors', { ...form, amount: Number(form.amount) });
     setForm({ userId: '', username: '', amount: 0, message: '', isPublic: true });
     load();
   };
 
-  const remove = async (userId: string) => {
-    await api.delete(`/api/owner/donors/${userId}`);
+  const remove = async (id: string) => {
+    await api.delete(`/api/owner/donors/${id}`);
     load();
   };
 
@@ -73,7 +68,7 @@ export default function OwnerDonorsPage() {
             {donors.map((d) => (
               <li key={d.id} className="flex items-center justify-between p-2 rounded bg-[var(--bg-surface-alt)]">
                 <span className="text-sm">{d.username} — {d.amount}€</span>
-                <Button variant="ghost" size="sm" onClick={() => remove(d.userId)}><Trash2 size={14} /></Button>
+                <Button variant="ghost" size="sm" onClick={() => remove(d.id)}><Trash2 size={14} /></Button>
               </li>
             ))}
           </ul>

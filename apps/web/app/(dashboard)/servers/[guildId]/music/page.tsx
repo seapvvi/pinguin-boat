@@ -127,12 +127,9 @@ export default function MusicPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2 space-y-6">
           <Card>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Disc3 size={18} className="text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">En cours de lecture</h2>
-              </div>
-              <Toggle checked={local.enabled} onChange={(v) => setLocal({ ...local, enabled: v })} />
+            <div className="flex items-center gap-2 mb-4">
+              <Disc3 size={18} className="text-[var(--accent)]" />
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">En cours de lecture</h2>
             </div>
             {currentTrack ? (
               <div className="flex items-center gap-4 p-4 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
