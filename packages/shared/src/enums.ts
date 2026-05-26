@@ -92,6 +92,9 @@ export enum ThemeName {
   GOLD = 'GOLD',
   AURORA = 'AURORA',
   CRIMSON = 'CRIMSON',
+  SYNTHWAVE = 'SYNTHWAVE',
+  EVERFOREST = 'EVERFOREST',
+  COBALT = 'COBALT',
 }
 
 export enum AuditAction {

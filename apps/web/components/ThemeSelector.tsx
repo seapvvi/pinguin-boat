@@ -17,9 +17,12 @@ const themeLabels: Record<ThemeName, string> = {
   [ThemeName.TOKYO_NIGHT]: 'Tokyo Night',
   [ThemeName.ROSE_PINE]: 'Rose Pine',
   [ThemeName.MONOKAI]: 'Monokai',
-  [ThemeName.GOLD]: '✨ Gold',
-  [ThemeName.AURORA]: '🌌 Aurora',
-  [ThemeName.CRIMSON]: '🩸 Crimson',
+  [ThemeName.GOLD]: 'Gold',
+  [ThemeName.AURORA]: 'Aurora',
+  [ThemeName.CRIMSON]: 'Crimson',
+  [ThemeName.SYNTHWAVE]: 'Synthwave',
+  [ThemeName.EVERFOREST]: 'Everforest',
+  [ThemeName.COBALT]: 'Cobalt2',
 };
 
 export default function ThemeSelector() {
@@ -146,7 +149,7 @@ export default function ThemeSelector() {
                     width: 16,
                     height: 16,
                     borderRadius: '50%',
-                    backgroundColor: theme.colors.accent,
+                    background: `linear-gradient(135deg, ${theme.colors.sidebar} 50%, ${theme.colors.accent} 50%)`,
                     border: `2px solid ${theme.colors.border}`,
                     flexShrink: 0,
                   }}

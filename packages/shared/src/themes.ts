@@ -248,7 +248,7 @@ export const themes: Record<ThemeName, ThemeConfig> = {
   },
   [ThemeName.GOLD]: {
     name: ThemeName.GOLD,
-    label: '✨ Gold',
+    label: 'Gold',
     colors: {
       background: '#1a1500',
       surface: '#221c00',
@@ -270,7 +270,7 @@ export const themes: Record<ThemeName, ThemeConfig> = {
   },
   [ThemeName.AURORA]: {
     name: ThemeName.AURORA,
-    label: '🌌 Aurora',
+    label: 'Aurora',
     colors: {
       background: '#0d0d1a',
       surface: '#12122b',
@@ -292,7 +292,7 @@ export const themes: Record<ThemeName, ThemeConfig> = {
   },
   [ThemeName.CRIMSON]: {
     name: ThemeName.CRIMSON,
-    label: '🩸 Crimson',
+    label: 'Crimson',
     colors: {
       background: '#130808',
       surface: '#1c0a0a',
@@ -312,9 +312,82 @@ export const themes: Record<ThemeName, ThemeConfig> = {
     },
     isDark: true,
   },
+  [ThemeName.SYNTHWAVE]: {
+    name: ThemeName.SYNTHWAVE,
+    label: 'Synthwave',
+    colors: {
+      background: '#1a0533',
+      surface: '#1f0a3d',
+      surfaceAlt: '#2b0f52',
+      border: '#3d1a6e',
+      text: '#f0c6ff',
+      textSecondary: '#a066cc',
+      accent: '#ff71ce',
+      accentHover: '#01cdfe',
+      success: '#05ffa1',
+      warning: '#fffb96',
+      error: '#ff4488',
+      info: '#01cdfe',
+      sidebar: '#12022a',
+      sidebarActive: '#2b0f52',
+      header: '#12022a',
+    },
+    isDark: true,
+  },
+  [ThemeName.EVERFOREST]: {
+    name: ThemeName.EVERFOREST,
+    label: 'Everforest',
+    colors: {
+      background: '#2d353b',
+      surface: '#272e33',
+      surfaceAlt: '#2d353b',
+      border: '#3d4f55',
+      text: '#d3c6aa',
+      textSecondary: '#859289',
+      accent: '#a7c080',
+      accentHover: '#83c092',
+      success: '#a7c080',
+      warning: '#dbbc7f',
+      error: '#e67e80',
+      info: '#7fbbb3',
+      sidebar: '#232a2e',
+      sidebarActive: '#3d4f55',
+      header: '#232a2e',
+    },
+    isDark: true,
+  },
+  [ThemeName.COBALT]: {
+    name: ThemeName.COBALT,
+    label: 'Cobalt2',
+    colors: {
+      background: '#193549',
+      surface: '#122738',
+      surfaceAlt: '#1f4662',
+      border: '#1f4662',
+      text: '#ffffff',
+      textSecondary: '#8dbdd8',
+      accent: '#ffc600',
+      accentHover: '#ffda44',
+      success: '#3ad900',
+      warning: '#ffc600',
+      error: '#ff2020',
+      info: '#80fcff',
+      sidebar: '#0d2535',
+      sidebarActive: '#1f4662',
+      header: '#0d2535',
+    },
+    isDark: true,
+  },
 };
 
-export const DONOR_THEMES: ThemeName[] = [ThemeName.GOLD, ThemeName.AURORA, ThemeName.CRIMSON];
+export const DONOR_THEMES: ThemeName[] = [
+  ThemeName.GOLD,
+  ThemeName.AURORA,
+  ThemeName.CRIMSON,
+  ThemeName.SYNTHWAVE,
+  ThemeName.EVERFOREST,
+  ThemeName.COBALT,
+];
 
 export function getTheme(themeName: ThemeName): ThemeConfig {
   return themes[themeName] ?? themes[ThemeName.DARK];
