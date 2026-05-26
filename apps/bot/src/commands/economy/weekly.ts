@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, CommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
-import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet, formatCoins } from '../../services/economy';
 import { successEmbed, errorEmbed } from '../../services/embed';
 

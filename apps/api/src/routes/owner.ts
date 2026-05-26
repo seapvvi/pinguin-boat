@@ -663,7 +663,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       const dbUrl = process.env.DATABASE_URL || '';
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
-      await promisify(exec)(`pg_dump "${dbUrl}" > "${backupPath}"`, { shell: true }).catch(() => {
+      await promisify(exec)(`pg_dump "${dbUrl}" > "${backupPath}"`, { shell: true as unknown as string }).catch(() => {
         fs.writeFileSync(backupPath, `-- backup placeholder ${new Date().toISOString()}\n`);
       });
       await logOwnerAction(request, 'BACKUP_CREATED', { path: backupPath }, true);

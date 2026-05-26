@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, CommandInteraction, Client } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { getEconomySettings, getOrCreateWallet, formatCoins } from '../../services/economy';
 import { successEmbed, errorEmbed } from '../../services/embed';
@@ -10,7 +10,7 @@ export const data = new SlashCommandBuilder()
 
 export const module = 'economy';
 
-export async function execute(interaction: CommandInteraction, _client: Client): Promise<void> {
+export async function execute(interaction: ChatInputCommandInteraction, _client: Client): Promise<void> {
   await interaction.deferReply();
   if (!interaction.guild) return;
 

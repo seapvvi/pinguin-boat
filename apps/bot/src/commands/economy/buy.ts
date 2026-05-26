@@ -23,7 +23,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
   }
 
   const query = interaction.options.getString('article', true).toLowerCase();
-  const item = settings.shopItems.find((i) => i.name.toLowerCase() === query || i.id === query);
+  const item = settings.shopItems.find((i: typeof settings.shopItems[number]) => i.name.toLowerCase() === query || i.id === query);
   if (!item) {
     await interaction.editReply({ embeds: [errorEmbed('Article introuvable', 'Utilisez `/shop` pour voir les articles.')] });
     return;
@@ -52,7 +52,10 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
   });
 
   if (item.roleId && interaction.member) {
-    await interaction.member.roles.add(item.roleId, `Achat boutique: ${item.name}`).catch(() => {});
+    const roles = (interaction.member as any).roles;
+    if (roles && typeof roles.add === 'function') {
+      await roles.add(item.roleId, `Achat boutique: ${item.name}`).catch(() => {});
+    }
   }
 
   await interaction.editReply({
