@@ -1,6 +1,7 @@
 import { MessageReaction, User, Client, PartialMessageReaction, PartialUser } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../services/user';
+import { isModuleEnabled } from '../guards/module';
 
 const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
@@ -18,27 +19,33 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   const guildId = reaction.message.guildId;
   const messageId = reaction.message.id;
 
-  const suggestion = await prisma.suggestion.findFirst({
-    where: { messageId, guildId },
-  });
-  if (suggestion && suggestion.status === 'PENDING') {
-    const voters: Record<string, 'up' | 'down'> = JSON.parse(suggestion.voters || '{}');
-
-    if (reaction.emoji.name === '👍' || reaction.emoji.name === '✅') {
-      voters[user.id] = 'up';
-    } else if (reaction.emoji.name === '👎' || reaction.emoji.name === '❌') {
-      voters[user.id] = 'down';
-    } else return;
-
-    const upvotes = Object.values(voters).filter((v) => v === 'up').length;
-    const downvotes = Object.values(voters).filter((v) => v === 'down').length;
-
-    await prisma.suggestion.update({
-      where: { id: suggestion.id },
-      data: { upvotes, downvotes, voters: JSON.stringify(voters) },
+  // Suggestions module
+  if (await isModuleEnabled(guildId, 'suggestions')) {
+    const suggestion = await prisma.suggestion.findFirst({
+      where: { messageId, guildId },
     });
-    return;
+    if (suggestion && suggestion.status === 'PENDING') {
+      const voters: Record<string, 'up' | 'down'> = JSON.parse(suggestion.voters || '{}');
+
+      if (reaction.emoji.name === '👍' || reaction.emoji.name === '✅') {
+        voters[user.id] = 'up';
+      } else if (reaction.emoji.name === '👎' || reaction.emoji.name === '❌') {
+        voters[user.id] = 'down';
+      } else return;
+
+      const upvotes = Object.values(voters).filter((v) => v === 'up').length;
+      const downvotes = Object.values(voters).filter((v) => v === 'down').length;
+
+      await prisma.suggestion.update({
+        where: { id: suggestion.id },
+        data: { upvotes, downvotes, voters: JSON.stringify(voters) },
+      });
+      return;
+    }
   }
+
+  // Polls module
+  if (!(await isModuleEnabled(guildId, 'polls'))) return;
 
   const poll = await prisma.poll.findFirst({
     where: { messageId, guildId, status: 'OPEN' },
