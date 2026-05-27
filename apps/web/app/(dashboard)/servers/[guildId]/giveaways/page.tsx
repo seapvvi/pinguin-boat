@@ -76,9 +76,25 @@ export default function GiveawaysPage() {
 
   useEffect(() => {
     if (createOpen) {
+      let cancelled = false;
       fetchGuildChannels(guildId).then((res) => {
-        if (res.success && res.data) setChannels(res.data.channels.filter((c: any) => c.type === 0));
-      }).catch(() => {});
+        if (!res.success || !res.data || cancelled) return;
+        const availableChannels = res.data.channels.filter((c: any) => c.type === 0 && c.name !== '📢｜annonces');
+        setChannels(availableChannels);
+        setForm((prev) => {
+          const hasCurrent = availableChannels.some((c: { id: string }) => c.id === prev.channelId);
+          const nextChannelId = hasCurrent ? prev.channelId : (availableChannels[0]?.id ?? '');
+          return nextChannelId === prev.channelId ? prev : { ...prev, channelId: nextChannelId };
+        });
+        setFormErrors((prev) => {
+          if (!prev.channelId) return prev;
+          const { channelId, ...rest } = prev;
+          return rest;
+        });
+      }).catch(() => {
+        if (!cancelled) setChannels([]);
+      });
+      return () => { cancelled = true; };
     }
   }, [createOpen, guildId]);
 
@@ -87,19 +103,18 @@ export default function GiveawaysPage() {
     if (!form.prize.trim()) errs.prize = 'Requis';
     if (form.winners < 1) errs.winners = 'Minimum 1';
     if (form.duration < 10) errs.duration = 'Minimum 10 secondes';
+    if (!form.channelId) errs.channelId = 'Salon requis';
     setFormErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
     setActionError(null);
     try {
-      const channelId = form.channelId;
-      if (!channelId) { setFormErrors({ channelId: 'Requis' }); setSubmitting(false); return; }
       await api.post(`/api/guilds/${guildId}/giveaways`, {
         prize: form.prize.trim(),
         winners: form.winners,
         duration: form.duration,
-        channelId,
+        channelId: form.channelId,
         requirements: {
           minAccountAge: form.minAccountAge || undefined,
           minGuildJoinTime: form.minGuildJoinTime || undefined,
@@ -219,7 +234,7 @@ export default function GiveawaysPage() {
           <Input label="Lot" value={form.prize} onChange={(e) => setForm({ ...form, prize: e.target.value })} error={formErrors.prize} placeholder="Ex: 100€ PayPal" />
           <Input label="Nombre de gagnants" type="number" value={String(form.winners)} onChange={(e) => setForm({ ...form, winners: Number(e.target.value) })} error={formErrors.winners} />
           <Input label="Durée (secondes)" type="number" value={String(form.duration)} onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })} error={formErrors.duration} />
-          <Select label="Salon" options={channels.filter((c) => c.name !== '📢｜annonces').map((c) => ({ value: c.id, label: `#${c.name}` }))} value={form.channelId} onChange={(e) => setForm({ ...form, channelId: e.target.value })} />{formErrors.channelId && <span className="text-xs text-[var(--error)]">{formErrors.channelId}</span>}
+          <Select label="Salon" options={channels.map((c) => ({ value: c.id, label: `#${c.name}` }))} value={form.channelId} onChange={(e) => setForm({ ...form, channelId: e.target.value })} />{formErrors.channelId && <span className="text-xs text-[var(--error)]">{formErrors.channelId}</span>}
           <h3 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Prérequis</h3>
           <Input label="Âge min. du compte (jours)" type="number" value={String(form.minAccountAge)} onChange={(e) => setForm({ ...form, minAccountAge: Number(e.target.value) })} />
           <Input label="Ancienneté min. sur le serveur (jours)" type="number" value={String(form.minGuildJoinTime)} onChange={(e) => setForm({ ...form, minGuildJoinTime: Number(e.target.value) })} />

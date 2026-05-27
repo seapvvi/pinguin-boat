@@ -3,6 +3,171 @@ import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { closeTicketViaApi } from '../../services/ticket-close';
+type DiscordErrorLike = {
+  code?: number;
+  status?: number;
+  method?: string;
+  path?: string;
+  url?: string;
+  message?: string;
+  rawError?: { code?: number; message?: string };
+};
+
+class TicketChannelCreationError extends Error {
+  constructor(
+    public readonly primaryError: unknown,
+    public readonly fallbackError?: unknown,
+  ) {
+    super('Impossible de créer le salon ticket.');
+    this.name = 'TicketChannelCreationError';
+  }
+}
+
+function parseRoleIds(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map((v) => String(v)).filter(Boolean);
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map((v) => String(v)).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function sanitizeTicketChannelName(format: string | null | undefined, username: string): string {
+  const safeUsername = username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 32) || 'user';
+  const base = (format ?? 'ticket-{username}')
+    .replace('{username}', safeUsername)
+    .toLowerCase();
+  const normalized = base
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 90);
+  return normalized || `ticket-${safeUsername}`.slice(0, 90);
+}
+
+function getDiscordErrorCode(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const err = error as DiscordErrorLike;
+  if (typeof err.code === 'number') return err.code;
+  if (typeof err.rawError?.code === 'number') return err.rawError.code;
+  return undefined;
+}
+
+function getDiscordErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const err = error as DiscordErrorLike;
+    if (typeof err.rawError?.message === 'string' && err.rawError.message.trim()) return err.rawError.message;
+  }
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return 'Erreur Discord inconnue.';
+}
+
+function getDiscordErrorHint(code?: number): string {
+  switch (code) {
+    case 50013:
+      return 'Permissions manquantes pour créer le salon (Gérer les salons / Voir les salons / permissions de catégorie).';
+    case 50001:
+      return 'Accès Discord refusé (le bot n’a pas accès au serveur, salon parent ou catégorie).';
+    case 10003:
+      return 'La catégorie configurée est introuvable sur Discord.';
+    case 30013:
+      return 'Limite de salons Discord atteinte sur ce serveur.';
+    case 50035:
+      return 'Paramètres de création invalides (nom du salon, parent ou overwrites).';
+    default:
+      return 'Discord a refusé la création du salon ticket.';
+  }
+}
+
+function formatSingleDiscordError(error: unknown): string {
+  const code = getDiscordErrorCode(error);
+  const message = getDiscordErrorMessage(error);
+  const hint = getDiscordErrorHint(code);
+  const err = (error && typeof error === 'object') ? (error as DiscordErrorLike) : undefined;
+  const technical = [
+    typeof code === 'number' ? `code ${code}` : null,
+    typeof err?.status === 'number' ? `HTTP ${err.status}` : null,
+    typeof err?.method === 'string' ? err.method : null,
+    typeof err?.path === 'string' ? err.path : null,
+  ].filter((v): v is string => Boolean(v)).join(' • ');
+
+  return [
+    hint,
+    `Discord: ${message}`,
+    technical ? `Détails techniques: \`${technical}\`` : null,
+  ].filter((v): v is string => Boolean(v)).join('\n');
+}
+
+function formatTicketCreationError(error: unknown): string {
+  if (error instanceof TicketChannelCreationError && error.fallbackError) {
+    return [
+      'Création du ticket échouée après tentative avec et sans catégorie.',
+      `• Avec catégorie: ${formatSingleDiscordError(error.primaryError)}`,
+      `• Sans catégorie: ${formatSingleDiscordError(error.fallbackError)}`,
+    ].join('\n');
+  }
+  if (error instanceof TicketChannelCreationError) {
+    return formatSingleDiscordError(error.primaryError);
+  }
+  return formatSingleDiscordError(error);
+}
+
+function shouldRetryWithoutCategory(error: unknown): boolean {
+  const code = getDiscordErrorCode(error);
+  return code === 50013 || code === 50001 || code === 10003;
+}
+
+async function createTicketChannel(
+  interaction: ButtonInteraction,
+  channelName: string,
+  categoryId: string | undefined,
+  permissionOverwrites: any[],
+): Promise<{ channel: TextChannel; usedFallback: boolean }> {
+  if (!interaction.guild) {
+    throw new Error('Serveur Discord introuvable.');
+  }
+
+  const reason = `Ticket ouvert par ${interaction.user.tag}`;
+
+  if (!categoryId) {
+    const channel = await interaction.guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      permissionOverwrites,
+      reason,
+    });
+    return { channel: channel as TextChannel, usedFallback: false };
+  }
+
+  try {
+    const channel = await interaction.guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      permissionOverwrites,
+      reason,
+    });
+    return { channel: channel as TextChannel, usedFallback: false };
+  } catch (primaryError) {
+    if (!shouldRetryWithoutCategory(primaryError)) {
+      throw new TicketChannelCreationError(primaryError);
+    }
+
+    try {
+      const channel = await interaction.guild.channels.create({
+        name: channelName,
+        type: ChannelType.GuildText,
+        permissionOverwrites,
+        reason: `${reason} (fallback sans catégorie)`,
+      });
+      return { channel: channel as TextChannel, usedFallback: true };
+    } catch (fallbackError) {
+      throw new TicketChannelCreationError(primaryError, fallbackError);
+    }
+  }
+}
 
 export async function handleTicketButton(interaction: ButtonInteraction, client: Client): Promise<void> {
   const { customId, guild } = interaction;
@@ -28,12 +193,17 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const existing = await prisma.ticket.findMany({
-      where: { guildId: interaction.guildId!, creatorId: interaction.user.id, status: { in: ['OPEN', 'CLAIMED', 'PENDING'] } },
-    });
-
-    const categories = await prisma.ticketCategory.findMany({ where: { guildId: interaction.guildId! } });
-    const maxTickets = categories.length > 0 ? categories[0].maxTicketsPerUser : 5;
+    const [existing, ticketSettings, legacyCategory] = await Promise.all([
+      prisma.ticket.findMany({
+        where: { guildId: interaction.guildId!, creatorId: interaction.user.id, status: { in: ['OPEN', 'CLAIMED', 'PENDING'] } },
+      }),
+      prisma.ticketSettings.findUnique({ where: { guildId: interaction.guildId! } }),
+      prisma.ticketCategory.findFirst({ where: { guildId: interaction.guildId! }, orderBy: { createdAt: 'asc' } }),
+    ]);
+    const maxTickets =
+      (typeof ticketSettings?.maxOpenPerUser === 'number' && ticketSettings.maxOpenPerUser > 0)
+        ? ticketSettings.maxOpenPerUser
+        : (legacyCategory?.maxTicketsPerUser ?? 5);
 
     if (existing.length >= maxTickets) {
       await interaction.editReply({ embeds: [errorEmbed('Limite atteinte', `Tu as déjà **${existing.length}** ticket(s) ouverts.`)] });
@@ -41,30 +211,9 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
     }
 
     await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
-
-    const ticketSettings = await prisma.ticketSettings.findUnique({ where: { guildId: interaction.guildId! } });
     const categoryId = ticketSettings?.categoryId ?? undefined;
-    const channelName = (ticketSettings?.channelFormat ?? 'ticket-{username}')
-      .replace('{username}', interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, ''));
-
-    const botMember = interaction.guild!.members.me!;
-    if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels) && !botMember.permissions.has(PermissionFlagsBits.Administrator)) {
-      await interaction.editReply({ embeds: [errorEmbed('Permissions manquantes', 'Le bot a besoin de la permission **Gérer les salons** (niveau serveur) pour créer des tickets. Rendez-vous dans Paramètres du serveur → Rôles → [rôle du bot] → Gérer les salons.')] });
-      return;
-    }
-
-    if (categoryId) {
-      const cat = interaction.guild!.channels.cache.get(categoryId);
-      if (cat && 'permissionOverwrites' in cat) {
-        const permsInCat = cat.permissionsFor(botMember);
-        if (permsInCat && !permsInCat.has(PermissionFlagsBits.ManageChannels)) {
-          await interaction.editReply({ embeds: [errorEmbed('Permissions manquantes', `Le bot n'a pas la permission **Gérer les salons** dans la catégorie parente. Vérifiez les permissions de la catégorie dans Discord.`)] });
-          return;
-        }
-      }
-    }
-
-    const modRoles: string[] = ticketSettings?.moderatorRoles ? JSON.parse(ticketSettings.moderatorRoles || '[]') : [];
+    const channelName = sanitizeTicketChannelName(ticketSettings?.channelFormat, interaction.user.username);
+    const modRoles = parseRoleIds(ticketSettings?.moderatorRoles);
     const permissionOverwrites: any[] = [
       { id: interaction.guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
       { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
@@ -74,27 +223,7 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
       permissionOverwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
     }
 
-    let ticketChannel;
-    try {
-      ticketChannel = await interaction.guild!.channels.create({
-        name: channelName,
-        type: ChannelType.GuildText,
-        parent: categoryId,
-        permissionOverwrites,
-        reason: `Ticket ouvert par ${interaction.user.tag}`,
-      });
-    } catch (firstErr: any) {
-      if (firstErr?.code === 50013 && categoryId) {
-        ticketChannel = await interaction.guild!.channels.create({
-          name: channelName,
-          type: ChannelType.GuildText,
-          permissionOverwrites,
-          reason: `Ticket ouvert par ${interaction.user.tag}`,
-        });
-      } else {
-        throw firstErr;
-      }
-    }
+    const { channel: ticketChannel, usedFallback } = await createTicketChannel(interaction, channelName, categoryId, permissionOverwrites);
 
     await prisma.ticket.create({
       data: {
@@ -120,16 +249,26 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
       )
       .setTimestamp();
 
-    const mentionContent = ticketSettings?.mentionModerators && ticketSettings.moderatorRoles
-      ? [interaction.user.toString(), ...JSON.parse(ticketSettings.moderatorRoles || '[]').map((r: string) => `<@&${r}>`)].join(' ')
+    const mentionContent = ticketSettings?.mentionModerators && modRoles.length > 0
+      ? [interaction.user.toString(), ...modRoles.map((r) => `<@&${r}>`)].join(' ')
       : interaction.user.toString();
 
     await ticketChannel.send({ content: mentionContent, embeds: [ticketEmbed], components: [closeRow] });
-    await interaction.editReply({ embeds: [successEmbed('Ticket ouvert', `Ton ticket a été créé : ${ticketChannel}`)] });
+    await interaction.editReply({
+      embeds: [
+        successEmbed(
+          'Ticket ouvert',
+          usedFallback
+            ? `Ton ticket a été créé : ${ticketChannel}\n⚠️ La catégorie configurée était inaccessible, le ticket a été créé hors catégorie.`
+            : `Ton ticket a été créé : ${ticketChannel}`,
+        ),
+      ],
+    });
   } catch (error) {
     console.error('[TICKET OPEN ERROR]', error);
-    const errMsg = error instanceof Error ? error.message : 'Erreur inconnue';
-    await interaction.editReply({ embeds: [errorEmbed('Erreur', `Impossible de créer le ticket. Vérifie les permissions du bot.\n\`${errMsg}\``)] }).catch(() => {});
+    await interaction.editReply({
+      embeds: [errorEmbed('Erreur Discord', formatTicketCreationError(error))],
+    }).catch(() => {});
   }
 }
 

@@ -50,11 +50,25 @@ export default function PollsPage() {
 
   useEffect(() => {
     if (createOpen) {
+      let cancelled = false;
       fetchGuildChannels(guildId).then((res) => {
-        if (res.success && res.data) {
-          setChannels(res.data.channels.filter((c: { type: number }) => c.type === 0));
-        }
-      }).catch(() => {});
+        if (!res.success || !res.data || cancelled) return;
+        const availableChannels = res.data.channels.filter((c: { type: number }) => c.type === 0);
+        setChannels(availableChannels);
+        setForm((prev) => {
+          const hasCurrent = availableChannels.some((c: { id: string }) => c.id === prev.channelId);
+          const nextChannelId = hasCurrent ? prev.channelId : (availableChannels[0]?.id ?? '');
+          return nextChannelId === prev.channelId ? prev : { ...prev, channelId: nextChannelId };
+        });
+        setFormErrors((prev) => {
+          if (!prev.channelId) return prev;
+          const { channelId, ...rest } = prev;
+          return rest;
+        });
+      }).catch(() => {
+        if (!cancelled) setChannels([]);
+      });
+      return () => { cancelled = true; };
     }
   }, [createOpen, guildId]);
 

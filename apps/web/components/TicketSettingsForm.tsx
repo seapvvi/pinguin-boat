@@ -4,6 +4,17 @@ import { useEffect, useState } from 'react';
 import { Card, Toggle, Input, Button, Skeleton } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
+function sanitizeTicketSettingsPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const {
+    id: _id,
+    guildId: _guildId,
+    createdAt: _createdAt,
+    updatedAt: _updatedAt,
+    enabled: _enabled,
+    ...editable
+  } = payload;
+  return editable;
+}
 
 export function TicketSettingsForm({ guildId }: { guildId: string }) {
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
@@ -14,7 +25,7 @@ export function TicketSettingsForm({ guildId }: { guildId: string }) {
     api.get<{ data: Record<string, unknown> }>(`/api/guilds/${guildId}/tickets/settings`)
       .then((res) => {
         const payload = (res as any)?.data as Record<string, unknown> | undefined;
-        if (payload) setSettings(payload);
+        if (payload) setSettings(sanitizeTicketSettingsPayload(payload));
       })
       .finally(() => setLoading(false));
   }, [guildId]);
@@ -28,7 +39,7 @@ export function TicketSettingsForm({ guildId }: { guildId: string }) {
     if (!settings) return;
     setSaving(true);
     try {
-      await api.patch(`/api/guilds/${guildId}/tickets/settings`, settings);
+      await api.patch(`/api/guilds/${guildId}/tickets/settings`, sanitizeTicketSettingsPayload(settings));
     } finally {
       setSaving(false);
     }
