@@ -227,8 +227,9 @@ export async function blacklistTarget(targetId: string, reason: string, targetTy
   return api.post<APIResponse<{ success: boolean }>>('/api/owner/blacklist', { targetId, reason, targetType });
 }
 
-export async function unblacklistTarget(entryId: string): Promise<APIResponse<{ success: boolean }>> {
-  return api.delete<APIResponse<{ success: boolean }>>(`/api/owner/blacklist/${entryId}`);
+export async function unblacklistTarget(targetId: string, targetType?: 'USER' | 'GUILD'): Promise<APIResponse<{ success: boolean }>> {
+  const suffix = targetType ? `?targetType=${targetType}` : '';
+  return api.delete<APIResponse<{ success: boolean }>>(`/api/owner/blacklist/${targetId}${suffix}`);
 }
 
 export async function grantPremium(data: { userId?: string; guildId?: string; plan: string }): Promise<APIResponse<{ success: boolean }>> {

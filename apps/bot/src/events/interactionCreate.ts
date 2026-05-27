@@ -69,7 +69,7 @@ export async function execute(interaction: Interaction, client: Client): Promise
   const blacklistCheck = await checkInteractionBlacklist(interaction);
   if (blacklistCheck.blacklisted) {
     await interaction.reply({
-      embeds: [errorEmbed('Accès refusé', `Vous êtes blacklisté. Raison : ${blacklistCheck.reason ?? 'Non spécifiée'}`)],
+      embeds: [errorEmbed('Accès refusé', `Vous êtes blacklisté pour infraction.\nRaison : ${blacklistCheck.reason ?? 'Non spécifiée'}\nContestation : ouvrez un ticket sur https://discord.gg/EJHhcYkXMQ`)],
       ephemeral: true,
     });
     return;

@@ -43,13 +43,25 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
     await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
 
     const ticketSettings = await prisma.ticketSettings.findUnique({ where: { guildId: interaction.guildId! } });
+    const categoryId = ticketSettings?.categoryId ?? undefined;
     const channelName = (ticketSettings?.channelFormat ?? 'ticket-{username}')
       .replace('{username}', interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, ''));
 
     const botMember = interaction.guild!.members.me!;
-    if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
-      await interaction.editReply({ embeds: [errorEmbed('Permissions manquantes', 'Le bot a besoin de la permission **Gérer les salons** pour créer des tickets.')] });
+    if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels) && !botMember.permissions.has(PermissionFlagsBits.Administrator)) {
+      await interaction.editReply({ embeds: [errorEmbed('Permissions manquantes', 'Le bot a besoin de la permission **Gérer les salons** (niveau serveur) pour créer des tickets. Rendez-vous dans Paramètres du serveur → Rôles → [rôle du bot] → Gérer les salons.')] });
       return;
+    }
+
+    if (categoryId) {
+      const cat = interaction.guild!.channels.cache.get(categoryId);
+      if (cat && 'permissionOverwrites' in cat) {
+        const permsInCat = cat.permissionsFor(botMember);
+        if (permsInCat && !permsInCat.has(PermissionFlagsBits.ManageChannels)) {
+          await interaction.editReply({ embeds: [errorEmbed('Permissions manquantes', `Le bot n'a pas la permission **Gérer les salons** dans la catégorie parente. Vérifiez les permissions de la catégorie dans Discord.`)] });
+          return;
+        }
+      }
     }
 
     const modRoles: string[] = ticketSettings?.moderatorRoles ? JSON.parse(ticketSettings.moderatorRoles || '[]') : [];
@@ -61,8 +73,6 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
     for (const roleId of modRoles) {
       permissionOverwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
     }
-
-    const categoryId = ticketSettings?.categoryId ?? undefined;
 
     let ticketChannel;
     try {

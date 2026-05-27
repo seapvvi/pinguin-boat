@@ -2,6 +2,7 @@ import http from 'http';
 import { Client, TextChannel } from 'discord.js';
 import * as music from '../services/music';
 import { invalidateCache } from '../utils/cache';
+import { invalidateAutoModCache } from '../services/automod';
 
 export function startInternalBotApi(client: Client): void {
   const port = parseInt(process.env.BOT_INTERNAL_PORT || '3002');
@@ -235,6 +236,13 @@ export function startInternalBotApi(client: Client): void {
         const disabledModules: string[] = body.disabledModules ?? [];
         console.log(`[BotAPI] Modules mis à jour pour ${guildId}:`, disabledModules);
         invalidateCache(`modules:${guildId}`);
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
+      // POST /internal/guilds/:guildId/automod/invalidate — invalidate automod cache
+      if (path === `/internal/guilds/${guildId}/automod/invalidate` && req.method === 'POST') {
+        invalidateAutoModCache(guildId);
         res.end(JSON.stringify({ success: true }));
         return;
       }

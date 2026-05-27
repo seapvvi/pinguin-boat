@@ -28,6 +28,31 @@ export async function ownerRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
+  app.delete('/blacklist/:targetId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { targetId } = request.params as any;
+      const q = request.query as any;
+      const targetType = String(q.targetType ?? '').toUpperCase();
+      if (targetType === 'GUILD') {
+        await prisma.blacklistGuild.deleteMany({ where: { guildId: targetId } });
+        await logOwnerAction(request, 'UNBLACKLIST_GUILD', { guildId: targetId }, true);
+        return reply.send(success(null, 'Serveur retiré de la blacklist'));
+      }
+      if (targetType === 'USER') {
+        await prisma.blacklistUser.deleteMany({ where: { targetId } });
+        await logOwnerAction(request, 'UNBLACKLIST_USER', { targetId }, true);
+        return reply.send(success(null, 'Utilisateur retiré de la blacklist'));
+      }
+      const [u, g] = await Promise.all([
+        prisma.blacklistUser.deleteMany({ where: { targetId } }),
+        prisma.blacklistGuild.deleteMany({ where: { guildId: targetId } }),
+      ]);
+      if (!u.count && !g.count) return reply.status(404).send(error('Entrée introuvable'));
+      await logOwnerAction(request, 'BLACKLIST_REMOVE', { targetId }, true);
+      reply.send(success(null, 'Entrée retirée de la blacklist'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
   app.get('/stats', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const stats = await getGlobalStats();
@@ -42,14 +67,49 @@ export async function ownerRoutes(app: FastifyInstance) {
       const q = request.query as any;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, parseInt(q.limit) || 20);
+      const search = String(q.search ?? '').trim();
+      const sortBy = String(q.sortBy ?? 'memberCount');
+      const sortOrder = String(q.sortOrder ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+      const where = search ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { id: { contains: search, mode: 'insensitive' as const } },
+          { ownerId: { contains: search, mode: 'insensitive' as const } },
+        ],
+      } : undefined;
+      const orderBy = (() => {
+        if (sortBy === 'createdAt') return { createdAt: sortOrder as 'asc' | 'desc' };
+        if (sortBy === 'name') return { name: sortOrder as 'asc' | 'desc' };
+        return { memberCount: sortOrder as 'asc' | 'desc' };
+      })();
       const [servers, total] = await Promise.all([
         prisma.guild.findMany({
-          orderBy: { memberCount: 'desc' }, skip: (page - 1) * limit, take: limit,
+          where,
+          orderBy,
+          skip: (page - 1) * limit,
+          take: limit,
           include: { _count: { select: { moderationCases: true, tickets: true } } },
         }),
-        prisma.guild.count(),
+        prisma.guild.count({ where }),
       ]);
-      reply.send(success({ servers, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
+      const blacklistedGuilds = new Set(
+        (await prisma.blacklistGuild.findMany({
+          where: { guildId: { in: servers.map((s) => s.id) } },
+          select: { guildId: true },
+        })).map((b) => b.guildId)
+      );
+      const ownerIds = [...new Set(servers.map((s) => s.ownerId))];
+      const ownerUsers = await prisma.user.findMany({
+        where: { discordId: { in: ownerIds } },
+        select: { discordId: true, username: true },
+      });
+      const ownerMap = new Map(ownerUsers.map((u) => [u.discordId, u.username]));
+      const payload = servers.map((s) => ({
+        ...s,
+        ownerName: ownerMap.get(s.ownerId) ?? null,
+        blacklisted: blacklistedGuilds.has(s.id),
+      }));
+      reply.send(success({ servers: payload, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
@@ -58,14 +118,45 @@ export async function ownerRoutes(app: FastifyInstance) {
       const q = request.query as any;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, parseInt(q.limit) || 20);
+      const search = String(q.search ?? '').trim();
+      const sortBy = String(q.sortBy ?? 'createdAt');
+      const sortOrder = String(q.sortOrder ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+      const where = search ? {
+        OR: [
+          { username: { contains: search, mode: 'insensitive' as const } },
+          { discordId: { contains: search, mode: 'insensitive' as const } },
+          { displayName: { contains: search, mode: 'insensitive' as const } },
+        ],
+      } : undefined;
+      const orderBy = sortBy === 'username'
+        ? { username: sortOrder as 'asc' | 'desc' }
+        : { createdAt: sortOrder as 'asc' | 'desc' };
       const [users, total] = await Promise.all([
         prisma.user.findMany({
-          orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
+          where,
+          orderBy,
+          skip: (page - 1) * limit,
+          take: limit,
           include: { _count: { select: { sessions: true } } },
         }),
-        prisma.user.count(),
+        prisma.user.count({ where }),
       ]);
-      reply.send(success({ users, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
+      const discordIds = users.map((u) => u.discordId);
+      const [blacklistRows, premiumRows] = await Promise.all([
+        prisma.blacklistUser.findMany({ where: { targetId: { in: discordIds } }, select: { targetId: true } }),
+        prisma.premiumSubscription.findMany({
+          where: { status: 'ACTIVE', user: { discordId: { in: discordIds } } },
+          include: { plan: { select: { name: true } }, user: { select: { discordId: true } } },
+        }),
+      ]);
+      const blacklistedIds = new Set(blacklistRows.map((b) => b.targetId));
+      const premiumByDiscordId = new Map(premiumRows.map((r) => [r.user?.discordId, r.plan?.name ?? 'FREE']));
+      const payload = users.map((u) => ({
+        ...u,
+        blacklisted: blacklistedIds.has(u.discordId),
+        premium: premiumByDiscordId.get(u.discordId) ?? 'FREE',
+      }));
+      reply.send(success({ users: payload, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
@@ -611,6 +702,64 @@ export async function ownerRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
+
+  app.get('/servers/:guildId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const [guild, blacklist] = await Promise.all([
+        prisma.guild.findUnique({
+          where: { id: guildId },
+          include: {
+            _count: {
+              select: {
+                tickets: true,
+                moderationCases: true,
+                polls: true,
+                suggestions: true,
+              },
+            },
+          },
+        }),
+        prisma.blacklistGuild.findUnique({ where: { guildId } }),
+      ]);
+      if (!guild) return reply.status(404).send(error('Serveur introuvable'));
+      const owner = await prisma.user.findUnique({
+        where: { discordId: guild.ownerId },
+        select: { username: true, discordId: true },
+      });
+      reply.send(success({
+        ...guild,
+        ownerName: owner?.username ?? null,
+        ownerId: owner?.discordId ?? guild.ownerId,
+        blacklisted: !!blacklist,
+        blacklistReason: blacklist?.reason ?? null,
+      }));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.get('/users/:targetId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { targetId } = request.params as any;
+      const user = await prisma.user.findUnique({
+        where: { discordId: targetId },
+        include: { _count: { select: { sessions: true, ticketsCreated: true, moderationCases: true } } },
+      });
+      if (!user) return reply.status(404).send(error('Utilisateur introuvable'));
+      const [blacklist, premium] = await Promise.all([
+        prisma.blacklistUser.findUnique({ where: { targetId } }),
+        prisma.premiumSubscription.findFirst({
+          where: { status: 'ACTIVE', user: { discordId: targetId } },
+          include: { plan: { select: { name: true } } },
+        }),
+      ]);
+      reply.send(success({
+        ...user,
+        blacklisted: !!blacklist,
+        blacklistReason: blacklist?.reason ?? null,
+        premium: premium?.plan?.name ?? 'FREE',
+      }));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
   app.post('/blacklist', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const body = request.body as any;
@@ -789,6 +938,64 @@ export async function ownerRoutes(app: FastifyInstance) {
     reply.header('Content-Type', 'application/sql');
     reply.header('Content-Disposition', 'attachment; filename="backup_latest.sql"');
     reply.send(content);
+  });
+
+  // --- Sessions actives ---
+  app.get('/sessions', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const now = new Date();
+      const sessions = await prisma.session.findMany({
+        where: { expiresAt: { gt: now } },
+        include: { user: { select: { id: true, username: true, discordId: true, avatar: true, createdAt: true } } },
+        orderBy: { createdAt: 'desc' },
+      });
+      reply.send(success({ sessions, total: sessions.length }));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.delete('/sessions/:sessionId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { sessionId } = request.params as any;
+      await prisma.session.delete({ where: { id: sessionId } });
+      await logOwnerAction(request, 'KICK_SESSION', { sessionId });
+      reply.send(success(null, 'Session révoquée'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  // --- Broadcast popup custom ---
+  const pendingPopups = new Map<string, { message: string; duration: number; createdAt: number }>();
+  (global as any).__ownerPendingPopups = pendingPopups;
+
+  app.post('/broadcast-popup', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const body = request.body as { message?: string; duration?: number; targetUserId?: string };
+      if (!body.message?.trim()) return reply.status(400).send(error('message requis'));
+      const duration = Math.max(3, Math.min(30, body.duration ?? 5));
+      const popup = { message: body.message.trim(), duration, createdAt: Date.now() };
+      if (body.targetUserId) {
+        pendingPopups.set(body.targetUserId, popup);
+      } else {
+        pendingPopups.set('__broadcast__', popup);
+      }
+      await logOwnerAction(request, 'BROADCAST_POPUP', { message: popup.message, targetUserId: body.targetUserId ?? 'all' });
+      reply.send(success(null, 'Popup envoyé'));
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
+  });
+
+  app.get('/broadcast-popup/poll', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const userId = request.user?.id;
+      const globalPopup = pendingPopups.get('__broadcast__');
+      const userPopup = userId ? pendingPopups.get(userId) : undefined;
+      const popup = userPopup ?? globalPopup;
+      if (popup && Date.now() - popup.createdAt < 60_000) {
+        if (userPopup && userId) pendingPopups.delete(userId);
+        reply.send(success({ popup }));
+      } else {
+        if (globalPopup && Date.now() - globalPopup.createdAt >= 60_000) pendingPopups.delete('__broadcast__');
+        reply.send(success({ popup: null }));
+      }
+    } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 
   // --- Notes internes ---

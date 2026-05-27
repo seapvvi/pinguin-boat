@@ -4,6 +4,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import OwnerPopupListener from './OwnerPopupListener';
 import { getUser, logout as authLogout, type User } from '@/lib/auth';
 
 interface DashboardLayoutProps {
@@ -164,6 +165,7 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
           </a>
         </footer>
       </div>
+      <OwnerPopupListener />
     </div>
   );
 }

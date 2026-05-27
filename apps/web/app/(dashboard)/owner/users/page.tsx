@@ -1,17 +1,11 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import {
-  Search, User, Ban, Crown, Calendar, Eye,
-  ChevronLeft, ChevronRight, Shield
-} from 'lucide-react';
-import {
-  Card, Input, Button, Badge, Skeleton, EmptyState, ErrorMessage,
-  Modal, Select, Table
-} from '@pinguin/ui';
+import { Search, Ban, Crown, ChevronLeft, ChevronRight, Settings, ShieldAlert } from 'lucide-react';
+import { Card, Input, Button, Badge, Skeleton, EmptyState, ErrorMessage, Modal, Select, Table } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
-import { fetchOwnerUsers, blacklistTarget, unblacklistTarget, grantPremium, revokePremium } from '@/lib/api';
-import { formatDate, formatNumber } from '@/lib/utils';
+import { fetchOwnerUsers, blacklistTarget, unblacklistTarget, grantPremium, revokePremium, api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 interface OwnerUser {
   id: string;
@@ -22,27 +16,34 @@ interface OwnerUser {
   premium: string;
   blacklisted: boolean;
   createdAt: string;
-  isOwner: boolean;
 }
 
 export default function OwnerUsersPage() {
   const [users, setUsers] = useState<OwnerUser[]>([]);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'username'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [blacklistTarget_user, setBlacklistTarget_user] = useState<OwnerUser | null>(null);
+  const [manageTarget, setManageTarget] = useState<OwnerUser | null>(null);
+  const [detail, setDetail] = useState<any | null>(null);
   const [blacklistReason, setBlacklistReason] = useState('');
-  const [premiumTarget, setPremiumTarget] = useState<OwnerUser | null>(null);
   const [premiumPlan, setPremiumPlan] = useState('PRO');
   const [actionLoading, setActionLoading] = useState(false);
 
-  const load = async (p = page) => {
+  const load = async (p = page, nextSortBy = sortBy, nextSortOrder = sortOrder) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchOwnerUsers({ page: String(p), limit: '20', search });
+      const res = await fetchOwnerUsers({
+        page: String(p),
+        limit: '20',
+        search,
+        sortBy: nextSortBy,
+        sortOrder: nextSortOrder,
+      });
       if (res.success && res.data) {
         setUsers(res.data.users ?? []);
         setTotalPages(res.data.pagination?.totalPages ?? 1);
@@ -58,40 +59,53 @@ export default function OwnerUsersPage() {
 
   const handleSearch = () => { setPage(1); load(1); };
 
-  const handlePremium = async () => {
-    if (!premiumTarget) return;
-    setActionLoading(true);
-    try {
-      if (premiumTarget.premium !== 'FREE') {
-        await revokePremium(premiumTarget.id);
-      } else {
-        await grantPremium({ userId: premiumTarget.id, plan: premiumPlan });
-      }
-      setPremiumTarget(null);
-      load(page);
-    } catch { /* ignore */ } finally { setActionLoading(false); }
+  const handleSort = async (nextSortBy: 'createdAt' | 'username', nextSortOrder: 'asc' | 'desc') => {
+    setSortBy(nextSortBy);
+    setSortOrder(nextSortOrder);
+    setPage(1);
+    await load(1, nextSortBy, nextSortOrder);
   };
 
-  const handleBlacklist = async () => {
-    if (!blacklistTarget_user || !blacklistReason.trim()) return;
+  const openManage = async (u: OwnerUser) => {
+    setManageTarget(u);
+    setDetail(null);
+    setBlacklistReason('');
+    try {
+      const res = await api.get<any>(`/api/owner/users/${u.id}`);
+      setDetail((res as any)?.data ?? null);
+    } catch {
+      setDetail(null);
+    }
+  };
+
+  const handlePremiumToggle = async () => {
+    if (!manageTarget) return;
     setActionLoading(true);
     try {
-      await blacklistTarget(blacklistTarget_user.id, blacklistReason, 'USER');
-      setBlacklistTarget_user(null);
+      if (manageTarget.premium !== 'FREE') {
+        await revokePremium(manageTarget.id);
+      } else {
+        await grantPremium({ userId: manageTarget.id, plan: premiumPlan });
+      }
+      setManageTarget(null);
+      load(page);
+    } finally { setActionLoading(false); }
+  };
+
+  const handleBlacklistToggle = async () => {
+    if (!manageTarget) return;
+    setActionLoading(true);
+    try {
+      if (manageTarget.blacklisted) {
+        await unblacklistTarget(manageTarget.id, 'USER');
+      } else {
+        if (!blacklistReason.trim()) return;
+        await blacklistTarget(manageTarget.id, blacklistReason.trim(), 'USER');
+      }
+      setManageTarget(null);
       setBlacklistReason('');
       load(page);
-    } catch { /* ignore */ } finally { setActionLoading(false); }
-  };
-
-  const handleUnblacklist = async () => {
-    if (!blacklistTarget_user) return;
-    setActionLoading(true);
-    try {
-      // For simplicity unblacklist via the entry lookup - in real app would need entryId
-      // Here we call blacklist endpoint with empty reason to clear
-      setBlacklistTarget_user(null);
-      load(page);
-    } catch { /* ignore */ } finally { setActionLoading(false); }
+    } finally { setActionLoading(false); }
   };
 
   const columns: Column<OwnerUser>[] = [
@@ -112,27 +126,14 @@ export default function OwnerUsersPage() {
       ),
     },
     { key: 'id', label: 'ID Discord', render: (u: OwnerUser) => <code className="text-xs text-[var(--text-secondary)]">{u.id}</code> },
-    {
-      key: 'premium', label: 'Premium', render: (u: OwnerUser) => (
-        <Badge variant={u.premium !== 'FREE' ? 'info' : 'default'}>{u.premium ?? 'FREE'}</Badge>
-      ),
-    },
-    {
-      key: 'blacklisted', label: 'Blacklist', render: (u: OwnerUser) => (
-        u.blacklisted ? <Badge variant="error">Blacklisté</Badge> : <Badge variant="default">Non</Badge>
-      ),
-    },
+    { key: 'premium', label: 'Premium', render: (u: OwnerUser) => <Badge variant={u.premium !== 'FREE' ? 'info' : 'default'}>{u.premium ?? 'FREE'}</Badge> },
+    { key: 'blacklisted', label: 'Blacklist', render: (u: OwnerUser) => (u.blacklisted ? <Badge variant="error">Blacklisté</Badge> : <Badge variant="default">Non</Badge>) },
     { key: 'createdAt', label: 'Créé le', sortable: true, render: (u: OwnerUser) => <span className="text-xs text-[var(--text-secondary)]">{formatDate(u.createdAt)}</span> },
     {
       key: 'actions', label: 'Actions', render: (u: OwnerUser) => (
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setPremiumTarget(u)} title="Gérer premium">
-            <Crown size={14} className={u.premium !== 'FREE' ? 'text-[var(--warning)]' : 'text-[var(--text-secondary)]'} />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => { setBlacklistTarget_user(u); setBlacklistReason(''); }} title={u.blacklisted ? 'Déblacklister' : 'Blacklister'}>
-            <Ban size={14} className={u.blacklisted ? 'text-[var(--warning)]' : 'text-[var(--text-secondary)]'} />
-          </Button>
-        </div>
+        <Button variant="secondary" size="sm" onClick={() => openManage(u)} title="Gérer cet utilisateur">
+          <Settings size={14} /> Gérer
+        </Button>
       ),
     },
   ];
@@ -152,9 +153,25 @@ export default function OwnerUsersPage() {
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">Gestion des utilisateurs</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">Tous les utilisateurs enregistrés.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Input placeholder="Rechercher un utilisateur..." value={search} onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()} className="max-w-xs" />
+          <Select
+            value={sortBy}
+            onChange={(e) => handleSort(e.target.value as 'createdAt' | 'username', sortOrder)}
+            options={[
+              { value: 'createdAt', label: 'Tri: récent/ancien' },
+              { value: 'username', label: 'Tri: pseudo' },
+            ]}
+          />
+          <Select
+            value={sortOrder}
+            onChange={(e) => handleSort(sortBy, e.target.value as 'asc' | 'desc')}
+            options={[
+              { value: 'desc', label: 'Ordre: décroissant' },
+              { value: 'asc', label: 'Ordre: croissant' },
+            ]}
+          />
           <Button variant="secondary" size="sm" onClick={handleSearch}><Search size={14} /></Button>
         </div>
       </div>
@@ -165,8 +182,7 @@ export default function OwnerUsersPage() {
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-[var(--radius-sm)]" />)}
           </div>
         ) : users.length === 0 ? (
-          <EmptyState title="Aucun utilisateur" description="Aucun utilisateur trouvé."
-            action={search ? { label: 'Effacer la recherche', onClick: () => { setSearch(''); setPage(1); load(1); } } : undefined} />
+          <EmptyState title="Aucun utilisateur" description="Aucun utilisateur trouvé." action={search ? { label: 'Effacer la recherche', onClick: () => { setSearch(''); setPage(1); load(1); } } : undefined} />
         ) : (
           <>
             <Table columns={columns} data={users} keyExtractor={(u) => u.id} />
@@ -183,54 +199,64 @@ export default function OwnerUsersPage() {
         )}
       </Card>
 
-      <Modal open={!!premiumTarget} onClose={() => setPremiumTarget(null)} title="Gérer le premium">
-        <p className="text-sm text-[var(--text-secondary)] mb-4">
-          {premiumTarget?.globalName || premiumTarget?.username}
-        </p>
-        {premiumTarget?.premium !== 'FREE' ? (
-          <>
-            <p className="text-sm text-[var(--text-primary)] mb-4">Plan actuel : <Badge variant="info">{premiumTarget!.premium}</Badge></p>
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" size="sm" onClick={() => setPremiumTarget(null)}>Annuler</Button>
-              <Button variant="danger" size="sm" loading={actionLoading} onClick={handlePremium}>Révoquer le premium</Button>
+      <Modal open={!!manageTarget} onClose={() => setManageTarget(null)} title={`Gérer: ${manageTarget?.username ?? ''}`}>
+        {manageTarget && (
+          <div className="space-y-4">
+            <div className="p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] border border-[var(--border-color)] space-y-1">
+              <p className="text-sm text-[var(--text-primary)] font-medium">{manageTarget.globalName || manageTarget.username}</p>
+              <p className="text-xs text-[var(--text-secondary)]">ID utilisateur: <span className="font-mono">{manageTarget.id}</span></p>
+              <p className="text-xs text-[var(--text-secondary)]">Premium: <span className="font-medium">{detail?.premium ?? manageTarget.premium}</span></p>
+              <div className="pt-1">
+                {manageTarget.blacklisted ? <Badge variant="error">Blacklisté</Badge> : <Badge variant="success">Autorisé</Badge>}
+              </div>
             </div>
-          </>
-        ) : (
-          <>
-            <div className="mb-4">
-              <Select label="Plan" options={[
-                { value: 'BASIC', label: 'BASIC - 5 €/mois' },
-                { value: 'PRO', label: 'PRO - 10 €/mois' },
-                { value: 'ENTERPRISE', label: 'ENTERPRISE - 25 €/mois' },
-              ]} value={premiumPlan} onChange={(e) => setPremiumPlan(e.target.value)} />
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" size="sm" onClick={() => setPremiumTarget(null)}>Annuler</Button>
-              <Button variant="success" size="sm" loading={actionLoading} onClick={handlePremium}>Accorder le premium</Button>
-            </div>
-          </>
-        )}
-      </Modal>
 
-      <Modal open={!!blacklistTarget_user} onClose={() => setBlacklistTarget_user(null)} title={blacklistTarget_user?.blacklisted ? 'Déblacklister' : 'Blacklister l\'utilisateur'}>
-        {blacklistTarget_user?.blacklisted ? (
-          <>
-            <p className="text-sm text-[var(--text-secondary)] mb-4">Retirer la blacklist de <strong className="text-[var(--text-primary)]">{blacklistTarget_user.username}</strong>&nbsp;?</p>
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" size="sm" onClick={() => setBlacklistTarget_user(null)}>Annuler</Button>
-              <Button variant="success" size="sm" loading={actionLoading} onClick={handleUnblacklist}>Déblacklister</Button>
+            {!manageTarget.blacklisted && (
+              <Input
+                label="Raison d’infraction"
+                placeholder="Ex: abus, spam, fraude..."
+                value={blacklistReason}
+                onChange={(e) => setBlacklistReason(e.target.value)}
+              />
+            )}
+
+            {manageTarget.premium === 'FREE' && (
+              <Select
+                label="Plan premium"
+                options={[
+                  { value: 'BASIC', label: 'BASIC' },
+                  { value: 'PRO', label: 'PRO' },
+                  { value: 'ENTERPRISE', label: 'ENTERPRISE' },
+                ]}
+                value={premiumPlan}
+                onChange={(e) => setPremiumPlan(e.target.value)}
+              />
+            )}
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setManageTarget(null)}>Fermer</Button>
+              <Button
+                variant={manageTarget.blacklisted ? 'success' : 'danger'}
+                size="sm"
+                loading={actionLoading}
+                disabled={!manageTarget.blacklisted && !blacklistReason.trim()}
+                onClick={handleBlacklistToggle}
+              >
+                <Ban size={14} /> {manageTarget.blacklisted ? 'Déblacklister' : 'Blacklister'}
+              </Button>
+              <Button
+                variant={manageTarget.premium !== 'FREE' ? 'danger' : 'success'}
+                size="sm"
+                loading={actionLoading}
+                onClick={handlePremiumToggle}
+              >
+                <Crown size={14} /> {manageTarget.premium !== 'FREE' ? 'Révoquer premium' : 'Accorder premium'}
+              </Button>
             </div>
-          </>
-        ) : (
-          <>
-            <div className="mb-4">
-              <Input label="Raison" placeholder="Motif du blacklist..." value={blacklistReason} onChange={(e) => setBlacklistReason(e.target.value)} />
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" size="sm" onClick={() => setBlacklistTarget_user(null)}>Annuler</Button>
-              <Button variant="danger" size="sm" loading={actionLoading} disabled={!blacklistReason.trim()} onClick={handleBlacklist}>Blacklister</Button>
-            </div>
-          </>
+            <p className="text-[11px] text-[var(--text-secondary)] flex items-center gap-1">
+              <ShieldAlert size={12} /> En cas de blacklist, l’utilisateur voit la raison et peut contester via ticket Discord.
+            </p>
+          </div>
         )}
       </Modal>
     </motion.div>

@@ -46,10 +46,6 @@ export function TicketSettingsForm({ guildId }: { guildId: string }) {
         <h2 className="text-sm font-semibold text-[var(--text-primary)]">Configuration des tickets</h2>
         <Button loading={saving} onClick={save}>Enregistrer</Button>
       </div>
-      <div className="flex items-center justify-between">
-        <span className="text-sm">Module activé</span>
-        <Toggle checked={bool('enabled')} onChange={(v) => update('enabled', v)} />
-      </div>
       <DiscordSelect type="channel" guildId={guildId} label="Catégorie (salon parent)" value={str('categoryId')} onChange={(id) => update('categoryId', id || null)} channelTypes={[4]} />
       <DiscordSelect type="channel" guildId={guildId} label="Salon de logs" value={str('logChannelId')} onChange={(id) => update('logChannelId', id || null)} />
       <Input label="Format des salons" value={str('channelFormat')} onChange={(e) => update('channelFormat', e.target.value)} placeholder="ticket-{username}" />

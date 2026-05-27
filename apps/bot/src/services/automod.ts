@@ -5,13 +5,31 @@ const settingsCache = new Map<string, { data: any; at: number }>();
 const infractions = new Map<string, number>();
 const CACHE_MS = 30_000;
 
-function parseJson(raw: string): string[] {
-  try {
-    const p = JSON.parse(raw);
-    return Array.isArray(p) ? p.map(String) : [];
-  } catch {
-    return [];
+function parseList(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item).trim()).filter(Boolean);
   }
+  if (typeof raw !== 'string') return [];
+
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item).trim()).filter(Boolean);
+    }
+    if (typeof parsed === 'string') {
+      return parseList(parsed);
+    }
+  } catch {
+    // fallback below (CSV/newlines)
+  }
+
+  return trimmed
+    .split(/[,\r\n]+/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 async function getSettings(guildId: string) {
@@ -33,6 +51,17 @@ function isWhitelisted(message: Message, whitelistRoles: string[], whitelistChan
 function countEmojis(text: string): number {
   const matches = text.match(/\p{Extended_Pictographic}/gu);
   return matches?.length ?? 0;
+}
+
+function normalizeText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 async function applySanction(message: Message, settings: any, count: number): Promise<void> {
@@ -78,7 +107,7 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
   if (!settings) return false;
 
   const hasAnyRule =
-    settings.bannedWords ||
+    (settings.bannedWords && settings.bannedWordsList) ||
     settings.discordInvites ||
     settings.externalLinks ||
     settings.excessiveCaps ||
@@ -89,8 +118,8 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
     settings.forbiddenMarkdown;
   if (!hasAnyRule) return false;
 
-  const whitelistRoles = parseJson(settings.whitelistRoles);
-  const whitelistChannels = parseJson(settings.whitelistChannels);
+  const whitelistRoles = parseList(settings.whitelistRoles);
+  const whitelistChannels = parseList(settings.whitelistChannels);
   if (isWhitelisted(message, whitelistRoles, whitelistChannels)) return false;
 
   const content = message.content;
@@ -98,9 +127,14 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
   let reason = '';
 
   if (settings.bannedWords) {
-    const words = parseJson(settings.bannedWordsList).map((w) => w.toLowerCase());
-    const lower = content.toLowerCase();
-    if (words.some((w) => w && lower.includes(w))) {
+    const words = parseList(settings.bannedWordsList)
+      .map((w) => normalizeText(w).trim())
+      .filter(Boolean);
+    const lower = normalizeText(content);
+    if (words.some((w) => {
+      const pattern = new RegExp(`(^|\\b|\\s)${escapeRegex(w)}(\\b|\\s|$)`, 'i');
+      return pattern.test(lower) || lower.includes(w);
+    })) {
       violation = true;
       reason = 'Mot interdit';
     }

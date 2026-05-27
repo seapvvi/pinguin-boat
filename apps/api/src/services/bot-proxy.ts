@@ -65,6 +65,12 @@ export async function notifyModuleChange(guildId: string, disabledModules: strin
   }).catch(() => { /* bot offline */ });
 }
 
+export async function invalidateBotAutoModCache(guildId: string): Promise<void> {
+  await botFetch(`/internal/guilds/${guildId}/automod/invalidate`, {
+    method: 'POST',
+  });
+}
+
 export async function botSearch(guildId: string, query: string): Promise<any> {
   return botFetch(`/internal/guilds/${guildId}/search?q=${encodeURIComponent(query)}`);
 }

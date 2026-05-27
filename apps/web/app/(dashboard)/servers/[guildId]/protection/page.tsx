@@ -44,7 +44,15 @@ export default function ProtectionPage() {
   useEffect(() => { load(); }, [guildId]);
 
   const saveProtection = async (data: ProtectionSettings) => {
-    await api.put(`/api/guilds/${guildId}/protection`, data);
+    const enabled =
+      data.antiRaid ||
+      data.antiSpam ||
+      data.antiMassMention ||
+      data.antiLink ||
+      data.antiAlts ||
+      data.captchaVerification ||
+      emergencyActive;
+    await api.put(`/api/guilds/${guildId}/protection`, { ...data, enabled });
   };
 
   useAutoSave(local, saveProtection, { enabled: !!local });
@@ -59,7 +67,15 @@ export default function ProtectionPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      await api.put(`/api/guilds/${guildId}/protection`, local);
+      const enabled =
+        local.antiRaid ||
+        local.antiSpam ||
+        local.antiMassMention ||
+        local.antiLink ||
+        local.antiAlts ||
+        local.captchaVerification ||
+        emergencyActive;
+      await api.put(`/api/guilds/${guildId}/protection`, { ...local, enabled });
       await load();
     } catch (e: any) {
       setSaveError(e?.message || 'Erreur lors de la sauvegarde');

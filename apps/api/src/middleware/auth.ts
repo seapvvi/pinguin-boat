@@ -73,7 +73,7 @@ export async function authenticate(
   if (blacklisted) {
     reply.status(403).send({
       success: false,
-      error: 'Votre compte a été blacklisté',
+      error: `Votre compte a été blacklisté pour infraction. Raison: ${blacklisted.reason}. Vous pouvez contester en ouvrant un ticket: https://discord.gg/EJHhcYkXMQ`,
     });
     return;
   }

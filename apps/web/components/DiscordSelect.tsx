@@ -36,26 +36,26 @@ export function DiscordSelect({
         if (type === 'channel') {
           const res = await fetchGuildChannels(guildId);
           if (res.success && res.data) {
-            setOptions(
-              res.data.channels
+            const mapped = res.data.channels
                 .filter((c: { type: number }) => channelTypes.includes(c.type))
                 .map((c: { id: string; name: string }) => ({
                   value: c.id,
                   label: `#${c.name}`,
-                }))
-            );
+                }));
+            setOptions(mapped);
+            if (!value && mapped.length > 0) onChange(mapped[0].value);
           }
         } else {
           const res = await fetchGuildRoles(guildId);
           if (res.success && res.data) {
-            setOptions(
-              res.data.roles
+            const mapped = res.data.roles
                 .filter((r: { name: string }) => r.name !== '@everyone')
                 .map((r: { id: string; name: string }) => ({
                   value: r.id,
                   label: r.name,
-                }))
-            );
+                }));
+            setOptions(mapped);
+            if (!value && mapped.length > 0) onChange(mapped[0].value);
           }
         }
       } catch {
@@ -65,7 +65,7 @@ export function DiscordSelect({
       }
     };
     load();
-  }, [guildId, type, channelTypes.join(',')]);
+  }, [guildId, type, channelTypes.join(','), value, onChange]);
 
   return (
     <Select

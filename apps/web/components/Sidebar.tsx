@@ -32,6 +32,8 @@ import {
   LogOut,
   BookOpen,
   Lock,
+  Users,
+  Radio,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -271,37 +273,41 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
             >
               Owner
             </div>
-            <Link
-              href="/owner"
-              onClick={onClose}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '8px 16px 8px 24px',
-                fontSize: 14,
-                fontWeight: isActive('/owner') ? 500 : 400,
-                color: isActive('/owner') ? 'var(--text-primary)' : 'var(--text-secondary)',
-                backgroundColor: isActive('/owner') ? 'var(--bg-sidebar-active)' : 'transparent',
-                borderRight: isActive('/owner') ? '2px solid var(--accent)' : '2px solid transparent',
-                textDecoration: 'none',
-                transition: 'background-color 0.15s, color 0.15s',
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive('/owner')) {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive('/owner')) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
-            >
-              <UserCog size={18} style={{ opacity: isActive('/owner') ? 1 : 0.6 }} />
-              Panel Owner
-            </Link>
+            {[
+              { href: '/owner', label: 'Panel Owner', icon: <UserCog size={18} /> },
+              { href: '/owner/servers', label: 'Serveurs', icon: <Server size={18} /> },
+              { href: '/owner/users', label: 'Utilisateurs', icon: <Users size={18} /> },
+              { href: '/owner/connected', label: 'Connectés', icon: <Radio size={18} /> },
+            ].map(({ href, label, icon }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={onClose}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 16px 8px 24px',
+                  fontSize: 14,
+                  fontWeight: isActive(href) ? 500 : 400,
+                  color: isActive(href) ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  backgroundColor: isActive(href) ? 'var(--bg-sidebar-active)' : 'transparent',
+                  borderRight: isActive(href) ? '2px solid var(--accent)' : '2px solid transparent',
+                  textDecoration: 'none',
+                  transition: 'background-color 0.15s, color 0.15s',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive(href)) e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive(href)) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <span style={{ opacity: isActive(href) ? 1 : 0.6 }}>{icon}</span>
+                {label}
+              </Link>
+            ))}
           </div>
         )}
       </nav>
