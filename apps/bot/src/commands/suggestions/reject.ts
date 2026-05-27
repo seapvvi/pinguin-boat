@@ -62,12 +62,16 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       if (channel?.isTextBased()) {
         const msg = await channel.messages.fetch(messageId).catch(() => null);
         if (msg) {
+          const author = await client.users.fetch(suggestion.authorId).catch(() => null);
           const embed = createEmbed('suggestion')
             .setTitle('💡 Suggestion refusée ❌')
             .setDescription(suggestion.content)
+            .setAuthor({ name: author?.username || 'Utilisateur inconnu', iconURL: author?.displayAvatarURL() })
             .addFields(
+              { name: 'Suggestion proposée par', value: author?.toString() || 'Utilisateur inconnu', inline: true },
               { name: 'Refusé par', value: interaction.user.toString(), inline: true },
-              { name: 'Réponse', value: response || 'Aucune réponse fournie.', inline: false }
+              { name: 'Réponse', value: response || 'Aucune réponse fournie.', inline: false },
+              { name: 'ID Discord', value: suggestion.authorId, inline: false }
             )
             .setTimestamp();
           await msg.edit({ embeds: [embed] });

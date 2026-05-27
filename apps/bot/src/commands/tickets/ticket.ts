@@ -64,15 +64,19 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         return;
       }
 
+      const ticketSettings = await prisma.ticketSettings.findUnique({ where: { guildId: guild.id } });
+      const panelMessage = ticketSettings?.panelMessage || 'Cliquez sur le bouton ci-dessous pour ouvrir un ticket de support.\nNotre équipe vous répondra dès que possible.';
+      const panelButtonText = ticketSettings?.panelButtonText || 'Ouvrir un ticket';
+
       const embed = createEmbed('ticket')
         .setTitle('🎫 Support')
-        .setDescription('Cliquez sur le bouton ci-dessous pour ouvrir un ticket de support.\nNotre équipe vous répondra dès que possible.')
+        .setDescription(panelMessage)
         .setTimestamp();
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId('ticket_open')
-          .setLabel('Ouvrir un ticket')
+          .setLabel(panelButtonText)
           .setStyle(ButtonStyle.Primary)
           .setEmoji('🎫')
       );

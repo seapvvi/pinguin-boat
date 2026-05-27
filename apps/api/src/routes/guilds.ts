@@ -33,26 +33,43 @@ export async function guildRoutes(app: FastifyInstance) {
       const allGuilds = await prisma.guild.findMany({
         select: {
           id: true, name: true, icon: true, ownerId: true, memberCount: true,
-          botPresent: true,
+          botPresent: true, settings: true,
         },
         orderBy: [{ botPresent: 'desc' }, { memberCount: 'desc' }],
       });
       const userDiscordId = request.user!.discordId;
       // Concurrency-limited checks (max 10 simultaneous Discord API calls)
       const concurrency = 10;
-      const results: (typeof allGuilds[0] & { isMember: boolean })[] = [];
+      const results: (typeof allGuilds[0] & { isMember: boolean; hasDashboardAccess: boolean })[] = [];
       for (let i = 0; i < allGuilds.length; i += concurrency) {
         const batch = allGuilds.slice(i, i + concurrency);
         const batchResults = await Promise.all(
-          batch.map(g =>
-            getGuildMember(g.id, userDiscordId)
-              .then(() => ({ ...g, isMember: true }))
-              .catch(() => ({ ...g, isMember: false }))
-          )
+          batch.map(async (g) => {
+            const member = await getGuildMember(g.id, userDiscordId).catch(() => null);
+            if (!member) return { ...g, isMember: false, hasDashboardAccess: false };
+            
+            const isOwner = g.ownerId === userDiscordId;
+            const roles = await getGuildRoles(g.id).catch(() => [] as any[]);
+            const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
+            let permissions = BigInt(0);
+            for (const role of roles) {
+              if (memberRoleIds.includes(role.id)) {
+                permissions |= BigInt(role.permissions ?? 0);
+              }
+            }
+            const ADMINISTRATOR = BigInt(0x8);
+            const isAdmin = (permissions & ADMINISTRATOR) !== BigInt(0);
+            
+            // Check role-based dashboard access
+            const dashboardAccessRoles = g.settings ? JSON.parse(g.settings.dashboardAccessRoles || '[]') : [];
+            const hasDashboardAccess = isOwner || isAdmin || dashboardAccessRoles.some((r: string) => memberRoleIds.includes(r));
+            
+            return { ...g, isMember: true, hasDashboardAccess };
+          })
         );
         results.push(...batchResults);
       }
-      const guilds = results.filter(g => g.isMember);
+      const guilds = results.filter(g => g.isMember && g.hasDashboardAccess);
       guilds.sort((a, b) => {
         if (a.botPresent !== b.botPresent) return a.botPresent ? -1 : 1;
         return b.memberCount - a.memberCount;
@@ -677,7 +694,7 @@ export async function guildRoutes(app: FastifyInstance) {
       const member = await getGuildMember(guildId, discordId).catch(() => null);
       if (!member) return reply.status(403).send(error('Membre introuvable dans ce serveur'));
       const roles = await getGuildRoles(guildId).catch(() => [] as any[]);
-      const guild = await prisma.guild.findUnique({ where: { id: guildId } });
+      const guild = await prisma.guild.findUnique({ where: { id: guildId }, include: { settings: true } });
       const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
       let permissions = BigInt(0);
       for (const role of roles) {
@@ -692,14 +709,43 @@ export async function guildRoutes(app: FastifyInstance) {
       const MANAGE_ROLES = BigInt(0x10000000);
       const MANAGE_MESSAGES = BigInt(0x2000);
       const isAdmin = (permissions & ADMINISTRATOR) !== BigInt(0);
+      
+      // Check role-based dashboard access
+      const settings = guild?.settings;
+      const dashboardAccessRoles = settings ? JSON.parse(settings.dashboardAccessRoles || '[]') : [];
+      const hasDashboardAccess = isOwner || isAdmin || dashboardAccessRoles.some((r: string) => memberRoleIds.includes(r));
+      
+      // Module-specific access
+      const hasAccess = (accessField: string) => {
+        if (isOwner || isAdmin) return true;
+        const accessRoles = settings ? JSON.parse((settings as any)[accessField] || '[]') : [];
+        return accessRoles.some((r: string) => memberRoleIds.includes(r));
+      };
+      
       reply.send(success({
         isOwner,
         isAdmin,
+        hasDashboardAccess,
         permissions: permissions.toString(),
         can: {
           manageGuild: isAdmin || (permissions & MANAGE_GUILD) !== BigInt(0),
           manageRoles: isAdmin || (permissions & MANAGE_ROLES) !== BigInt(0),
           manageMessages: isAdmin || (permissions & MANAGE_MESSAGES) !== BigInt(0),
+        },
+        dashboard: {
+          moderation: hasAccess('dashboardModerationAccess'),
+          tickets: hasAccess('dashboardTicketsAccess'),
+          polls: hasAccess('dashboardPollsAccess'),
+          suggestions: hasAccess('dashboardSuggestionsAccess'),
+          giveaways: hasAccess('dashboardGiveawaysAccess'),
+          economy: hasAccess('dashboardEconomyAccess'),
+          music: hasAccess('dashboardMusicAccess'),
+          levels: hasAccess('dashboardLevelsAccess'),
+          welcome: hasAccess('dashboardWelcomeAccess'),
+          autoroles: hasAccess('dashboardAutorolesAccess'),
+          logs: hasAccess('dashboardLogsAccess'),
+          protection: hasAccess('dashboardProtectionAccess'),
+          audit: hasAccess('dashboardAuditAccess'),
         },
       }));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }

@@ -8,7 +8,16 @@ import type { TrackInfo } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
 
 async function createStreamFromUrl(url: string): Promise<{ stream: any; type: StreamType }> {
-  // Try ytdl-core first (most reliable for YouTube)
+  // Use play-dl as primary (more stable in 2024)
+  try {
+    const playdl = await import('play-dl');
+    const result = await playdl.stream(url, { quality: 2, discordPlayerCompatibility: true });
+    return { stream: result.stream, type: result.type as unknown as StreamType };
+  } catch (e: any) {
+    console.warn('[Music] play-dl failed, trying ytdl-core:', e.message);
+  }
+
+  // Fallback to ytdl-core
   try {
     const ytdl = await import('@distube/ytdl-core');
     if (ytdl.default.validateURL(url)) {
@@ -16,17 +25,15 @@ async function createStreamFromUrl(url: string): Promise<{ stream: any; type: St
         filter: 'audioonly',
         quality: 'highestaudio',
         highWaterMark: 1 << 25,
+        requestOptions: { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } },
       });
       return { stream, type: StreamType.Arbitrary };
     }
   } catch (e: any) {
-    console.warn('[Music] ytdl-core failed, trying play-dl:', e.message);
+    console.error('[Music] ytdl-core also failed:', e.message);
   }
 
-  // Fallback to play-dl
-  const playdl = await import('play-dl');
-  const result = await playdl.stream(url, { quality: 2 });
-  return { stream: result.stream, type: result.type as unknown as StreamType };
+  throw new Error('Impossible de créer le stream audio. Vérifiez que l\'URL est valide.');
 }
 
 export enum LoopMode {
@@ -140,6 +147,14 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
     resource.volume?.setVolume(state.volume / 100);
     const player = getPlayer(guildId);
     state.player = player;
+    
+    // Ensure connection is still valid before subscribing
+    if (state.connection.state.status !== VoiceConnectionStatus.Ready) {
+      console.warn(`[Music] Connection not ready, skipping play for "${track.title}"`);
+      playNext(guildId).catch(() => {});
+      return;
+    }
+    
     state.connection.subscribe(player);
     player.play(resource);
     console.log(`[Music] Now playing: "${track.title}" in guild ${guildId}`);
@@ -219,7 +234,9 @@ export async function play(guildId: string, query: string, requester: GuildMembe
 
   if (needsJoin) {
     if (state.connection) {
-      state.connection.destroy();
+      try {
+        state.connection.destroy();
+      } catch {}
       state.connection = null;
     }
     const connection = joinVoiceChannel({
@@ -230,15 +247,19 @@ export async function play(guildId: string, query: string, requester: GuildMembe
     });
     connection.on('stateChange', (_oldState: any, newState: any) => {
       if (newState.status === VoiceConnectionStatus.Disconnected) {
+        console.warn(`[Music] Voice disconnected in guild ${guildId}`);
         state.connection = null;
         state.voiceChannelId = null;
       }
     });
+    connection.on('error', (err: Error) => {
+      console.error(`[Music] Voice connection error in guild ${guildId}:`, err.message);
+    });
     try {
       await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
-    } catch {
+    } catch (err) {
       connection.destroy();
-      throw new Error('Impossible de se connecter au salon vocal.');
+      throw new Error('Impossible de se connecter au salon vocal. Vérifiez les permissions.');
     }
     state.connection = connection;
     connection.subscribe(getPlayer(guildId));
