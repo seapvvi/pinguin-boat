@@ -67,7 +67,7 @@ function getDiscordErrorMessage(error: unknown): string {
 function getDiscordErrorHint(code?: number): string {
   switch (code) {
     case 50013:
-      return 'Permissions manquantes pour créer le salon (Gérer les salons / Voir les salons / permissions de catégorie).';
+      return 'Permissions manquantes. Le bot doit avoir les permissions **Gérer les salons** et **Gérer les rôles** (ou Administrateur) sur ce serveur. Si une catégorie est configurée, il doit aussi y avoir accès.';
     case 50001:
       return 'Accès Discord refusé (le bot n’a pas accès au serveur, salon parent ou catégorie).';
     case 10003:
@@ -131,40 +131,115 @@ async function createTicketChannel(
 
   const reason = `Ticket ouvert par ${interaction.user.tag}`;
 
-  if (!categoryId) {
-    const channel = await interaction.guild.channels.create({
+  const buildOpts = (withOverwrites: boolean, parent?: string) => {
+    const opts: any = {
       name: channelName,
       type: ChannelType.GuildText,
-      permissionOverwrites,
       reason,
-    });
-    return { channel: channel as TextChannel, usedFallback: false };
+    };
+    if (parent) opts.parent = parent;
+    if (withOverwrites) opts.permissionOverwrites = permissionOverwrites;
+    return opts;
+  };
+
+  const tryCreate = async (withOverwrites: boolean, parent?: string) => {
+    return await interaction.guild!.channels.create(buildOpts(withOverwrites, parent)) as TextChannel;
+  };
+
+  const tryApplyOverwrites = async (channel: TextChannel) => {
+    try {
+      await channel.permissionOverwrites.set(permissionOverwrites, reason);
+    } catch (permError) {
+      await channel.delete('Impossible d\'appliquer les permissions initiales').catch(() => {});
+      throw permError;
+    }
+  };
+
+  if (!categoryId) {
+    try {
+      const channel = await tryCreate(true);
+      return { channel, usedFallback: false };
+    } catch (error) {
+      const code = getDiscordErrorCode(error);
+      if (code === 50013 || code === 50035) {
+        try {
+          const channel = await tryCreate(false);
+          await tryApplyOverwrites(channel);
+          return { channel, usedFallback: false };
+        } catch (fallbackError) {
+          throw new TicketChannelCreationError(error, fallbackError);
+        }
+      }
+      throw new TicketChannelCreationError(error);
+    }
+  }
+
+  // Verify category exists and is accessible
+  try {
+    const category = await interaction.guild.channels.fetch(categoryId);
+    if (!category || category.type !== ChannelType.GuildCategory) {
+      try {
+        const channel = await tryCreate(true);
+        return { channel, usedFallback: true };
+      } catch (error) {
+        const code = getDiscordErrorCode(error);
+        if (code === 50013 || code === 50035) {
+          try {
+            const channel = await tryCreate(false);
+            await tryApplyOverwrites(channel);
+            return { channel, usedFallback: true };
+          } catch (fallbackError) {
+            throw new TicketChannelCreationError(error, fallbackError);
+          }
+        }
+        throw new TicketChannelCreationError(error);
+      }
+    }
+  } catch (error) {
+    if (getDiscordErrorCode(error) === 10003) {
+      try {
+        const channel = await tryCreate(true);
+        return { channel, usedFallback: true };
+      } catch (createError) {
+        const code = getDiscordErrorCode(createError);
+        if (code === 50013 || code === 50035) {
+          try {
+            const channel = await tryCreate(false);
+            await tryApplyOverwrites(channel);
+            return { channel, usedFallback: true };
+          } catch (fallbackError) {
+            throw new TicketChannelCreationError(createError, fallbackError);
+          }
+        }
+        throw new TicketChannelCreationError(createError);
+      }
+    }
+    throw new TicketChannelCreationError(error);
   }
 
   try {
-    const channel = await interaction.guild.channels.create({
-      name: channelName,
-      type: ChannelType.GuildText,
-      parent: categoryId,
-      permissionOverwrites,
-      reason,
-    });
-    return { channel: channel as TextChannel, usedFallback: false };
+    const channel = await tryCreate(true, categoryId);
+    return { channel, usedFallback: false };
   } catch (primaryError) {
     if (!shouldRetryWithoutCategory(primaryError)) {
       throw new TicketChannelCreationError(primaryError);
     }
 
     try {
-      const channel = await interaction.guild.channels.create({
-        name: channelName,
-        type: ChannelType.GuildText,
-        permissionOverwrites,
-        reason: `${reason} (fallback sans catégorie)`,
-      });
-      return { channel: channel as TextChannel, usedFallback: true };
-    } catch (fallbackError) {
-      throw new TicketChannelCreationError(primaryError, fallbackError);
+      const channel = await tryCreate(true);
+      return { channel, usedFallback: true };
+    } catch (fallbackError1) {
+      const code = getDiscordErrorCode(fallbackError1);
+      if (code === 50013 || code === 50035) {
+        try {
+          const channel = await tryCreate(false);
+          await tryApplyOverwrites(channel);
+          return { channel, usedFallback: true };
+        } catch (fallbackError2) {
+          throw new TicketChannelCreationError(primaryError, fallbackError2);
+        }
+      }
+      throw new TicketChannelCreationError(primaryError, fallbackError1);
     }
   }
 }
@@ -211,9 +286,27 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
     }
 
     await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+
+    // Verify bot has required server-level permissions
+    const botMember = await interaction.guild!.members.fetch(client.user!.id);
+    if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
+      await interaction.editReply({ embeds: [errorEmbed('Permissions manquantes', 'Le bot doit avoir la permission **Gérer les salons** (ou Administrateur) sur ce serveur pour créer des tickets.')] });
+      return;
+    }
+
     const categoryId = ticketSettings?.categoryId ?? undefined;
     const channelName = sanitizeTicketChannelName(ticketSettings?.channelFormat, interaction.user.username);
-    const modRoles = parseRoleIds(ticketSettings?.moderatorRoles);
+    const rawModRoles = parseRoleIds(ticketSettings?.moderatorRoles);
+    const modRoles: string[] = [];
+    for (const roleId of rawModRoles) {
+      try {
+        const role = await interaction.guild!.roles.fetch(roleId);
+        if (role) modRoles.push(roleId);
+      } catch {
+        // Role no longer exists on the guild, skip it
+      }
+    }
+
     const permissionOverwrites: any[] = [
       { id: interaction.guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
       { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },

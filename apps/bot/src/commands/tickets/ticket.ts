@@ -98,21 +98,102 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         return;
       }
 
+      const botMember = await guild.members.fetch(client.user!.id);
+      if (!botMember.permissions.has(PermissionFlagsBits.ManageChannels)) {
+        await interaction.reply({ embeds: [errorEmbed('Permissions manquantes', 'Le bot doit avoir la permission **Gérer les salons** (ou Administrateur) sur ce serveur pour créer des tickets.')], ephemeral: true });
+        return;
+      }
+
       await interaction.deferReply();
 
       await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
 
-      const ticketChannel = await guild.channels.create({
-        name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
-        type: ChannelType.GuildText,
-        parent: category || undefined,
-        permissionOverwrites: [
-          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-          { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-          { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
-        ],
-        reason: `Ticket ouvert par ${interaction.user.tag}`,
-      });
+      let ticketChannel: TextChannel;
+      let usedFallback = false;
+
+      try {
+        if (category) {
+          // Try to verify category exists first
+        try {
+          const categoryChannel = await guild.channels.fetch(category);
+          if (!categoryChannel || categoryChannel.type !== ChannelType.GuildCategory) {
+            // Category doesn't exist, create without it
+            ticketChannel = await guild.channels.create({
+              name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+              type: ChannelType.GuildText,
+              permissionOverwrites: [
+                { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
+              ],
+              reason: `Ticket ouvert par ${interaction.user.tag} (catégorie invalide)`,
+            }) as TextChannel;
+            usedFallback = true;
+          } else {
+            // Category exists, try to create with it
+            try {
+              ticketChannel = await guild.channels.create({
+                name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+                type: ChannelType.GuildText,
+                parent: category,
+                permissionOverwrites: [
+                  { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+                  { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                  { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
+                ],
+                reason: `Ticket ouvert par ${interaction.user.tag}`,
+              }) as TextChannel;
+            } catch (error) {
+              // Fallback to no category if permission error
+              ticketChannel = await guild.channels.create({
+                name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+                type: ChannelType.GuildText,
+                permissionOverwrites: [
+                  { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+                  { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                  { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
+                ],
+                reason: `Ticket ouvert par ${interaction.user.tag} (fallback sans catégorie)`,
+              }) as TextChannel;
+              usedFallback = true;
+            }
+          }
+        } catch (error) {
+          // Can't access category, create without it
+          ticketChannel = await guild.channels.create({
+            name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+            type: ChannelType.GuildText,
+            permissionOverwrites: [
+              { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+              { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+              { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
+            ],
+            reason: `Ticket ouvert par ${interaction.user.tag} (catégorie inaccessible)`,
+          }) as TextChannel;
+          usedFallback = true;
+        }
+      } else {
+        // No category specified
+        ticketChannel = await guild.channels.create({
+          name: `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+          type: ChannelType.GuildText,
+          permissionOverwrites: [
+            { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+            { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+            { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
+          ],
+          reason: `Ticket ouvert par ${interaction.user.tag}`,
+        }) as TextChannel;
+        }
+      } catch (error) {
+        const code = (error as any)?.code ?? (error as any)?.rawError?.code;
+        if (code === 50013) {
+          await interaction.editReply({ embeds: [errorEmbed('Erreur Discord', 'Permissions manquantes. Le bot doit avoir les permissions **Gérer les salons** et **Gérer les rôles** (ou Administrateur) sur ce serveur.')] });
+        } else {
+          await interaction.editReply({ embeds: [errorEmbed('Erreur Discord', 'Impossible de créer le salon ticket. Vérifiez que le bot a les permissions nécessaires.')] });
+        }
+        return;
+      }
 
       const ticket = await prisma.ticket.create({
         data: {
@@ -125,7 +206,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         },
       });
 
-      if (category) {
+      if (category && !usedFallback) {
         await prisma.ticket.update({
           where: { id: ticket.id },
           data: { categoryId: category },

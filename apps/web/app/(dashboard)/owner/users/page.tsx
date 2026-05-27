@@ -4,16 +4,16 @@ import { motion } from 'motion/react';
 import { Search, Ban, Crown, ChevronLeft, ChevronRight, Settings, ShieldAlert } from 'lucide-react';
 import { Card, Input, Button, Badge, Skeleton, EmptyState, ErrorMessage, Modal, Select, Table } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
-import { fetchOwnerUsers, blacklistTarget, unblacklistTarget, grantPremium, revokePremium, api } from '@/lib/api';
+import { fetchOwnerUsers, blacklistTarget, unblacklistTarget, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 
 interface OwnerUser {
   id: string;
+  discordId: string;
   username: string;
   discriminator: string;
   avatar: string | null;
   globalName: string | null;
-  premium: string;
   blacklisted: boolean;
   createdAt: string;
 }
@@ -30,7 +30,6 @@ export default function OwnerUsersPage() {
   const [manageTarget, setManageTarget] = useState<OwnerUser | null>(null);
   const [detail, setDetail] = useState<any | null>(null);
   const [blacklistReason, setBlacklistReason] = useState('');
-  const [premiumPlan, setPremiumPlan] = useState('PRO');
   const [actionLoading, setActionLoading] = useState(false);
 
   const load = async (p = page, nextSortBy = sortBy, nextSortOrder = sortOrder) => {
@@ -71,25 +70,11 @@ export default function OwnerUsersPage() {
     setDetail(null);
     setBlacklistReason('');
     try {
-      const res = await api.get<any>(`/api/owner/users/${u.id}`);
+      const res = await api.get<any>(`/api/owner/users/${u.discordId}`);
       setDetail((res as any)?.data ?? null);
     } catch {
       setDetail(null);
     }
-  };
-
-  const handlePremiumToggle = async () => {
-    if (!manageTarget) return;
-    setActionLoading(true);
-    try {
-      if (manageTarget.premium !== 'FREE') {
-        await revokePremium(manageTarget.id);
-      } else {
-        await grantPremium({ userId: manageTarget.id, plan: premiumPlan });
-      }
-      setManageTarget(null);
-      load(page);
-    } finally { setActionLoading(false); }
   };
 
   const handleBlacklistToggle = async () => {
@@ -97,10 +82,10 @@ export default function OwnerUsersPage() {
     setActionLoading(true);
     try {
       if (manageTarget.blacklisted) {
-        await unblacklistTarget(manageTarget.id, 'USER');
+        await unblacklistTarget(manageTarget.discordId, 'USER');
       } else {
         if (!blacklistReason.trim()) return;
-        await blacklistTarget(manageTarget.id, blacklistReason.trim(), 'USER');
+        await blacklistTarget(manageTarget.discordId, blacklistReason.trim(), 'USER');
       }
       setManageTarget(null);
       setBlacklistReason('');
@@ -114,9 +99,20 @@ export default function OwnerUsersPage() {
       render: (u: OwnerUser) => (
         <div className="flex items-center gap-3">
           {u.avatar ? (
-            <img src={`https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=32`} alt="" className="w-8 h-8 rounded-[0px]" />
+            <img 
+              src={`https://cdn.discordapp.com/avatars/${u.discordId}/${u.avatar}.${u.avatar.startsWith('a_') ? 'gif' : 'png'}?size=32`} 
+              alt="" 
+              className="w-8 h-8 rounded-[0px]"
+              onError={(e) => {
+                e.currentTarget.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(u.discriminator) % 5}.png`;
+              }}
+            />
           ) : (
-            <div className="w-8 h-8 rounded-[0px] bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-bold text-[var(--text-secondary)]">{u.username.charAt(0)}</div>
+            <img 
+              src={`https://cdn.discordapp.com/embed/avatars/${parseInt(u.discriminator) % 5}.png`}
+              alt="" 
+              className="w-8 h-8 rounded-[0px]"
+            />
           )}
           <div>
             <span className="text-sm font-medium text-[var(--text-primary)]">{u.globalName || u.username}</span>
@@ -125,8 +121,7 @@ export default function OwnerUsersPage() {
         </div>
       ),
     },
-    { key: 'id', label: 'ID Discord', render: (u: OwnerUser) => <code className="text-xs text-[var(--text-secondary)]">{u.id}</code> },
-    { key: 'premium', label: 'Premium', render: (u: OwnerUser) => <Badge variant={u.premium !== 'FREE' ? 'info' : 'default'}>{u.premium ?? 'FREE'}</Badge> },
+    { key: 'id', label: 'ID Discord', render: (u: OwnerUser) => <code className="text-xs text-[var(--text-secondary)]">{u.discordId}</code> },
     { key: 'blacklisted', label: 'Blacklist', render: (u: OwnerUser) => (u.blacklisted ? <Badge variant="error">Blacklisté</Badge> : <Badge variant="default">Non</Badge>) },
     { key: 'createdAt', label: 'Créé le', sortable: true, render: (u: OwnerUser) => <span className="text-xs text-[var(--text-secondary)]">{formatDate(u.createdAt)}</span> },
     {
@@ -204,8 +199,7 @@ export default function OwnerUsersPage() {
           <div className="space-y-4">
             <div className="p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] border border-[var(--border-color)] space-y-1">
               <p className="text-sm text-[var(--text-primary)] font-medium">{manageTarget.globalName || manageTarget.username}</p>
-              <p className="text-xs text-[var(--text-secondary)]">ID utilisateur: <span className="font-mono">{manageTarget.id}</span></p>
-              <p className="text-xs text-[var(--text-secondary)]">Premium: <span className="font-medium">{detail?.premium ?? manageTarget.premium}</span></p>
+              <p className="text-xs text-[var(--text-secondary)]">ID utilisateur: <span className="font-mono">{manageTarget.discordId}</span></p>
               <div className="pt-1">
                 {manageTarget.blacklisted ? <Badge variant="error">Blacklisté</Badge> : <Badge variant="success">Autorisé</Badge>}
               </div>
@@ -220,19 +214,6 @@ export default function OwnerUsersPage() {
               />
             )}
 
-            {manageTarget.premium === 'FREE' && (
-              <Select
-                label="Plan premium"
-                options={[
-                  { value: 'BASIC', label: 'BASIC' },
-                  { value: 'PRO', label: 'PRO' },
-                  { value: 'ENTERPRISE', label: 'ENTERPRISE' },
-                ]}
-                value={premiumPlan}
-                onChange={(e) => setPremiumPlan(e.target.value)}
-              />
-            )}
-
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="secondary" size="sm" onClick={() => setManageTarget(null)}>Fermer</Button>
               <Button
@@ -243,14 +224,6 @@ export default function OwnerUsersPage() {
                 onClick={handleBlacklistToggle}
               >
                 <Ban size={14} /> {manageTarget.blacklisted ? 'Déblacklister' : 'Blacklister'}
-              </Button>
-              <Button
-                variant={manageTarget.premium !== 'FREE' ? 'danger' : 'success'}
-                size="sm"
-                loading={actionLoading}
-                onClick={handlePremiumToggle}
-              >
-                <Crown size={14} /> {manageTarget.premium !== 'FREE' ? 'Révoquer premium' : 'Accorder premium'}
               </Button>
             </div>
             <p className="text-[11px] text-[var(--text-secondary)] flex items-center gap-1">

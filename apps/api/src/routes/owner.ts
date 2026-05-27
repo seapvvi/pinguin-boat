@@ -76,7 +76,8 @@ export async function ownerRoutes(app: FastifyInstance) {
           { id: { contains: search, mode: 'insensitive' as const } },
           { ownerId: { contains: search, mode: 'insensitive' as const } },
         ],
-      } : undefined;
+        botPresent: true,
+      } : { botPresent: true };
       const orderBy = (() => {
         if (sortBy === 'createdAt') return { createdAt: sortOrder as 'asc' | 'desc' };
         if (sortBy === 'name') return { name: sortOrder as 'asc' | 'desc' };
@@ -142,19 +143,11 @@ export async function ownerRoutes(app: FastifyInstance) {
         prisma.user.count({ where }),
       ]);
       const discordIds = users.map((u) => u.discordId);
-      const [blacklistRows, premiumRows] = await Promise.all([
-        prisma.blacklistUser.findMany({ where: { targetId: { in: discordIds } }, select: { targetId: true } }),
-        prisma.premiumSubscription.findMany({
-          where: { status: 'ACTIVE', user: { discordId: { in: discordIds } } },
-          include: { plan: { select: { name: true } }, user: { select: { discordId: true } } },
-        }),
-      ]);
+      const blacklistRows = await prisma.blacklistUser.findMany({ where: { targetId: { in: discordIds } }, select: { targetId: true } });
       const blacklistedIds = new Set(blacklistRows.map((b) => b.targetId));
-      const premiumByDiscordId = new Map(premiumRows.map((r) => [r.user?.discordId, r.plan?.name ?? 'FREE']));
       const payload = users.map((u) => ({
         ...u,
         blacklisted: blacklistedIds.has(u.discordId),
-        premium: premiumByDiscordId.get(u.discordId) ?? 'FREE',
       }));
       reply.send(success({ users: payload, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
