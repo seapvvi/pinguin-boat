@@ -79,12 +79,12 @@ export default function OwnerUsersPage() {
 
   const handleBlacklistToggle = async () => {
     if (!manageTarget) return;
+    if (!manageTarget.blacklisted && !blacklistReason.trim()) return;
     setActionLoading(true);
     try {
       if (manageTarget.blacklisted) {
         await unblacklistTarget(manageTarget.discordId, 'USER');
       } else {
-        if (!blacklistReason.trim()) return;
         await blacklistTarget(manageTarget.discordId, blacklistReason.trim(), 'USER');
       }
       setManageTarget(null);
@@ -104,12 +104,15 @@ export default function OwnerUsersPage() {
               alt="" 
               className="w-8 h-8 rounded-[0px]"
               onError={(e) => {
-                e.currentTarget.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(u.discriminator) % 5}.png`;
+                const idx = u.discriminator && u.discriminator !== '0'
+                  ? parseInt(u.discriminator) % 5
+                  : (Number(BigInt(u.discordId) >> 22n) % 6);
+                e.currentTarget.src = `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
               }}
             />
           ) : (
             <img 
-              src={`https://cdn.discordapp.com/embed/avatars/${parseInt(u.discriminator) % 5}.png`}
+              src={`https://cdn.discordapp.com/embed/avatars/${u.discriminator && u.discriminator !== '0' ? parseInt(u.discriminator) % 5 : (Number(BigInt(u.discordId) >> 22n) % 6)}.png`}
               alt="" 
               className="w-8 h-8 rounded-[0px]"
             />

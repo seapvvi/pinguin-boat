@@ -125,7 +125,8 @@ const categoryDefs: CategoryDef[] = [
 
 export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProps) {
   const pathname = usePathname();
-  const isDonor = user?.isDonor ?? false;
+  const isOwner = (user as any)?.isOwner ?? false;
+  const isDonor = user?.isDonor || isOwner;
   const { enabled: snowflakesEnabled, toggle: toggleSnowflakes } = useSnowflakes();
 
   const guildId = pathname.match(/^\/servers\/([^/]+)/)?.[1] ?? null;

@@ -108,6 +108,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       const payload = servers.map((s) => ({
         ...s,
         ownerName: ownerMap.get(s.ownerId) ?? null,
+        botStatus: s.botPresent ? 'ONLINE' as const : 'OFFLINE' as const,
         blacklisted: blacklistedGuilds.has(s.id),
       }));
       reply.send(success({ servers: payload, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
@@ -147,6 +148,8 @@ export async function ownerRoutes(app: FastifyInstance) {
       const blacklistedIds = new Set(blacklistRows.map((b) => b.targetId));
       const payload = users.map((u) => ({
         ...u,
+        discriminator: '0',
+        globalName: u.displayName ?? null,
         blacklisted: blacklistedIds.has(u.discordId),
       }));
       reply.send(success({ users: payload, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
@@ -688,8 +691,8 @@ export async function ownerRoutes(app: FastifyInstance) {
         prisma.blacklistGuild.findMany({ orderBy: { createdAt: 'desc' }, take: limit, include: { guild: { select: { name: true } } } }),
       ]);
       const entries = [
-        ...users.map((u) => ({ ...u, type: 'USER' as const })),
-        ...guilds.map((g) => ({ id: g.id, targetId: g.guildId, reason: g.reason, type: 'GUILD' as const, guildName: g.guild?.name })),
+        ...users.map((u) => ({ ...u, targetType: 'USER' as const, targetName: u.targetId })),
+        ...guilds.map((g) => ({ id: g.id, targetId: g.guildId, reason: g.reason, moderatorId: g.moderatorId, createdAt: g.createdAt, targetType: 'GUILD' as const, targetName: g.guild?.name ?? g.guildId })),
       ];
       reply.send(success({ entries, pagination: { page, limit, total: entries.length, totalPages: 1 } }));
     } catch (err: any) { reply.status(500).send(error(err.message)); }

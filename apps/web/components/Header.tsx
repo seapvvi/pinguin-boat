@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Avatar } from '@pinguin/ui';
 import { Menu, LogOut, Heart } from 'lucide-react';
 import ThemeSelector from './ThemeSelector';
 import ServerSelector from './ServerSelector';
 import { getAvatarUrl } from '@/lib/utils';
-import { api } from '@/lib/api';
 
 interface HeaderProps {
   user: {
     id: string;
     username: string;
     avatar: string | null;
+    isDonor?: boolean;
+    isOwner?: boolean;
   } | null;
   onMenuToggle: () => void;
   onLogout: () => void;
@@ -20,17 +20,7 @@ interface HeaderProps {
 }
 
 export default function Header({ user, onMenuToggle, onLogout, guildId }: HeaderProps) {
-  const [isDonor, setIsDonor] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    api.get<{ data: { donors: { userId: string }[] } }>('/api/donors')
-      .then((res) => {
-        const donors = (res as any)?.data?.donors as { userId: string }[] | undefined;
-        if (donors?.some((d) => d.userId === user.id)) setIsDonor(true);
-      })
-      .catch(() => {});
-  }, [user?.id]);
+  const isDonor = user?.isDonor || user?.isOwner || false;
 
   return (
     <header
