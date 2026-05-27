@@ -191,7 +191,7 @@ export async function authRoutes(app: FastifyInstance) {
       createdAt: user.createdAt,
       discriminator: '0',
       isOwner: user.discordId === config.DISCORD_OWNER_ID,
-      isDonor: !!donor,
+      isDonor: !!donor || user.discordId === config.DISCORD_OWNER_ID,
     }));
   });
 

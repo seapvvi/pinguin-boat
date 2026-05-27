@@ -69,7 +69,7 @@ export default function OwnerBlacklistPage() {
     if (!removeTarget) return;
     setActionLoading(true);
     try {
-      await unblacklistTarget(removeTarget.id);
+      await unblacklistTarget(removeTarget.targetId, removeTarget.targetType);
       setRemoveTarget(null);
       load();
     } catch { /* ignore */ } finally { setActionLoading(false); }

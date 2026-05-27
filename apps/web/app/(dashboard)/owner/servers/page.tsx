@@ -90,12 +90,12 @@ export default function OwnerServersPage() {
 
   const handleBlacklistToggle = async () => {
     if (!manageTarget) return;
+    if (!manageTarget.blacklisted && !blacklistReason.trim()) return;
     setActionLoading(true);
     try {
       if (manageTarget.blacklisted) {
         await unblacklistTarget(manageTarget.id, 'GUILD');
       } else {
-        if (!blacklistReason.trim()) return;
         await blacklistTarget(manageTarget.id, blacklistReason.trim(), 'GUILD');
       }
       setManageTarget(null);

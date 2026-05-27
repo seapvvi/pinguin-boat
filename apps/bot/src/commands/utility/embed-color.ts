@@ -1,6 +1,9 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { getConfig } from '@pinguin/config';
 import { successEmbed, errorEmbed } from '../../services/embed';
+
+const config = getConfig();
 
 export const data = new SlashCommandBuilder()
   .setName('embed-color')
@@ -17,9 +20,10 @@ export const cooldown = 10;
 export async function execute(interaction: ChatInputCommandInteraction, _client: Client): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
+  const isOwner = interaction.user.id === config.DISCORD_OWNER_ID;
   const donor = await prisma.donor.findUnique({ where: { userId: interaction.user.id } });
 
-  if (!donor || !donor.isDonor) {
+  if (!isOwner && (!donor || !donor.isDonor)) {
     await interaction.editReply({
       embeds: [errorEmbed('Réservé aux donateurs', 'Cette commande est réservée aux donateurs du projet. Soutenez Pinguin Boat pour y accéder !')],
     });
@@ -29,7 +33,9 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
   const input = interaction.options.getString('couleur', true).trim();
 
   if (input.toLowerCase() === 'reset') {
-    await prisma.donor.update({ where: { userId: interaction.user.id }, data: { embedColor: null } });
+    if (donor) {
+      await prisma.donor.update({ where: { userId: interaction.user.id }, data: { embedColor: null } });
+    }
     await interaction.editReply({ embeds: [successEmbed('Couleur réinitialisée', 'Votre couleur d\'embed a été réinitialisée.')] });
     return;
   }
@@ -44,7 +50,11 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
   }
 
   const hex = `#${match[1].toUpperCase()}`;
-  await prisma.donor.update({ where: { userId: interaction.user.id }, data: { embedColor: hex } });
+  await prisma.donor.upsert({
+    where: { userId: interaction.user.id },
+    update: { embedColor: hex },
+    create: { userId: interaction.user.id, username: interaction.user.username, embedColor: hex, amount: 0, isDonor: false, isPublic: false },
+  });
   await interaction.editReply({
     embeds: [successEmbed('Couleur mise à jour', `Votre couleur d'embed est maintenant \`${hex}\`.`)
       .setColor(parseInt(match[1], 16))],

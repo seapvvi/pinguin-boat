@@ -40,7 +40,7 @@ export default function ThemeSelector() {
     api.get<any>('/api/auth/me')
       .then((res) => {
         const user = (res as any)?.data ?? res;
-        if (user?.isDonor) setIsDonor(true);
+        if (user?.isDonor || user?.isOwner) setIsDonor(true);
       })
       .catch(() => {});
   }, []);
