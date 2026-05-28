@@ -26,7 +26,7 @@ export const data = new SlashCommandBuilder()
 
 export const module = 'minigames';
 
-async function checkWinner(board: Board): Player | 'draw' | null {
+async function checkWinner(board: Board): Promise<Player | 'draw' | null> {
   const lines = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
     [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
@@ -143,12 +143,12 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
       // Deduct bets
       await prisma.economyWallet.update({
-        where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
+        where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
         data: { wallet: { decrement: bet } },
       });
 
       await prisma.economyWallet.update({
-        where: { guildId_userId: { guildId: interaction.guild.id, userId: opponent.id } },
+        where: { guildId_userId: { guildId: interaction.guild!.id, userId: opponent.id } },
         data: { wallet: { decrement: bet } },
       });
     }
@@ -242,11 +242,11 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
           // Return bets on draw
           if (bet > 0) {
             await prisma.economyWallet.update({
-              where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
+              where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
               data: { wallet: { increment: bet } },
             });
             await prisma.economyWallet.update({
-              where: { guildId_userId: { guildId: interaction.guild.id, userId: opponent.id } },
+              where: { guildId_userId: { guildId: interaction.guild!.id, userId: opponent.id } },
               data: { wallet: { increment: bet } },
             });
           }
@@ -258,7 +258,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
           if (bet > 0) {
             winnings = bet * 2;
             await prisma.economyWallet.update({
-              where: { guildId_userId: { guildId: interaction.guild.id, userId: winnerId } },
+              where: { guildId_userId: { guildId: interaction.guild!.id, userId: winnerId } },
               data: { 
                 wallet: { increment: winnings },
                 totalEarned: { increment: bet }
@@ -267,7 +267,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
             await prisma.economyTransaction.create({
               data: {
-                guildId: interaction.guild.id,
+                guildId: interaction.guild!.id,
                 toUserId: winnerId,
                 amount: winnings,
                 type: 'GAMBLE',
@@ -277,7 +277,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
           } else {
             winnings = settings.morpionReward;
             await prisma.economyWallet.update({
-              where: { guildId_userId: { guildId: interaction.guild.id, userId: winnerId } },
+              where: { guildId_userId: { guildId: interaction.guild!.id, userId: winnerId } },
               data: { wallet: { increment: winnings }, totalEarned: { increment: winnings } },
             });
           }
@@ -316,11 +316,11 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         // Return bets on timeout
         if (bet > 0) {
           await prisma.economyWallet.update({
-            where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
+            where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
             data: { wallet: { increment: bet } },
           });
           await prisma.economyWallet.update({
-            where: { guildId_userId: { guildId: interaction.guild.id, userId: opponent.id } },
+            where: { guildId_userId: { guildId: interaction.guild!.id, userId: opponent.id } },
             data: { wallet: { increment: bet } },
           });
         }

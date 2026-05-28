@@ -118,7 +118,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       return;
     }
 
-    const collector = interaction.channel.createMessageCollector({
+    const collector = (interaction.channel as TextChannel).createMessageCollector({
       filter: (msg: Message) => msg.author.id === interaction.user.id && !msg.author.bot,
       time: 300000, // 5 minutes total
       max: maxAttempts,
@@ -128,7 +128,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       const guess = parseInt(msg.content);
       
       if (isNaN(guess)) {
-        await msg.reply({ content: 'Veuillez entrer un nombre valide.', ephemeral: true });
+        await msg.reply({ content: 'Veuillez entrer un nombre valide.' });
         return;
       }
 
@@ -214,7 +214,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           .setFooter({ text: 'Continuez à deviner !' })
           .setTimestamp();
 
-        await msg.reply({ embeds: [updateEmbed], ephemeral: true });
+        await msg.reply({ embeds: [updateEmbed] });
         
         try {
           await message.edit({ embeds: [updateEmbed] });

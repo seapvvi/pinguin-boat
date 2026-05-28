@@ -90,7 +90,7 @@ export async function getStarboardEntry(
     where: {
       guildId_originalId: {
         guildId,
-        originalId,
+        originalId: originalMessageId,
       },
     },
   });

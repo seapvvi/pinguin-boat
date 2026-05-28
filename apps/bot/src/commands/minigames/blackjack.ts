@@ -119,7 +119,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     // Deduct bet
     await prisma.economyWallet.update({
-      where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
+      where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
       data: { wallet: { decrement: bet } },
     });
 
@@ -174,7 +174,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       }
 
       await prisma.economyWallet.update({
-        where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
+        where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
         data: { 
           wallet: { increment: winnings },
           totalEarned: { increment: result === 'blackjack' ? winnings - bet : 0 }
@@ -183,7 +183,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
       await prisma.economyTransaction.create({
         data: {
-          guildId: interaction.guild.id,
+          guildId: interaction.guild!.id,
           toUserId: interaction.user.id,
           amount: winnings,
           type: 'GAMBLE',
@@ -344,7 +344,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         }
 
         await prisma.economyWallet.update({
-          where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
+          where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
           data: { 
             wallet: { increment: winnings },
             totalEarned: { increment: winnings > bet ? winnings - bet : 0 }
@@ -353,7 +353,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
         await prisma.economyTransaction.create({
           data: {
-            guildId: interaction.guild.id,
+            guildId: interaction.guild!.id,
             toUserId: interaction.user.id,
             amount: winnings,
             type: 'GAMBLE',
@@ -389,7 +389,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         
         // Return bet on timeout
         await prisma.economyWallet.update({
-          where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
+          where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
           data: { wallet: { increment: bet } },
         });
 

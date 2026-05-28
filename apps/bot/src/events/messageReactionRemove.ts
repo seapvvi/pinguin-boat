@@ -46,16 +46,16 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   const poll = await prisma.poll.findFirst({
     where: { messageId, guildId, status: 'OPEN' },
   });
-  if (!poll) return;
-  if (!reaction.emoji.name || !numberEmojis.includes(reaction.emoji.name)) return;
+  if (poll) {
+    if (!reaction.emoji.name || !numberEmojis.includes(reaction.emoji.name)) return;
 
-  const dbUser = await prisma.user.findUnique({ where: { discordId: user.id } });
-  if (!dbUser) return;
+    const dbUser = await prisma.user.findUnique({ where: { discordId: user.id } });
+    if (!dbUser) return;
 
-  await prisma.pollVote.deleteMany({
-    where: { pollId: poll.id, userId: dbUser.id },
-  });
-  return;
+    await prisma.pollVote.deleteMany({
+      where: { pollId: poll.id, userId: dbUser.id },
+    });
+    return;
   }
 
   // Starboard module
@@ -107,3 +107,4 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
       }
     }
   }
+}

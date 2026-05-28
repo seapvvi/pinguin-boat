@@ -53,26 +53,26 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   }
 
   // Polls module
-  if (!(await isModuleEnabled(guildId, 'polls'))) return;
+  if (await isModuleEnabled(guildId, 'polls')) {
+    const poll = await prisma.poll.findFirst({
+      where: { messageId, guildId, status: 'OPEN' },
+    });
+    if (poll) {
+      if (!reaction.emoji.name || !numberEmojis.includes(reaction.emoji.name)) return;
 
-  const poll = await prisma.poll.findFirst({
-    where: { messageId, guildId, status: 'OPEN' },
-  });
-  if (!poll) return;
-  if (!reaction.emoji.name || !numberEmojis.includes(reaction.emoji.name)) return;
+      const optionIndex = numberEmojis.indexOf(reaction.emoji.name);
+      const options = JSON.parse(poll.options);
+      if (optionIndex < 0 || optionIndex >= options.length) return;
 
-  const optionIndex = numberEmojis.indexOf(reaction.emoji.name);
-  const options = JSON.parse(poll.options);
-  if (optionIndex < 0 || optionIndex >= options.length) return;
+      const dbUser = await ensureUser(user.id, user.username ?? user.id, user.displayAvatarURL?.() ?? null);
 
-  const dbUser = await ensureUser(user.id, user.username ?? user.id, user.displayAvatarURL?.() ?? null);
-
-  await prisma.pollVote.upsert({
-    where: { pollId_userId: { pollId: poll.id, userId: dbUser.id } },
-    update: { optionIndex },
-    create: { pollId: poll.id, userId: dbUser.id, optionIndex },
-  });
-  return;
+      await prisma.pollVote.upsert({
+        where: { pollId_userId: { pollId: poll.id, userId: dbUser.id } },
+        update: { optionIndex },
+        create: { pollId: poll.id, userId: dbUser.id, optionIndex },
+      });
+      return;
+    }
   }
 
   // Starboard module
@@ -166,3 +166,4 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
       }
     }
   }
+}

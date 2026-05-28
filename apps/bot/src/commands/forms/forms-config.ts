@@ -178,7 +178,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           .setDescription(`${templates.length} formulaire(s) disponible(s)`)
           .setTimestamp();
 
-        templates.forEach((template, index) => {
+        templates.forEach((template: any, index: number) => {
           embed.addFields({
             name: `${index + 1}. ${template.name}`,
             value: `ID: \`${template.id}\`\n${template.description ? template.description : 'Pas de description'}\n${template.enabled ? '✅ Activé' : '❌ Désactivé'}`,
