@@ -43,15 +43,15 @@ export const data = new SlashCommandBuilder()
       )
       .addStringOption((opt) =>
         opt
-          .setName('description')
-          .setDescription('La description du formulaire')
-          .setRequired(false)
-      )
-      .addStringOption((opt) =>
-        opt
           .setName('champs')
           .setDescription('Les champs du formulaire en JSON')
           .setRequired(true)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('description')
+          .setDescription('La description du formulaire')
+          .setRequired(false)
       )
   )
   .addSubcommand((subcommand) =>

@@ -19,7 +19,7 @@ export const data = new SlashCommandBuilder()
           )
           .setRequired(true)
       )
-      .addIntegerOption((opt) => opt.setName('level').setDescription('Niveau requis (pour le type "level")'))
+      .addIntegerOption((opt) => opt.setName('level').setDescription('Niveau requis (pour le type "level")').setRequired(false))
   )
   .addSubcommand((sub) =>
     sub.setName('remove')
