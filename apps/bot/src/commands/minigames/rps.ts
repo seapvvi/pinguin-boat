@@ -14,12 +14,6 @@ type RPSChoice = typeof RPS_CHOICES[number];
 export const data = new SlashCommandBuilder()
   .setName('rps')
   .setDescription('Jouez à Pierre-Feuille-Ciseaux')
-  .addIntegerOption((opt) =>
-    opt.setName('mise')
-      .setDescription('Mise en coins (0 pour jouer sans mise)')
-      .setRequired(false)
-      .setMinValue(0)
-  )
   .addStringOption((opt) =>
     opt.setName('choix')
       .setDescription('Votre choix')
@@ -29,6 +23,12 @@ export const data = new SlashCommandBuilder()
         { name: '📄 Feuille', value: 'feuille' },
         { name: '✂️ Ciseaux', value: 'ciseaux' }
       )
+  )
+  .addIntegerOption((opt) =>
+    opt.setName('mise')
+      .setDescription('Mise en coins (0 pour jouer sans mise)')
+      .setRequired(false)
+      .setMinValue(0)
   );
 
 export const module = 'minigames';
