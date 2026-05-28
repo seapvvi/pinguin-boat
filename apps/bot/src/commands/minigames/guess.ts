@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, Client, TextChannel, Collection, Message } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, Client, TextChannel, Collection, Message, ReadonlyCollection } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
@@ -224,7 +224,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       }
     });
 
-    collector.on('end', async (collected: Collection<string, Message>, reason: string) => {
+    collector.on('end', async (collected: ReadonlyCollection<string, Message<boolean>>, reason: string) => {
       if (reason === 'time') {
         await endGameSession(session.id, 'timeout');
 

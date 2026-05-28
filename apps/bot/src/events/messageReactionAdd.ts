@@ -84,11 +84,12 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
     if (reaction.emoji.name !== starSettings.starEmoji) return;
 
     // Check self-star restriction
-    if (!starSettings.selfStar && reaction.message.authorId === user.id) return;
+    if (!starSettings.selfStar && reaction.message.author?.id === user.id) return;
 
     // Get star count
     const starCount = reaction.count;
-    
+    if (starCount === null) return;
+
     if (starCount < starSettings.minStars) return;
 
     // Check if entry already exists
@@ -103,7 +104,7 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
       entry = await createStarboardEntry(
         guildId,
         messageId,
-        message.authorId,
+        message.author?.id,
         content,
         attachment
       );
@@ -120,7 +121,7 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
           })
           .setDescription(content || '*Aucun contenu textuel*')
           .addFields(
-            { name: 'Auteur', value: `<@${message.authorId}>`, inline: true },
+            { name: 'Auteur', value: `<@${message.author?.id}>`, inline: true },
             { name: 'Salon', value: `<#${message.channelId}>`, inline: true },
             { name: '⭐', value: `${starCount}`, inline: true }
           )
@@ -138,7 +139,7 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
 
         // Update entry with starboard message ID
         await updateStarboardEntry(entry.id, {
-          starCount,
+          starCount: starCount || undefined,
           starboardId: starMessage.id,
         });
       } catch (err) {
@@ -148,7 +149,7 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
       }
     } else {
       // Update existing entry
-      await updateStarboardEntry(entry.id, { starCount });
+      await updateStarboardEntry(entry.id, { starCount: starCount || undefined });
 
       // Update starboard message if it exists
       if (entry.starboardId) {

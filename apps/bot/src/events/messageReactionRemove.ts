@@ -68,7 +68,8 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
 
     // Get star count
     const starCount = reaction.count;
-    
+    if (starCount === null) return;
+
     // Check if entry exists
     const entry = await getStarboardEntry(guildId, messageId);
     if (!entry) return;
@@ -89,7 +90,7 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
       }
     } else {
       // Update star count
-      await updateStarboardEntry(entry.id, { starCount });
+      await updateStarboardEntry(entry.id, { starCount: starCount || undefined });
 
       // Update starboard message
       if (entry.starboardId) {
