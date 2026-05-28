@@ -100,11 +100,14 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
       const message = reaction.message;
       const content = message.content || '';
       const attachment = message.attachments.first()?.url;
+      const authorId = message.author?.id;
+
+      if (!authorId) return;
 
       entry = await createStarboardEntry(
         guildId,
         messageId,
-        message.author?.id,
+        authorId,
         content,
         attachment
       );
@@ -121,7 +124,7 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
           })
           .setDescription(content || '*Aucun contenu textuel*')
           .addFields(
-            { name: 'Auteur', value: `<@${message.author?.id}>`, inline: true },
+            { name: 'Auteur', value: `<@${authorId}>`, inline: true },
             { name: 'Salon', value: `<#${message.channelId}>`, inline: true },
             { name: '⭐', value: `${starCount}`, inline: true }
           )
