@@ -2,7 +2,7 @@ import { SlashCommandBuilder, CommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive } from '../../services/economy';
-import { errorEmbed, successEmbed } from '../../services/embed';
+import { enrichedErrorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 
 export const data = new SlashCommandBuilder()
@@ -18,7 +18,13 @@ export async function execute(interaction: CommandInteraction, client: Client): 
 
   try {
     if (!(await isEconomyActive(interaction.guild.id))) {
-      await interaction.editReply({ embeds: [errorEmbed('Module désactivé', 'L\'économie n\'est pas activée.')] });
+      await interaction.editReply({ 
+        embeds: [enrichedErrorEmbed(
+          'Module désactivé',
+          'Le module économie n\'est pas activé sur ce serveur.',
+          'Activez le module économie dans les paramètres du serveur ou via le dashboard.'
+        )] 
+      });
       return;
     }
     const settings = await getEconomySettings(interaction.guild.id);
@@ -35,7 +41,11 @@ export async function execute(interaction: CommandInteraction, client: Client): 
         const hours = Math.floor(remaining);
         const minutes = Math.floor((remaining - hours) * 60);
         await interaction.editReply({
-          embeds: [errorEmbed('Déjà réclamé', `Vous avez déjà réclamé votre récompense quotidienne. Revenez dans **${hours}h ${minutes}min**.`)],
+          embeds: [enrichedErrorEmbed(
+            'Déjà réclamé',
+            `Vous avez déjà réclamé votre récompense quotidienne. Revenez dans **${hours}h ${minutes}min**.`,
+            'La récompense quotidienne peut être réclamée toutes les 24 heures.'
+          )],
         });
         return;
       }
@@ -68,6 +78,12 @@ export async function execute(interaction: CommandInteraction, client: Client): 
     });
   } catch (error) {
     console.error(error);
-    await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de réclamer la récompense.')] });
+    await interaction.editReply({ 
+      embeds: [enrichedErrorEmbed(
+        'Erreur',
+        'Impossible de réclamer votre récompense quotidienne.',
+        'Vérifiez que vous avez un portefeuille économique actif et réessayez.'
+      )] 
+    });
   }
 }

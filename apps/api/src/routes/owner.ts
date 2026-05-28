@@ -245,18 +245,13 @@ export async function ownerRoutes(app: FastifyInstance) {
       const { guildId } = request.params as any;
       const guild = await prisma.guild.findUnique({ where: { id: guildId } });
       if (!guild) return reply.status(404).send(error('Serveur introuvable'));
-      try {
-        const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
-        });
-        if (!res.ok) throw new Error(`Discord API: ${res.status}`);
-      } catch (fetchErr: any) {
-        return reply.status(500).send(error(`Impossible de quitter le serveur: ${fetchErr.message}`));
-      }
+      
+      // Discord API does not allow bots to leave servers via API (403 Forbidden)
+      // The bot must be removed manually by an admin or the owner
+      // We can only mark the bot as not present in our database
       await prisma.guild.update({ where: { id: guildId }, data: { botPresent: false } });
-      await logOwnerAction(request, 'FORCE_LEAVE', { guildId, guildName: guild.name });
-      reply.send(success(null, `Bot retiré du serveur ${guild.name}`));
+      await logOwnerAction(request, 'FORCE_LEAVE_MARK', { guildId, guildName: guild.name });
+      reply.send(success(null, `Serveur marqué comme quitté. Le bot n'est plus sur ${guild.name}. Pour retirer complètement le bot, demandez à un administrateur du serveur de le retirer manuellement ou utilisez la commande /kick dans le serveur.`));
     } catch (err: any) { reply.status(500).send(error(err.message)); }
   });
 

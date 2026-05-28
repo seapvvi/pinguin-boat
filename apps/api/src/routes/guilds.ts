@@ -235,6 +235,7 @@ export async function guildRoutes(app: FastifyInstance) {
         })),
         disabledModules: computeDisabledModules(guild.modulesEnabled),
         memberCount: guild.memberCount, channelCount, roleCount,
+        dashboardAccessRoles: guild.settings ? JSON.parse(guild.settings.dashboardAccessRoles || '[]') : [],
       };
       reply.send(success({ guild: payload }));
     } catch (err: any) {
@@ -515,6 +516,7 @@ export async function guildRoutes(app: FastifyInstance) {
             modRoleIds: Array.isArray(s.modRoleIds) ? JSON.stringify(s.modRoleIds) : undefined,
             adminRoleIds: Array.isArray(s.adminRoleIds) ? JSON.stringify(s.adminRoleIds) : undefined,
             muteRoleId: s.muteRoleId ?? undefined,
+            dashboardAccessRoles: Array.isArray(s.dashboardAccessRoles) ? JSON.stringify(s.dashboardAccessRoles) : undefined,
           },
           create: {
             guildId,
@@ -525,6 +527,7 @@ export async function guildRoutes(app: FastifyInstance) {
             modRoleIds: Array.isArray(s.modRoleIds) ? JSON.stringify(s.modRoleIds) : '[]',
             adminRoleIds: Array.isArray(s.adminRoleIds) ? JSON.stringify(s.adminRoleIds) : '[]',
             muteRoleId: s.muteRoleId ?? null,
+            dashboardAccessRoles: Array.isArray(s.dashboardAccessRoles) ? JSON.stringify(s.dashboardAccessRoles) : '[]',
           },
         });
       }
@@ -592,6 +595,7 @@ export async function guildRoutes(app: FastifyInstance) {
         })),
         disabledModules: computeDisabledModules(guild.modulesEnabled),
         memberCount: guild.memberCount, channelCount, roleCount,
+        dashboardAccessRoles: guild.settings ? JSON.parse(guild.settings.dashboardAccessRoles || '[]') : [],
       };
       reply.send(success({ guild: payload }));
     } catch (err: any) {

@@ -2,7 +2,7 @@ import { SlashCommandBuilder, CommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive } from '../../services/economy';
-import { successEmbed, errorEmbed } from '../../services/embed';
+import { successEmbed, enrichedErrorEmbed } from '../../services/embed';
 
 const workCooldowns = new Map<string, number>();
 
@@ -17,7 +17,13 @@ export async function execute(interaction: CommandInteraction, _client: Client):
   if (!interaction.guild) return;
 
   if (!(await isEconomyActive(interaction.guild.id))) {
-    await interaction.editReply({ embeds: [errorEmbed('Module désactivé', 'L\'économie n\'est pas activée.')] });
+    await interaction.editReply({ 
+      embeds: [enrichedErrorEmbed(
+        'Module désactivé',
+        'Le module économie n\'est pas activé sur ce serveur.',
+        'Activez le module économie dans les paramètres du serveur ou via le dashboard.'
+      )] 
+    });
     return;
   }
   const settings = await getEconomySettings(interaction.guild.id);
@@ -28,7 +34,13 @@ export async function execute(interaction: CommandInteraction, _client: Client):
   const cooldownMs = settings.workCooldown * 1000;
   if (Date.now() - last < cooldownMs) {
     const remaining = Math.ceil((cooldownMs - (Date.now() - last)) / 1000);
-    await interaction.editReply({ embeds: [errorEmbed('Cooldown', `Reviens dans **${remaining}s**.`)] });
+    await interaction.editReply({ 
+      embeds: [enrichedErrorEmbed(
+        'Cooldown',
+        `Vous devez attendre encore **${remaining}s** avant de pouvoir travailler à nouveau.`,
+        'Le temps d\'attente entre chaque travail peut être configuré dans les paramètres du serveur.'
+      )] 
+    });
     return;
   }
 

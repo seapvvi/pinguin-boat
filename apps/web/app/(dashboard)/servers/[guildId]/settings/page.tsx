@@ -120,6 +120,24 @@ export default function GuildSettingsPage() {
         />
       </Card>
 
+      <Card className="space-y-5 p-4">
+        <h2 className="text-lg font-medium text-[var(--text-primary)]">Accès au dashboard</h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Configurez les rôles qui auront accès au dashboard de ce serveur. Par défaut, seul le propriétaire du serveur et les administrateurs Discord ont accès complet.
+        </p>
+        <DiscordSelect
+          type="role"
+          guildId={guildId}
+          label="Rôle avec accès complet au dashboard"
+          value={settings?.dashboardAccessRoles?.[0] || ''}
+          onChange={(id) => setSettings((s) => ({ ...s, dashboardAccessRoles: id ? [id] : [] }))}
+          placeholder="Sélectionner un rôle (optionnel)"
+        />
+        <p className="text-xs text-[var(--text-secondary)]">
+          Les membres ayant ce rôle pourront accéder à l'intégralité du dashboard de ce serveur, même sans être administrateur Discord.
+        </p>
+      </Card>
+
       <Card className="space-y-4 p-4 border border-[var(--error)]">
         <h2 className="text-lg font-medium text-[var(--error)]">Zone de danger</h2>
         <p className="text-sm text-[var(--text-secondary)]">Actions irréversibles — confirmation par le nom du serveur requise.</p>

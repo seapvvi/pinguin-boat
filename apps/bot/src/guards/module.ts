@@ -15,6 +15,9 @@ const moduleFieldMap: Record<string, keyof ModuleEnabled> = {
   welcome: 'welcome',
   autoroles: 'autoroles',
   embeds: 'embeds',
+  minigames: 'minigames',
+  starboard: 'starboard',
+  forms: 'forms',
 };
 
 export async function isModuleEnabled(guildId: string, moduleName: string): Promise<boolean> {

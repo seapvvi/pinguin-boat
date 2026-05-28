@@ -1,6 +1,13 @@
 import { MessageReaction, User, Client, PartialMessageReaction, PartialUser } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../services/user';
+import { isModuleEnabled } from '../guards/module';
+import { 
+  getStarboardSettings, 
+  getStarboardEntry, 
+  updateStarboardEntry, 
+  deleteStarboardEntry 
+} from '../services/starboard';
 
 const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
@@ -48,4 +55,55 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   await prisma.pollVote.deleteMany({
     where: { pollId: poll.id, userId: dbUser.id },
   });
-}
+  return;
+  }
+
+  // Starboard module
+  if (await isModuleEnabled(guildId, 'starboard')) {
+    const starSettings = await getStarboardSettings(guildId);
+    if (!starSettings.enabled || !starSettings.channelId) return;
+
+    // Check if this is the star emoji
+    if (reaction.emoji.name !== starSettings.starEmoji) return;
+
+    // Get star count
+    const starCount = reaction.count;
+    
+    // Check if entry exists
+    const entry = await getStarboardEntry(guildId, messageId);
+    if (!entry) return;
+
+    if (starCount < starSettings.minStars) {
+      // Remove from starboard if below threshold
+      try {
+        if (entry.starboardId) {
+          const starboardChannel = await reaction.message.guild?.channels.fetch(starSettings.channelId);
+          if (starboardChannel && starboardChannel.isTextBased()) {
+            const starMessage = await starboardChannel.messages.fetch(entry.starboardId);
+            await starMessage.delete();
+          }
+        }
+        await deleteStarboardEntry(entry.id);
+      } catch (err) {
+        console.error('Error removing from starboard:', err);
+      }
+    } else {
+      // Update star count
+      await updateStarboardEntry(entry.id, { starCount });
+
+      // Update starboard message
+      if (entry.starboardId) {
+        try {
+          const starboardChannel = await reaction.message.guild?.channels.fetch(starSettings.channelId);
+          if (!starboardChannel || !starboardChannel.isTextBased()) return;
+
+          const starMessage = await starboardChannel.messages.fetch(entry.starboardId);
+          await starMessage.edit({
+            content: `${starSettings.starEmoji} **${starCount}**`,
+          });
+        } catch (err) {
+          console.error('Error updating starboard message:', err);
+        }
+      }
+    }
+  }

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
-import { errorEmbed, createEmbed } from '../../services/embed';
+import { enrichedErrorEmbed, createEmbed } from '../../services/embed';
 
 export const data = new SlashCommandBuilder()
   .setName('balance')
@@ -35,6 +35,12 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     await interaction.editReply({ embeds: [embed] });
   } catch {
-    await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de récupérer le solde.')] });
+    await interaction.editReply({ 
+      embeds: [enrichedErrorEmbed(
+        'Erreur de récupération',
+        'Impossible de récupérer votre solde. Veuillez réessayer.',
+        'Vérifiez que vous avez un portefeuille économique actif sur ce serveur.'
+      )] 
+    });
   }
 }

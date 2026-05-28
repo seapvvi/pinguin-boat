@@ -53,7 +53,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
   await prisma.donor.upsert({
     where: { userId: interaction.user.id },
     update: { embedColor: hex },
-    create: { userId: interaction.user.id, username: interaction.user.username, embedColor: hex, amount: 0, isDonor: false, isPublic: false },
+    create: { userId: interaction.user.id, username: interaction.user.username, embedColor: hex, amount: 0, isDonor: true, isPublic: false },
   });
   await interaction.editReply({
     embeds: [successEmbed('Couleur mise à jour', `Votre couleur d'embed est maintenant \`${hex}\`.`)

@@ -2,6 +2,14 @@ import { MessageReaction, User, Client, PartialMessageReaction, PartialUser } fr
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../services/user';
 import { isModuleEnabled } from '../guards/module';
+import { 
+  getStarboardSettings, 
+  getStarboardEntry, 
+  createStarboardEntry, 
+  updateStarboardEntry, 
+  deleteStarboardEntry 
+} from '../services/starboard';
+import { createEmbed } from '../services/embed';
 
 const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
@@ -64,4 +72,97 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
     update: { optionIndex },
     create: { pollId: poll.id, userId: dbUser.id, optionIndex },
   });
-}
+  return;
+  }
+
+  // Starboard module
+  if (await isModuleEnabled(guildId, 'starboard')) {
+    const starSettings = await getStarboardSettings(guildId);
+    if (!starSettings.enabled || !starSettings.channelId) return;
+
+    // Check if this is the star emoji
+    if (reaction.emoji.name !== starSettings.starEmoji) return;
+
+    // Check self-star restriction
+    if (!starSettings.selfStar && reaction.message.authorId === user.id) return;
+
+    // Get star count
+    const starCount = reaction.count;
+    
+    if (starCount < starSettings.minStars) return;
+
+    // Check if entry already exists
+    let entry = await getStarboardEntry(guildId, messageId);
+
+    if (!entry) {
+      // Create new starboard entry
+      const message = reaction.message;
+      const content = message.content || '';
+      const attachment = message.attachments.first()?.url;
+
+      entry = await createStarboardEntry(
+        guildId,
+        messageId,
+        message.authorId,
+        content,
+        attachment
+      );
+
+      // Post to starboard channel
+      try {
+        const starboardChannel = await reaction.message.guild?.channels.fetch(starSettings.channelId);
+        if (!starboardChannel || !starboardChannel.isTextBased()) return;
+
+        const starboardEmbed = createEmbed('starboard')
+          .setAuthor({
+            name: message.author?.username || 'Utilisateur inconnu',
+            iconURL: message.author?.displayAvatarURL(),
+          })
+          .setDescription(content || '*Aucun contenu textuel*')
+          .addFields(
+            { name: 'Auteur', value: `<@${message.authorId}>`, inline: true },
+            { name: 'Salon', value: `<#${message.channelId}>`, inline: true },
+            { name: '⭐', value: `${starCount}`, inline: true }
+          )
+          .setTimestamp(message.createdTimestamp)
+          .setFooter({ text: `Message ID: ${messageId}` });
+
+        if (attachment) {
+          starboardEmbed.setImage(attachment);
+        }
+
+        const starMessage = await starboardChannel.send({
+          content: `${starSettings.starEmoji} **${starCount}**`,
+          embeds: [starboardEmbed],
+        });
+
+        // Update entry with starboard message ID
+        await updateStarboardEntry(entry.id, {
+          starCount,
+          starboardId: starMessage.id,
+        });
+      } catch (err) {
+        console.error('Error posting to starboard:', err);
+        // Delete entry if posting failed
+        await deleteStarboardEntry(entry.id);
+      }
+    } else {
+      // Update existing entry
+      await updateStarboardEntry(entry.id, { starCount });
+
+      // Update starboard message if it exists
+      if (entry.starboardId) {
+        try {
+          const starboardChannel = await reaction.message.guild?.channels.fetch(starSettings.channelId);
+          if (!starboardChannel || !starboardChannel.isTextBased()) return;
+
+          const starMessage = await starboardChannel.messages.fetch(entry.starboardId);
+          await starMessage.edit({
+            content: `${starSettings.starEmoji} **${starCount}**`,
+          });
+        } catch (err) {
+          console.error('Error updating starboard message:', err);
+        }
+      }
+    }
+  }

@@ -106,13 +106,13 @@ export default function OwnerUsersPage() {
               onError={(e) => {
                 const idx = u.discriminator && u.discriminator !== '0'
                   ? parseInt(u.discriminator) % 5
-                  : (Number(BigInt(u.discordId) >> 22n) % 6);
+                  : (Number(BigInt(String(u.discordId).replace(/\D/g, '')) >> 22n) % 6);
                 e.currentTarget.src = `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
               }}
             />
           ) : (
             <img 
-              src={`https://cdn.discordapp.com/embed/avatars/${u.discriminator && u.discriminator !== '0' ? parseInt(u.discriminator) % 5 : (Number(BigInt(u.discordId) >> 22n) % 6)}.png`}
+              src={`https://cdn.discordapp.com/embed/avatars/${u.discriminator && u.discriminator !== '0' ? parseInt(u.discriminator) % 5 : (Number(BigInt(String(u.discordId).replace(/\D/g, '')) >> 22n) % 6)}.png`}
               alt="" 
               className="w-8 h-8 rounded-[0px]"
             />
