@@ -428,7 +428,12 @@ export default function FormsPage() {
 
           {/* Template Modal */}
           {showTemplateModal && (
-            <Modal onClose={() => setShowTemplateModal(false)} title={editingTemplate ? 'Modifier le formulaire' : 'Créer un formulaire'}>
+            <Modal
+              open={showTemplateModal}
+              onClose={() => setShowTemplateModal(false)}
+              title={editingTemplate ? 'Modifier le formulaire' : 'Créer un formulaire'}
+            >
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs text-[var(--text-secondary)] mb-1">Nom</label>
