@@ -156,7 +156,8 @@ export default function OwnerServicesPage() {
                     <Play size={12} /> Démarrer
                   </Button>
                 ) : (
-                  <Button variant="danger" size="sm" loading={actionLoading === `${svc.name}_stop`}>
+                  <Button variant="danger" size="sm" loading={actionLoading === `${svc.name}_stop`}
+                    onClick={() => handleAction(svc, 'stop')}>
                     <Square size={12} /> Arrêter
                   </Button>
                 )}

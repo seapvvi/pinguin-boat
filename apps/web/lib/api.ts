@@ -338,3 +338,11 @@ export async function fetchAuditLogs(guildId: string, params?: Record<string, st
 export async function serviceAction(service: string, action: 'start' | 'stop' | 'restart'): Promise<APIResponse<{ success: boolean }>> {
   return api.post<APIResponse<{ success: boolean }>>(`/api/owner/services/${service}/${action}`);
 }
+
+export async function stopService(service: string): Promise<APIResponse<{ success: boolean }>> {
+  return api.post<APIResponse<{ success: boolean }>>(`/api/owner/services/${service}/stop`);
+}
+
+export async function startService(service: string): Promise<APIResponse<{ success: boolean }>> {
+  return api.post<APIResponse<{ success: boolean }>>(`/api/owner/services/${service}/start`);
+}

@@ -83,16 +83,16 @@ async function runDeploymentInline(deploymentId: string) {
     await addLog('Installation des dépendances...');
     exec('pnpm install --no-frozen-lockfile');
     await addLog('Dépendances installées');
-    await addLog('Génération Prisma...');
-    exec('pnpm db:generate');
-    await addLog('Prisma généré');
+    await addLog('Push de la base de données...');
+    exec('pnpm db:push');
+    await addLog('Base de données synchronisée');
 
     await addLog('Build du projet...');
     exec('pnpm build');
     await addLog('Build terminé');
-    await addLog('Migration de la base de données...');
-    exec('pnpm db:migrate:prod');
-    await addLog('Migrations appliquées');
+    await addLog('Préchargement du développement...');
+    exec('pnpm dev:preload');
+    await addLog('Préchargement terminé');
 
     await prisma.deployment.update({
       where: { id: deploymentId },
