@@ -67,12 +67,26 @@ export async function getActiveSession(userId: string, gameType?: string) {
     where.gameType = gameType;
   }
   
-  return await prisma.minigameSession.findFirst({
+  const session = await prisma.minigameSession.findFirst({
     where,
     orderBy: {
       createdAt: 'desc',
     },
   });
+
+  if (session) {
+    const ageMs = Date.now() - new Date(session.createdAt).getTime();
+    const MAX_SESSION_AGE = 10 * 60 * 1000;
+    if (ageMs > MAX_SESSION_AGE) {
+      await prisma.minigameSession.update({
+        where: { id: session.id },
+        data: { status: 'expired' },
+      });
+      return null;
+    }
+  }
+
+  return session;
 }
 
 export async function updateGameSession(

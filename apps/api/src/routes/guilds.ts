@@ -90,11 +90,12 @@ export async function guildRoutes(app: FastifyInstance) {
     }
   });
 
-  const MODULE_FIELDS = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds'] as const;
+  const MODULE_FIELDS = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms'] as const;
   const MODULE_DEFAULTS: Record<string, boolean> = {
     moderation: true, protection: true, tickets: true, logs: true,
     levels: true, economy: false, music: true, giveaways: true,
     polls: true, suggestions: true, welcome: true, autoroles: true, embeds: true,
+    minigames: true, starboard: false, forms: false,
   };
 
   function computeDisabledModules(modulesEnabled: any): string[] {
@@ -660,7 +661,7 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as any;
       const body = request.body as any;
-      const fields = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds'];
+      const fields = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms'];
       const data: any = {};
       for (const f of fields) { if (typeof body[f] === 'boolean') data[f] = body[f]; }
       if (Object.keys(data).length > 0) {
@@ -676,7 +677,7 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId, moduleKey } = request.params as any;
       const { enabled } = request.body as any;
-      const validModules = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds'];
+      const validModules = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms'];
       if (!validModules.includes(moduleKey)) return reply.status(400).send(error('Module inconnu'));
       await prisma.moduleEnabled.upsert({
         where: { guildId },
@@ -2187,6 +2188,223 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.musicHistoryEntry.count({ where: { guildId } }),
       ]);
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  // ─── Forms ───
+
+  app.get('/:guildId/forms', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      let settings = await prisma.formSettings.findUnique({
+        where: { guildId },
+        include: { templates: true },
+      });
+      if (!settings) {
+        settings = await prisma.formSettings.create({
+          data: { guildId, enabled: false },
+          include: { templates: true },
+        });
+      }
+      reply.send(success({ settings }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.put('/:guildId/forms', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      const settings = await prisma.formSettings.upsert({
+        where: { guildId },
+        update: {
+          enabled: body.enabled ?? undefined,
+          channelId: body.channelId !== undefined ? body.channelId : undefined,
+          logChannel: body.logChannel !== undefined ? body.logChannel : undefined,
+        },
+        create: {
+          guildId,
+          enabled: body.enabled ?? false,
+          channelId: body.channelId ?? null,
+          logChannel: body.logChannel ?? null,
+        },
+        include: { templates: true },
+      });
+      reply.send(success({ settings }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.post('/:guildId/forms/templates', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      if (!body.name) return reply.status(400).send(error('Le nom du formulaire est requis'));
+      await prisma.formSettings.upsert({
+        where: { guildId },
+        update: {},
+        create: { guildId, enabled: false },
+      });
+      const template = await prisma.formTemplate.create({
+        data: {
+          guildId,
+          name: body.name,
+          description: body.description ?? null,
+          fields: JSON.stringify(body.fields ?? []),
+          enabled: body.enabled ?? true,
+        },
+      });
+      reply.status(201).send(success({ template }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.put('/:guildId/forms/templates/:templateId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { templateId } = request.params as any;
+      const body = request.body as any;
+      const data: any = {};
+      if (body.name !== undefined) data.name = body.name;
+      if (body.description !== undefined) data.description = body.description;
+      if (body.fields !== undefined) data.fields = JSON.stringify(body.fields);
+      if (body.enabled !== undefined) data.enabled = body.enabled;
+      const template = await prisma.formTemplate.update({
+        where: { id: templateId },
+        data,
+      });
+      reply.send(success({ template }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.delete('/:guildId/forms/templates/:templateId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { templateId } = request.params as any;
+      await prisma.formTemplate.delete({ where: { id: templateId } });
+      reply.send(success(null, 'Formulaire supprimé'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.get('/:guildId/forms/submissions', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const q = request.query as any;
+      const page = Math.max(1, parseInt(q.page) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 20));
+      const status = q.status ?? undefined;
+      const where: any = { guildId };
+      if (status) where.status = status;
+      const [submissions, total] = await Promise.all([
+        prisma.formSubmission.findMany({
+          where, orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit, take: limit,
+        }),
+        prisma.formSubmission.count({ where }),
+      ]);
+      const templateIds = [...new Set(submissions.map((s) => s.templateId))];
+      const templates = await prisma.formTemplate.findMany({
+        where: { id: { in: templateIds } },
+        select: { id: true, name: true },
+      });
+      const templateMap = new Map(templates.map((t) => [t.id, t.name]));
+      const userIds = [...new Set(submissions.map((s) => s.userId))];
+      const users = await prisma.user.findMany({
+        where: { discordId: { in: userIds } },
+        select: { discordId: true, username: true, avatar: true },
+      });
+      const userMap = new Map(users.map((u) => [u.discordId, u]));
+      const enriched = submissions.map((s) => ({
+        ...s,
+        responses: JSON.parse(s.responses),
+        templateName: templateMap.get(s.templateId) ?? 'Inconnu',
+        user: userMap.get(s.userId) ?? { discordId: s.userId, username: s.userId, avatar: null },
+      }));
+      reply.send(success({ submissions: enriched, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.patch('/:guildId/forms/submissions/:submissionId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { submissionId } = request.params as any;
+      const body = request.body as any;
+      const data: any = {};
+      if (body.status !== undefined) data.status = body.status;
+      if (body.reviewedBy !== undefined) data.reviewedBy = body.reviewedBy;
+      if (body.status === 'approved' || body.status === 'rejected') {
+        data.reviewedAt = new Date();
+        data.reviewedBy = data.reviewedBy ?? (request as any).user?.discordId;
+      }
+      const submission = await prisma.formSubmission.update({
+        where: { id: submissionId },
+        data,
+      });
+      reply.send(success({ submission }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  // ─── Starboard ───
+
+  app.get('/:guildId/starboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      let settings = await prisma.starboardSettings.findUnique({
+        where: { guildId },
+      });
+      if (!settings) {
+        settings = await prisma.starboardSettings.create({
+          data: { guildId, enabled: false, starEmoji: '\u2B50', minStars: 3, selfStar: false },
+        });
+      }
+      reply.send(success({ settings }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.put('/:guildId/starboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      const settings = await prisma.starboardSettings.upsert({
+        where: { guildId },
+        update: {
+          enabled: body.enabled ?? undefined,
+          channelId: body.channelId !== undefined ? body.channelId : undefined,
+          starEmoji: body.starEmoji ?? undefined,
+          minStars: body.minStars !== undefined ? parseInt(body.minStars) : undefined,
+          selfStar: body.selfStar ?? undefined,
+        },
+        create: {
+          guildId,
+          enabled: body.enabled ?? false,
+          channelId: body.channelId ?? null,
+          starEmoji: body.starEmoji ?? '\u2B50',
+          minStars: body.minStars ?? 3,
+          selfStar: body.selfStar ?? false,
+        },
+      });
+      reply.send(success({ settings }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.get('/:guildId/starboard/entries', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const q = request.query as any;
+      const page = Math.max(1, parseInt(q.page) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 20));
+      const [entries, total] = await Promise.all([
+        prisma.starboardEntry.findMany({
+          where: { guildId }, orderBy: { starCount: 'desc' },
+          skip: (page - 1) * limit, take: limit,
+        }),
+        prisma.starboardEntry.count({ where: { guildId } }),
+      ]);
+      const authorIds = [...new Set(entries.map((e) => e.authorId))];
+      const users = await prisma.user.findMany({
+        where: { discordId: { in: authorIds } },
+        select: { discordId: true, username: true, avatar: true },
+      });
+      const userMap = new Map(users.map((u) => [u.discordId, u]));
+      const enriched = entries.map((e) => ({
+        ...e,
+        author: userMap.get(e.authorId) ?? { discordId: e.authorId, username: e.authorId, avatar: null },
+      }));
+      reply.send(success({ entries: enriched, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 

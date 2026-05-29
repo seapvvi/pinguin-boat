@@ -4,7 +4,8 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   Users, Hash, Shield, Scale, Activity,
-  MessageSquare, Terminal, Music, Gift, Check, X
+  MessageSquare, Terminal, Music, Gift, Check, X,
+  Gamepad2, Star, ClipboardList,
 } from 'lucide-react';
 import { Card, KPICard, Skeleton, Badge, Toggle } from '@pinguin/ui';
 import { EmptyState } from '@pinguin/ui';
@@ -90,6 +91,9 @@ export default function GuildOverviewPage() {
     { key: ModuleName.ECONOMY, label: 'Économie', icon: <Activity size={16} /> },
     { key: ModuleName.MUSIC, label: 'Musique', icon: <Music size={16} /> },
     { key: ModuleName.GIVEAWAYS, label: 'Giveaways', icon: <Gift size={16} /> },
+    { key: ModuleName.MINIGAMES, label: 'Minijeux', icon: <Gamepad2 size={16} /> },
+    { key: ModuleName.STARBOARD, label: 'Starboard', icon: <Star size={16} /> },
+    { key: ModuleName.FORMS, label: 'Formulaires', icon: <ClipboardList size={16} /> },
   ];
 
   return (

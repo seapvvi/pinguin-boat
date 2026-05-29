@@ -346,3 +346,47 @@ export async function stopService(service: string): Promise<APIResponse<{ succes
 export async function startService(service: string): Promise<APIResponse<{ success: boolean }>> {
   return api.post<APIResponse<{ success: boolean }>>(`/api/owner/services/${service}/start`);
 }
+
+// ─── Forms ───
+
+export async function fetchFormSettings(guildId: string): Promise<APIResponse<{ settings: any }>> {
+  return api.get<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/forms`);
+}
+
+export async function updateFormSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: any }>> {
+  return api.put<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/forms`, settings);
+}
+
+export async function createFormTemplate(guildId: string, data: { name: string; description?: string; fields?: any[]; enabled?: boolean }): Promise<APIResponse<{ template: any }>> {
+  return api.post<APIResponse<{ template: any }>>(`/api/guilds/${guildId}/forms/templates`, data);
+}
+
+export async function updateFormTemplate(guildId: string, templateId: string, data: Record<string, unknown>): Promise<APIResponse<{ template: any }>> {
+  return api.put<APIResponse<{ template: any }>>(`/api/guilds/${guildId}/forms/templates/${templateId}`, data);
+}
+
+export async function deleteFormTemplate(guildId: string, templateId: string): Promise<APIResponse<{ success: boolean }>> {
+  return api.delete<APIResponse<{ success: boolean }>>(`/api/guilds/${guildId}/forms/templates/${templateId}`);
+}
+
+export async function fetchFormSubmissions(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ submissions: any[]; pagination: any }>> {
+  return api.get<APIResponse<{ submissions: any[]; pagination: any }>>(`/api/guilds/${guildId}/forms/submissions`, params);
+}
+
+export async function updateFormSubmission(guildId: string, submissionId: string, data: Record<string, unknown>): Promise<APIResponse<{ submission: any }>> {
+  return api.patch<APIResponse<{ submission: any }>>(`/api/guilds/${guildId}/forms/submissions/${submissionId}`, data);
+}
+
+// ─── Starboard ───
+
+export async function fetchStarboardSettings(guildId: string): Promise<APIResponse<{ settings: any }>> {
+  return api.get<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/starboard`);
+}
+
+export async function updateStarboardSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: any }>> {
+  return api.put<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/starboard`, settings);
+}
+
+export async function fetchStarboardEntries(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: any[]; pagination: any }>> {
+  return api.get<APIResponse<{ entries: any[]; pagination: any }>>(`/api/guilds/${guildId}/starboard/entries`, params);
+}

@@ -34,6 +34,8 @@ import {
   Lock,
   Users,
   Radio,
+  Star,
+  ClipboardList,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -110,6 +112,8 @@ const categoryDefs: CategoryDef[] = [
       { label: 'Giveaways', icon: <Gift size={18} />, href: '/giveaways', guildPage: true },
       { label: 'Sondages', icon: <Vote size={18} />, href: '/polls', guildPage: true },
       { label: 'Suggestions', icon: <Lightbulb size={18} />, href: '/suggestions', guildPage: true },
+      { label: 'Starboard', icon: <Star size={18} />, href: '/starboard', guildPage: true },
+      { label: 'Formulaires', icon: <ClipboardList size={18} />, href: '/forms', guildPage: true },
     ],
   },
   {

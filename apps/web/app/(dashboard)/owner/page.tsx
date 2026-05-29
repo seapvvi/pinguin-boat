@@ -5,12 +5,12 @@ import {
   Server, Users, Terminal, Clock, Cpu,
   RefreshCw, RotateCcw, Save, Power, Activity,
   CheckCircle, XCircle, Heart, FileText, StickyNote,
-  Plus, Trash2, Edit2, X, Square
+  Plus, Trash2, Edit2, X
 } from 'lucide-react';
 import {
   Card, Button, Badge, Skeleton, KPICard, EmptyState, ErrorMessage, Input
 } from '@pinguin/ui';
-import { fetchBotStats, fetchOwnerLogs, triggerBackup, triggerRestart, triggerDeploy, triggerRollback, stopService, api } from '@/lib/api';
+import { fetchBotStats, fetchOwnerLogs, triggerBackup, triggerRestart, triggerDeploy, triggerRollback, api } from '@/lib/api';
 import { formatNumber, formatDuration, formatDate } from '@/lib/utils';
 import DeploymentProgressModal from '@/components/DeploymentProgressModal';
 
@@ -235,9 +235,9 @@ export default function OwnerDashboardPage() {
     { key: 'deploy', icon: <RefreshCw size={16} />, label: 'Mettre à jour', desc: 'git pull && pnpm install && db:push && build && dev:preload', variant: 'primary' as const, fn: () => triggerDeploy() },
     { key: 'rollback', icon: <RotateCcw size={16} />, label: 'Rollback', desc: 'Revenir à la version précédente', variant: 'secondary' as const, fn: () => triggerRollback() },
     { key: 'backup', icon: <Save size={16} />, label: 'Backup', desc: 'Sauvegarder les données', variant: 'secondary' as const, fn: () => triggerBackup() },
-    { key: 'restart', icon: <Power size={16} />, label: 'Redémarrer', desc: 'Redémarrer tous les services', variant: 'danger' as const, fn: () => triggerRestart() },
-    { key: 'stop-bot', icon: <Square size={16} />, label: 'Arrêter Bot', desc: 'Arrêter le service Bot Discord', variant: 'danger' as const, fn: () => stopService('bot') },
-    { key: 'stop-web', icon: <Square size={16} />, label: 'Arrêter Web', desc: 'Arrêter le service Interface Web', variant: 'danger' as const, fn: () => stopService('web') },
+    { key: 'restart', icon: <Power size={16} />, label: 'Redémarrer tout', desc: 'Redémarrer tous les services', variant: 'danger' as const, fn: () => triggerRestart() },
+    { key: 'restart-bot', icon: <RotateCcw size={16} />, label: 'Redémarrer Bot', desc: 'Redémarrer le service Bot Discord', variant: 'danger' as const, fn: () => triggerRestart('bot') },
+    { key: 'restart-web', icon: <RotateCcw size={16} />, label: 'Redémarrer Dashboard', desc: 'Redémarrer le service Interface Web', variant: 'danger' as const, fn: () => triggerRestart('web') },
   ];
 
   const systems: SystemService[] = [
