@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
-  Server, Play, Square, RotateCcw, Activity, CheckCircle,
+  Server, Play, RotateCcw, Activity, CheckCircle,
   XCircle, Clock, Terminal, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import {
@@ -156,15 +156,11 @@ export default function OwnerServicesPage() {
                     <Play size={12} /> Démarrer
                   </Button>
                 ) : (
-                  <Button variant="danger" size="sm" loading={actionLoading === `${svc.name}_stop`}
-                    onClick={() => handleAction(svc, 'stop')}>
-                    <Square size={12} /> Arrêter
+                  <Button variant="danger" size="sm" loading={actionLoading === `${svc.name}_restart`}
+                    onClick={() => handleAction(svc, 'restart')}>
+                    <RotateCcw size={12} /> Redémarrer
                   </Button>
                 )}
-                <Button variant="secondary" size="sm" loading={actionLoading === `${svc.name}_restart`}
-                  onClick={() => handleAction(svc, 'restart')} disabled={svc.status === 'RESTARTING'}>
-                  <RotateCcw size={12} /> Redémarrer
-                </Button>
                 <Button variant="ghost" size="sm" onClick={() => setSelectedService(selectedService?.name === svc.name ? null : svc)}>
                   <Terminal size={12} /> Logs
                 </Button>

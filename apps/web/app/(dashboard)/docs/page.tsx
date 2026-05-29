@@ -6,6 +6,7 @@ import {
   BookOpen, Shield, Swords, Ticket, ScrollText, Trophy, Wallet,
   Gift, Vote, Lightbulb, DoorOpen, UserPlus, FileText, Settings,
   Music, Crown, ChevronDown, ChevronRight, Terminal, Hash,
+  Gamepad2, Star, ClipboardList,
 } from 'lucide-react';
 
 interface Section {
@@ -258,6 +259,62 @@ const SECTIONS: Section[] = [
       { name: '/loop', desc: 'Activer/désactiver la répétition.', usage: '/loop' },
       { name: '/shuffle', desc: 'Mélanger la queue.', usage: '/shuffle' },
       { name: '/nowplaying', desc: 'Voir la piste en cours.', usage: '/nowplaying' },
+    ],
+  },
+  {
+    id: 'minigames',
+    icon: <Gamepad2 size={18} />,
+    title: 'Minijeux',
+    description: 'Divertissez votre communauté avec des minijeux intégrés utilisant le système d\'économie.',
+    features: [
+      'Blackjack : jouez au 21 contre le croupier avec vos coins.',
+      'Pierre-Feuille-Ciseaux : défiez le bot dans un classique.',
+      'Morpion : jouez au Tic-Tac-Toe contre un autre membre.',
+      'Guess : devinez un nombre aléatoire pour gagner des coins.',
+      'Mises configurables : minimum et maximum par le staff.',
+      'Récompenses personnalisables pour chaque jeu.',
+      'Sessions sécurisées : une seule partie active par joueur.',
+    ],
+    commands: [
+      { name: '/blackjack', desc: 'Lancer une partie de Blackjack.', usage: '/blackjack <mise>' },
+      { name: '/rps', desc: 'Jouer à Pierre-Feuille-Ciseaux.', usage: '/rps <mise> <choix>' },
+      { name: '/morpion', desc: 'Lancer une partie de Morpion.', usage: '/morpion <mise> @adversaire' },
+      { name: '/guess', desc: 'Deviner un nombre aléatoire.', usage: '/guess <mise>' },
+    ],
+  },
+  {
+    id: 'starboard',
+    icon: <Star size={18} />,
+    title: 'Starboard',
+    description: 'Mettez en avant les messages les plus populaires de votre serveur.',
+    features: [
+      'Salon starboard dédié pour afficher les messages les plus étoilés.',
+      'Emoji de réaction personnalisable (par défaut : \u2B50).',
+      'Seuil minimum de réactions configurable.',
+      'Option pour autoriser ou non l\'auto-star (réagir à son propre message).',
+      'Affichage en temps réel des entrées depuis le dashboard.',
+      'Classement des messages par nombre d\'étoiles.',
+    ],
+    commands: [
+      { name: '/starboard config', desc: 'Configurer le starboard.', usage: '/starboard config <salon> [emoji] [min]' },
+    ],
+  },
+  {
+    id: 'forms',
+    icon: <ClipboardList size={18} />,
+    title: 'Formulaires',
+    description: 'Créez des formulaires personnalisés pour collecter des informations auprès de vos membres.',
+    features: [
+      'Modèles de formulaires personnalisables avec champs texte, texte long et choix multiples.',
+      'Salon de réception des réponses configurable.',
+      'Salon de logs pour le suivi des soumissions.',
+      'Approbation ou rejet des réponses depuis le dashboard en temps réel.',
+      'Plusieurs formulaires actifs simultanément.',
+      'Champs obligatoires ou optionnels.',
+    ],
+    commands: [
+      { name: '/forms submit', desc: 'Remplir un formulaire disponible.', usage: '/forms submit <nom_formulaire>' },
+      { name: '/forms config', desc: 'Configurer le système de formulaires.', usage: '/forms config <salon> [log_salon]' },
     ],
   },
   {

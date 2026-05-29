@@ -12,6 +12,9 @@ export enum ModuleName {
   WELCOME = 'WELCOME',
   AUTOROLES = 'AUTOROLES',
   EMBEDS = 'EMBEDS',
+  MINIGAMES = 'MINIGAMES',
+  STARBOARD = 'STARBOARD',
+  FORMS = 'FORMS',
 }
 
 export enum PermissionLevel {
