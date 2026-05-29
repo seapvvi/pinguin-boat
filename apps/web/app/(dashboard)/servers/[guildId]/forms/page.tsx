@@ -502,7 +502,12 @@ export default function FormsPage() {
 
           {/* Submission Detail Modal */}
           {viewSubmission && (
-            <Modal onClose={() => setViewSubmission(null)} title={`Réponse - ${viewSubmission.templateName}`}>
+            <Modal
+              open={!!viewSubmission}
+              onClose={() => setViewSubmission(null)}
+              title={`Réponse - ${viewSubmission.templateName}`}
+            >
+
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-semibold">
