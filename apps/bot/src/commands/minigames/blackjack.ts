@@ -2,7 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, ActionRowBuil
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
-import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession } from '../../services/minigames';
+import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
 
@@ -89,7 +89,13 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     const settings = await getMinigameSettings(interaction.guild.id);
     const economySettings = await getEconomySettings(interaction.guild.id);
-    
+
+    const channelErr = minigameChannelError(settings, interaction.channelId);
+    if (channelErr) {
+      await interaction.editReply({ embeds: [errorEmbed('Mauvais salon', channelErr)] });
+      return;
+    }
+
     const bet = interaction.options.getInteger('mise', true);
 
     // Check if user has an active session
@@ -191,7 +197,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         },
       });
 
-      await endGameSession(session.id, result);
+      await endGameSession(session.id, result, winnings - bet);
 
       const embed = createEmbed('minigame')
         .setTitle('🃏 Blackjack')
@@ -245,6 +251,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     });
 
     collector.on('collect', async (i) => {
+     try {
       if (i.user.id !== interaction.user.id) {
         await i.reply({ content: "Ce n'est pas votre partie !", ephemeral: true });
         return;
@@ -266,7 +273,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           gameState.gameOver = true;
           collector.stop();
 
-          await endGameSession(session.id, 'lost');
+          await endGameSession(session.id, 'lost', -bet);
 
           const bustEmbed = createEmbed('minigame')
             .setTitle('💥 Perdu !')
@@ -361,7 +368,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           },
         });
 
-        await endGameSession(session.id, winnings > bet ? 'won' : winnings === bet ? 'push' : 'lost');
+        await endGameSession(session.id, winnings > bet ? 'won' : winnings === bet ? 'push' : 'lost', winnings - bet);
 
         const finalEmbed = createEmbed('minigame')
           .setTitle('🃏 Blackjack')
@@ -381,6 +388,9 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           components: [],
         });
       }
+     } catch (err) {
+       console.error('Blackjack interaction error:', err);
+     }
     });
 
     collector.on('end', async (collected, reason) => {

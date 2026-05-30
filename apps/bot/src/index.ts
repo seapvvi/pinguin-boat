@@ -48,6 +48,14 @@ async function start() {
 
 start();
 
+// Safety net: never let an unexpected async error crash the whole bot.
+process.on('unhandledRejection', (reason) => {
+  console.error('[Bot] Unhandled rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[Bot] Uncaught exception:', err);
+});
+
 process.on('SIGTERM', async () => {
   console.log('[Bot] Arrêt...');
   client.destroy();

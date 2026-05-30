@@ -2,7 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, TextChannel, 
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
-import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession } from '../../services/minigames';
+import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
 
@@ -33,7 +33,13 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     const settings = await getMinigameSettings(interaction.guild.id);
     const economySettings = await getEconomySettings(interaction.guild.id);
-    
+
+    const channelErr = minigameChannelError(settings, interaction.channelId);
+    if (channelErr) {
+      await interaction.editReply({ embeds: [errorEmbed('Mauvais salon', channelErr)] });
+      return;
+    }
+
     const bet = interaction.options.getInteger('mise') ?? 0;
 
     // Check if user has an active session
@@ -158,7 +164,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           },
         });
 
-        await endGameSession(session.id, 'won');
+        await endGameSession(session.id, 'won', winnings - bet);
 
         const winEmbed = createEmbed('minigame')
           .setTitle('🎉 Bravo !')
@@ -179,7 +185,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       } else if (remainingAttempts <= 0) {
         collector.stop();
         
-        await endGameSession(session.id, 'lost');
+        await endGameSession(session.id, 'lost', -bet);
 
         const loseEmbed = createEmbed('minigame')
           .setTitle('😢 Perdu !')

@@ -51,21 +51,11 @@ export async function execute(interaction: Interaction, client: Client): Promise
         return;
       }
 
-      // Blackjack buttons (handled by collectors, but fallback here)
-      if (interaction.customId.startsWith('bj_')) {
-        // These are handled by the game collectors, so we just acknowledge
-        if (!interaction.deferred && !interaction.replied) {
-          await interaction.deferUpdate().catch(() => {});
-        }
-        return;
-      }
-
-      // Morpion buttons (handled by collectors, but fallback here)
-      if (interaction.customId.startsWith('morpion_')) {
-        // These are handled by the game collectors, so we just acknowledge
-        if (!interaction.deferred && !interaction.replied) {
-          await interaction.deferUpdate().catch(() => {});
-        }
+      // Minigame buttons (blackjack, morpion) are handled by their own
+      // per-message component collectors. We must NOT acknowledge them here:
+      // doing so races with the collector's i.update() and triggers
+      // "Échec de l'interaction" / unhandled rejections that crash the bot.
+      if (interaction.customId.startsWith('bj_') || interaction.customId.startsWith('morpion_')) {
         return;
       }
     } catch (err) {
