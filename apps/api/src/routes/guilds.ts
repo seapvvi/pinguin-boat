@@ -2412,4 +2412,74 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
+  // ─── Minigames ───
+
+  app.get('/:guildId/minigames', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      let settings = await prisma.minigameSettings.findUnique({ where: { guildId } });
+      if (!settings) settings = await prisma.minigameSettings.create({ data: { guildId } });
+      reply.send(success({ settings }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.put('/:guildId/minigames', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      const toInt = (v: any) => (v === undefined || v === null || v === '' ? undefined : parseInt(v));
+      const data = {
+        gamesChannelId: body.gamesChannelId !== undefined ? (body.gamesChannelId || null) : undefined,
+        enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
+        betMin: toInt(body.betMin),
+        betMax: toInt(body.betMax),
+        blackjackReward: toInt(body.blackjackReward),
+        rpsReward: toInt(body.rpsReward),
+        morpionReward: toInt(body.morpionReward),
+        guessReward: toInt(body.guessReward),
+        guessRange: toInt(body.guessRange),
+      };
+      const settings = await prisma.minigameSettings.upsert({
+        where: { guildId },
+        update: data,
+        create: { guildId, ...data },
+      });
+      reply.send(success({ settings }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.get('/:guildId/minigames/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const q = request.query as any;
+      const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 10));
+      // Net winnings = sum of recorded payouts across finished sessions.
+      const grouped = await prisma.minigameSession.groupBy({
+        by: ['userId'],
+        where: { guildId, status: { not: 'active' } },
+        _sum: { payout: true },
+        _count: { _all: true },
+      });
+      const ranked = grouped
+        .map((g) => ({ userId: g.userId, winnings: g._sum.payout ?? 0, games: g._count._all }))
+        .sort((a, b) => b.winnings - a.winnings)
+        .slice(0, limit);
+      const userIds = ranked.map((r) => r.userId);
+      const users = await prisma.user.findMany({
+        where: { discordId: { in: userIds } },
+        select: { discordId: true, username: true, avatar: true },
+      });
+      const userMap = new Map(users.map((u) => [u.discordId, u]));
+      const entries = ranked.map((r, i) => ({
+        rank: i + 1,
+        userId: r.userId,
+        username: userMap.get(r.userId)?.username ?? r.userId,
+        avatar: userMap.get(r.userId)?.avatar ?? null,
+        winnings: r.winnings,
+        games: r.games,
+      }));
+      reply.send(success({ entries }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
 }

@@ -390,3 +390,17 @@ export async function updateStarboardSettings(guildId: string, settings: Record<
 export async function fetchStarboardEntries(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: any[]; pagination: any }>> {
   return api.get<APIResponse<{ entries: any[]; pagination: any }>>(`/api/guilds/${guildId}/starboard/entries`, params);
 }
+
+// ─── Minigames ───
+
+export async function fetchMinigameSettings(guildId: string): Promise<APIResponse<{ settings: any }>> {
+  return api.get<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/minigames`);
+}
+
+export async function updateMinigameSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: any }>> {
+  return api.put<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/minigames`, settings);
+}
+
+export async function fetchMinigameLeaderboard(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: any[] }>> {
+  return api.get<APIResponse<{ entries: any[] }>>(`/api/guilds/${guildId}/minigames/leaderboard`, params);
+}

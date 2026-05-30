@@ -36,6 +36,7 @@ import {
   Radio,
   Star,
   ClipboardList,
+  Gamepad2,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -91,7 +92,7 @@ const categoryDefs: CategoryDef[] = [
   {
     label: 'Soutien',
     items: [
-      { label: 'Soutenir', icon: <Crown size={18} />, href: '/soutien', guildPage: true },
+      { label: 'Soutenir', icon: <Crown size={18} />, href: '/soutien' },
     ],
   },
   {
@@ -114,6 +115,7 @@ const categoryDefs: CategoryDef[] = [
       { label: 'Suggestions', icon: <Lightbulb size={18} />, href: '/suggestions', guildPage: true },
       { label: 'Starboard', icon: <Star size={18} />, href: '/starboard', guildPage: true },
       { label: 'Formulaires', icon: <ClipboardList size={18} />, href: '/forms', guildPage: true },
+      { label: 'Minijeux', icon: <Gamepad2 size={18} />, href: '/minigames', guildPage: true },
     ],
   },
   {
