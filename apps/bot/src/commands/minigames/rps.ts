@@ -2,7 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, ActionRowBuil
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
-import { getMinigameSettings, createGameSession, getActiveSession, endGameSession } from '../../services/minigames';
+import { getMinigameSettings, createGameSession, getActiveSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, enrichedErrorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
 
@@ -52,7 +52,13 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     const settings = await getMinigameSettings(interaction.guild.id);
     const economySettings = await getEconomySettings(interaction.guild.id);
-    
+
+    const channelErr = minigameChannelError(settings, interaction.channelId);
+    if (channelErr) {
+      await interaction.editReply({ embeds: [enrichedErrorEmbed('Mauvais salon', channelErr, 'Utilisez les minijeux dans le salon configuré.')] });
+      return;
+    }
+
     const bet = interaction.options.getInteger('mise') ?? 0;
     const choiceIndex = interaction.options.getString('choix', true);
     const choiceIndexNum = RPS_NAMES.indexOf(choiceIndex as any);
@@ -182,7 +188,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       interaction.id
     );
 
-    await endGameSession(session.id, result);
+    await endGameSession(session.id, result, winnings - bet);
 
     // Build response embed
     const embed = createEmbed('minigame')

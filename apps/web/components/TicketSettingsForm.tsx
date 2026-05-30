@@ -60,6 +60,35 @@ export function TicketSettingsForm({ guildId }: { guildId: string }) {
       <DiscordSelect type="channel" guildId={guildId} label="Catégorie (salon parent)" value={str('categoryId')} onChange={(id) => update('categoryId', id || null)} channelTypes={[4]} />
       <DiscordSelect type="channel" guildId={guildId} label="Salon de logs" value={str('logChannelId')} onChange={(id) => update('logChannelId', id || null)} />
       <Input label="Format des salons" value={str('channelFormat')} onChange={(e) => update('channelFormat', e.target.value)} placeholder="ticket-{username}" />
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase">
+          Message du panneau (/ticket panel)
+        </label>
+        <textarea
+          rows={3}
+          value={str('panelMessage')}
+          onChange={(e) => update('panelMessage', e.target.value)}
+          placeholder="Cliquez sur le bouton ci-dessous pour ouvrir un ticket."
+          className="w-full px-3 py-2 text-sm text-[var(--text-primary)] rounded-[var(--radius-sm)] outline-none bg-transparent border border-[var(--border-color)] focus:border-[var(--accent)] placeholder:text-[var(--text-secondary)] resize-y"
+        />
+      </div>
+
+      <Input label="Texte du bouton du panneau" value={str('panelButtonText')} onChange={(e) => update('panelButtonText', e.target.value)} placeholder="Ouvrir un ticket" />
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase">
+          Message d&apos;accueil à l&apos;ouverture d&apos;un ticket
+        </label>
+        <textarea
+          rows={3}
+          value={str('openMessage')}
+          onChange={(e) => update('openMessage', e.target.value)}
+          placeholder="Bienvenue ! Décris ton problème."
+          className="w-full px-3 py-2 text-sm text-[var(--text-primary)] rounded-[var(--radius-sm)] outline-none bg-transparent border border-[var(--border-color)] focus:border-[var(--accent)] placeholder:text-[var(--text-secondary)] resize-y"
+        />
+      </div>
+
       <div className="flex items-center justify-between">
         <span className="text-sm">Validation requise</span>
         <Toggle checked={bool('requireValidation')} onChange={(v) => update('requireValidation', v)} />

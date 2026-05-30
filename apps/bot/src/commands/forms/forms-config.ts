@@ -137,9 +137,11 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
         // Validate field structure
         for (const field of fields) {
-          if (!field.label || !field.type) {
+          // A field needs a label and either a `style` (short/paragraph) or a
+          // legacy `type`. Discord modals are text-only, so both map to text.
+          if (!field.label || (!field.style && !field.type)) {
             await interaction.editReply({ 
-              embeds: [errorEmbed('Champ invalide', 'Chaque champ doit avoir un "label" et un "type".')] 
+              embeds: [errorEmbed('Champ invalide', 'Chaque champ doit avoir un "label" et un "style" (short/paragraph).')] 
             });
             return;
           }

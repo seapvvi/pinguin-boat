@@ -1,5 +1,8 @@
 import { prisma } from '@pinguin/db';
-import { getChannelMessages, sendDM, sendChannelMessage } from './discord';
+import {
+  getChannelMessages, sendDM, sendChannelMessage,
+  sendDMWithFile, sendChannelMessageWithFile,
+} from './discord';
 import { uploadToPastebin, generateTicketTranscriptHtml } from './pastebin';
 
 export async function closeTicketWithTranscript(
@@ -20,25 +23,36 @@ export async function closeTicketWithTranscript(
 
   let transcriptUrl: string | null = null;
   if (ticket.channelId && !ticket.channelId.startsWith('pending-')) {
+    let transcriptHtml: string | null = null;
     try {
       const messages = await getChannelMessages(ticket.channelId, 100);
-      const html = generateTicketTranscriptHtml(messages, ticket.subject, {
+      transcriptHtml = generateTicketTranscriptHtml(messages, ticket.subject, {
         guildName,
         openedAt: ticket.createdAt ? new Date(ticket.createdAt).toLocaleString('fr-FR') : '—',
         closedAt: new Date().toLocaleString('fr-FR'),
         closedBy: closedById,
         closeReason: undefined,
       });
-      transcriptUrl = await uploadToPastebin(html, `Ticket: ${ticket.subject}`);
+      // Pastebin is optional. If no API key is configured (or it fails) we
+      // still deliver the transcript as an attached HTML file below.
+      transcriptUrl = await uploadToPastebin(transcriptHtml, `Ticket: ${ticket.subject}`);
     } catch {
       transcriptUrl = null;
     }
 
+    const fileName = `transcript-${ticket.subject}`.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 80) + '.html';
+    const transcriptFile = transcriptHtml
+      ? { name: fileName, content: transcriptHtml, contentType: 'text/html' }
+      : null;
+
+    const transcriptLine = transcriptUrl
+      ? `\n📄 [Voir la transcription HTML](${transcriptUrl})`
+      : transcriptFile
+        ? '\n📄 La transcription est jointe à ce message (fichier HTML).'
+        : '\n_La transcription n\'a pas pu être générée._';
+
     try {
-      const transcriptLine = transcriptUrl
-        ? `\n📄 [Voir la transcription HTML](${transcriptUrl})`
-        : '\n_La transcription n\'a pas pu être générée (vérifiez PASTEBIN_API_KEY)._';
-      await sendDM(ticket.creatorId, {
+      const dmPayload = {
         embeds: [{
           title: '🎫 Ticket fermé',
           description:
@@ -46,7 +60,12 @@ export async function closeTicketWithTranscript(
           color: 0x14B8A6,
           timestamp: new Date().toISOString(),
         }],
-      });
+      };
+      if (!transcriptUrl && transcriptFile) {
+        await sendDMWithFile(ticket.creatorId, dmPayload, transcriptFile);
+      } else {
+        await sendDM(ticket.creatorId, dmPayload);
+      }
     } catch {}
 
     if (transcriptUrl) {
@@ -56,16 +75,25 @@ export async function closeTicketWithTranscript(
       }).catch(() => {});
     }
 
-    await sendChannelMessage(ticket.channelId, {
+    const channelPayload = {
       embeds: [{
         title: 'Ticket fermé',
         description:
           `Ce ticket a été fermé par <@${closedById}> sur **${guildName}**.` +
-          (transcriptUrl ? `\n📄 [Transcription](${transcriptUrl})` : ''),
+          (transcriptUrl
+            ? `\n📄 [Transcription](${transcriptUrl})`
+            : transcriptFile
+              ? '\n📄 Transcription jointe (fichier HTML).'
+              : ''),
         color: 0xFF0000,
         timestamp: new Date().toISOString(),
       }],
-    }).catch(() => {});
+    };
+    if (!transcriptUrl && transcriptFile) {
+      await sendChannelMessageWithFile(ticket.channelId, channelPayload, transcriptFile).catch(() => {});
+    } else {
+      await sendChannelMessage(ticket.channelId, channelPayload).catch(() => {});
+    }
   }
 
   return { transcriptUrl };

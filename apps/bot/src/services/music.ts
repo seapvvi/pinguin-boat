@@ -7,11 +7,27 @@ import {
 import type { TrackInfo } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
 
+// Ensure @discordjs/voice (prism-media) can find an FFmpeg binary even when one
+// is not installed system-wide. ffmpeg-static ships a prebuilt binary and
+// prism-media honours the FFMPEG_PATH environment variable.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const ffmpegPath = require('ffmpeg-static');
+  if (ffmpegPath && !process.env.FFMPEG_PATH) {
+    process.env.FFMPEG_PATH = ffmpegPath as string;
+    console.log(`[Music] Using bundled FFmpeg at ${ffmpegPath}`);
+  }
+} catch {
+  console.warn('[Music] ffmpeg-static not available; relying on system FFmpeg.');
+}
+
 async function createStreamFromUrl(url: string): Promise<{ stream: any; type: StreamType }> {
   // Use play-dl as primary (more stable in 2024)
   try {
     const playdl = await import('play-dl');
     const result = await playdl.stream(url, { quality: 2, discordPlayerCompatibility: true });
+    // Prevent unhandled 'error' events from crashing the process.
+    result.stream.on('error', (err: Error) => console.error('[Music] play-dl stream error:', err.message));
     return { stream: result.stream, type: result.type as unknown as StreamType };
   } catch (e: any) {
     console.warn('[Music] play-dl failed, trying ytdl-core:', e.message);
@@ -27,6 +43,9 @@ async function createStreamFromUrl(url: string): Promise<{ stream: any; type: St
         highWaterMark: 1 << 25,
         requestOptions: { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } },
       });
+      // ytdl emits 'error' asynchronously on the returned stream; without a
+      // listener Node crashes the whole bot with an unhandled 'error' event.
+      stream.on('error', (err: Error) => console.error('[Music] ytdl-core stream error:', err.message));
       return { stream, type: StreamType.Arbitrary };
     }
   } catch (e: any) {

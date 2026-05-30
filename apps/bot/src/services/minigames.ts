@@ -103,12 +103,26 @@ export async function updateGameSession(
   });
 }
 
-export async function endGameSession(sessionId: string, status: string) {
+export async function endGameSession(sessionId: string, status: string, payout = 0) {
   return await prisma.minigameSession.update({
     where: { id: sessionId },
     data: {
       status,
+      payout,
       updatedAt: new Date(),
     },
   });
+}
+
+/**
+ * Returns an error message if minigames are restricted to a specific channel
+ * and the current channel is not the allowed one. Returns null when allowed.
+ */
+export function minigameChannelError(
+  settings: { gamesChannelId?: string | null },
+  channelId: string | null
+): string | null {
+  if (!settings.gamesChannelId) return null;
+  if (channelId === settings.gamesChannelId) return null;
+  return `Les minijeux ne sont autorisés que dans <#${settings.gamesChannelId}>.`;
 }

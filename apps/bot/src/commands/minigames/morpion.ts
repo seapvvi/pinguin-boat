@@ -2,7 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, ActionRowBuil
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
-import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession } from '../../services/minigames';
+import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
 
@@ -84,7 +84,13 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
     const settings = await getMinigameSettings(interaction.guild.id);
     const economySettings = await getEconomySettings(interaction.guild.id);
-    
+
+    const channelErr = minigameChannelError(settings, interaction.channelId);
+    if (channelErr) {
+      await interaction.editReply({ embeds: [errorEmbed('Mauvais salon', channelErr)] });
+      return;
+    }
+
     const opponent = interaction.options.getUser('adversaire', true);
     const bet = interaction.options.getInteger('mise') ?? 0;
 
@@ -203,6 +209,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     });
 
     collector.on('collect', async (i) => {
+     try {
       if (i.user.id !== gameState.currentPlayer) {
         await i.reply({ content: "Ce n'est pas votre tour !", ephemeral: true });
         return;
@@ -288,7 +295,16 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         await updateGameSession(session.id, {
           gameState: JSON.stringify(gameState),
         });
-        await endGameSession(session.id, winner === 'draw' ? 'draw' : 'completed');
+        // Record the net result for the session creator (player X) for the leaderboard
+        let creatorPayout = 0;
+        if (winner !== 'draw' && winnerId) {
+          if (winnerId === interaction.user.id) {
+            creatorPayout = bet > 0 ? bet : winnings;
+          } else {
+            creatorPayout = bet > 0 ? -bet : 0;
+          }
+        }
+        await endGameSession(session.id, winner === 'draw' ? 'draw' : 'completed', creatorPayout);
 
         await i.update({ 
           embeds: [updatedEmbed],
@@ -304,6 +320,9 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
           components: createBoardButtons(board),
         });
       }
+     } catch (err) {
+       console.error('Morpion interaction error:', err);
+     }
     });
 
     collector.on('end', async (collected, reason) => {
