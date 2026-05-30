@@ -17,11 +17,22 @@ import { formatDate } from '@/lib/utils';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
 
+// Discord modals only support text inputs (short or paragraph). Multiple
+// choice is not supported by the Discord form API, so we limit field types
+// to short/long text. `style` matches what the bot reads when building the
+// modal (TextInputStyle.Short / TextInputStyle.Paragraph).
 interface FormField {
   label: string;
-  type: 'text' | 'textarea' | 'select';
+  style: 'short' | 'paragraph';
   required: boolean;
-  options?: string[];
+}
+
+// Older templates were saved with a `type` field (text/textarea/select).
+// Normalize them to the current `style`-based model when loading.
+function normalizeField(f: any): FormField {
+  let style: 'short' | 'paragraph' = 'short';
+  if (f?.style === 'paragraph' || f?.type === 'textarea') style = 'paragraph';
+  return { label: f?.label ?? '', style, required: f?.required !== false };
 }
 
 interface Template {
@@ -75,7 +86,7 @@ export default function FormsPage() {
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [templateForm, setTemplateForm] = useState({ name: '', description: '', fields: [{ label: '', type: 'text' as const, required: true }] as FormField[] });
+  const [templateForm, setTemplateForm] = useState({ name: '', description: '', fields: [{ label: '', style: 'short' as const, required: true }] as FormField[] });
   const [templateSaving, setTemplateSaving] = useState(false);
 
   const [viewSubmission, setViewSubmission] = useState<Submission | null>(null);
@@ -139,7 +150,7 @@ export default function FormsPage() {
 
   const openCreateTemplate = () => {
     setEditingTemplate(null);
-    setTemplateForm({ name: '', description: '', fields: [{ label: '', type: 'text', required: true }] });
+    setTemplateForm({ name: '', description: '', fields: [{ label: '', style: 'short', required: true }] });
     setShowTemplateModal(true);
   };
 
@@ -147,11 +158,11 @@ export default function FormsPage() {
     setEditingTemplate(t);
     let fields: FormField[];
     try {
-      fields = JSON.parse(t.fields);
+      fields = (JSON.parse(t.fields) as any[]).map(normalizeField);
     } catch {
       fields = [];
     }
-    if (fields.length === 0) fields = [{ label: '', type: 'text', required: true }];
+    if (fields.length === 0) fields = [{ label: '', style: 'short', required: true }];
     setTemplateForm({ name: t.name, description: t.description ?? '', fields });
     setShowTemplateModal(true);
   };
@@ -213,7 +224,7 @@ export default function FormsPage() {
   const addField = () => {
     setTemplateForm(prev => ({
       ...prev,
-      fields: [...prev.fields, { label: '', type: 'text', required: true }],
+      fields: [...prev.fields, { label: '', style: 'short', required: true }],
     }));
   };
 
@@ -462,13 +473,12 @@ export default function FormsPage() {
                           />
                           <div className="flex items-center gap-2">
                             <select
-                              value={field.type}
-                              onChange={(e) => updateField(index, { type: e.target.value as FormField['type'] })}
+                              value={field.style}
+                              onChange={(e) => updateField(index, { style: e.target.value as FormField['style'] })}
                               className="text-xs bg-[var(--bg-primary)] border border-[var(--border-color)] rounded px-2 py-1 text-[var(--text-primary)]"
                             >
-                              <option value="text">Texte court</option>
-                              <option value="textarea">Texte long</option>
-                              <option value="select">Choix multiple</option>
+                              <option value="short">Texte court</option>
+                              <option value="paragraph">Texte long</option>
                             </select>
                             <label className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
                               <input

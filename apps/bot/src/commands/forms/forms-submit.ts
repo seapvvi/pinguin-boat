@@ -51,7 +51,10 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       .setTitle(template.name);
 
     for (const field of fields) {
-      const style = field.style === 'paragraph' ? TextInputStyle.Paragraph : TextInputStyle.Short;
+      // Discord modals only support text inputs. Accept the dashboard's
+      // `style` (short/paragraph) and legacy `type` (text/textarea/select).
+      const isParagraph = field.style === 'paragraph' || field.type === 'textarea';
+      const style = isParagraph ? TextInputStyle.Paragraph : TextInputStyle.Short;
       const textInput = new TextInputBuilder()
         .setCustomId(`field_${field.label}`)
         .setLabel(field.label)
