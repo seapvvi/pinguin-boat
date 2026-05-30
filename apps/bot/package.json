@@ -21,6 +21,7 @@
     "zod": "^3.24.1",
     "play-dl": "^1.9.7",
     "@distube/ytdl-core": "^4.16.3",
+    "ffmpeg-static": "^5.2.0",
     "sodium-native": "^4.3.1",
     "opusscript": "^0.1.1"
   },
