@@ -2359,10 +2359,14 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as any;
       const body = request.body as any;
+      // Keep the stored `enabled` flag consistent with the configured channel
+      // so the dashboard, bot, and helpers all agree on the active state.
+      const derivedEnabled =
+        body.enabled ?? (body.channelId !== undefined ? !!body.channelId : undefined);
       const settings = await prisma.starboardSettings.upsert({
         where: { guildId },
         update: {
-          enabled: body.enabled ?? undefined,
+          enabled: derivedEnabled,
           channelId: body.channelId !== undefined ? body.channelId : undefined,
           starEmoji: body.starEmoji ?? undefined,
           minStars: body.minStars !== undefined ? parseInt(body.minStars) : undefined,
@@ -2370,7 +2374,7 @@ export async function guildRoutes(app: FastifyInstance) {
         },
         create: {
           guildId,
-          enabled: body.enabled ?? false,
+          enabled: derivedEnabled ?? false,
           channelId: body.channelId ?? null,
           starEmoji: body.starEmoji ?? '\u2B50',
           minStars: body.minStars ?? 3,
