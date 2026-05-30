@@ -192,6 +192,51 @@ export async function sendDM(userId: string, content: { embeds?: any[], content?
   });
 }
 
+interface OutgoingFile {
+  name: string;
+  content: string;
+  contentType?: string;
+}
+
+async function postMessageWithFile(channelId: string, payload: any, file: OutgoingFile): Promise<any> {
+  const form = new FormData();
+  form.set('payload_json', JSON.stringify(payload));
+  const blob = new Blob([file.content], { type: file.contentType ?? 'text/html' });
+  form.set('files[0]', blob, file.name);
+  const res = await fetch(`${API_BASE}/channels/${channelId}/messages`, {
+    method: 'POST',
+    // Do NOT set Content-Type: fetch sets the multipart boundary automatically.
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: form as any,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Discord file message error ${res.status}: ${text.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
+export async function sendDMWithFile(
+  userId: string,
+  content: { embeds?: any[]; content?: string },
+  file: OutgoingFile
+): Promise<void> {
+  const dm = await discordFetch<{ id: string }>(`/users/${userId}/channels`, {
+    method: 'POST',
+    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    body: JSON.stringify({ recipient_id: userId }),
+  });
+  await postMessageWithFile(dm.id, content, file);
+}
+
+export async function sendChannelMessageWithFile(
+  channelId: string,
+  content: any,
+  file: OutgoingFile
+): Promise<any> {
+  return postMessageWithFile(channelId, content, file);
+}
+
 export async function timeoutMember(guildId: string, userId: string, durationMs: number | null): Promise<void> {
   await discordFetch(`/guilds/${guildId}/members/${userId}`, {
     method: 'PATCH',
