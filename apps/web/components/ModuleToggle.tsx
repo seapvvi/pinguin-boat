@@ -28,11 +28,13 @@ export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleT
       .finally(() => setLoading(false));
   }, [guildId, moduleKey]);
 
+  const normalizedModuleKey = moduleKey.trim().toLowerCase();
+
   const handleToggle = async (value: boolean) => {
     setToggling(true);
     setError(null);
     try {
-      await apiToggleModule(guildId, moduleKey, value);
+      await apiToggleModule(guildId, normalizedModuleKey, value);
       setEnabled(value);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la mise à jour');
