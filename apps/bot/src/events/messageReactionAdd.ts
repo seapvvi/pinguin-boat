@@ -78,7 +78,9 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   // Starboard module
   if (await isModuleEnabled(guildId, 'starboard')) {
     const starSettings = await getStarboardSettings(guildId);
-    if (!starSettings.enabled || !starSettings.channelId) return;
+    // The module on/off is already controlled by isModuleEnabled above; the
+    // starboard only needs a destination channel configured to be active.
+    if (!starSettings.channelId) return;
 
     // Check if this is the star emoji
     if (reaction.emoji.name !== starSettings.starEmoji) return;
