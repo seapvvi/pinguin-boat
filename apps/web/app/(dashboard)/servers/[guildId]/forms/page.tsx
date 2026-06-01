@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   ClipboardList, Plus, Trash2, Edit2, X, Check,
   ChevronLeft, ChevronRight, Eye, XCircle, CheckCircle,
-  Clock, FileText,
+  Clock, FileText, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { Card, Button, Badge, Skeleton, EmptyState, ErrorMessage, Input, Modal } from '@pinguin/ui';
 import {
@@ -233,6 +233,16 @@ export default function FormsPage() {
       ...prev,
       fields: prev.fields.filter((_, i) => i !== index),
     }));
+  };
+
+  const moveField = (index: number, direction: 'up' | 'down') => {
+    setTemplateForm(prev => {
+      const newFields = [...prev.fields];
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= newFields.length) return prev;
+      [newFields[index], newFields[target]] = [newFields[target], newFields[index]];
+      return { ...prev, fields: newFields };
+    });
   };
 
   const updateField = (index: number, updates: Partial<FormField>) => {
@@ -465,6 +475,22 @@ export default function FormsPage() {
                   <div className="space-y-3">
                     {templateForm.fields.map((field, index) => (
                       <div key={index} className="flex items-start gap-2 p-3 bg-[var(--bg-surface-alt)] rounded-[var(--radius-sm)]">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => moveField(index, 'up')}
+                            disabled={index === 0}
+                            className="p-0.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ArrowUp size={12} />
+                          </button>
+                          <button
+                            onClick={() => moveField(index, 'down')}
+                            disabled={index === templateForm.fields.length - 1}
+                            className="p-0.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ArrowDown size={12} />
+                          </button>
+                        </div>
                         <div className="flex-1 space-y-2">
                           <Input
                             value={field.label}
