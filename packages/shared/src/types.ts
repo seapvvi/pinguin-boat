@@ -172,6 +172,8 @@ export interface EmbedPreset {
   footer: string | null;
   thumbnail: string | null;
   image: string | null;
+  authorName: string | null;
+  authorIcon: string | null;
   timestamp: boolean;
 }
 
