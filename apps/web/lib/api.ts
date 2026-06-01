@@ -404,3 +404,22 @@ export async function updateMinigameSettings(guildId: string, settings: Record<s
 export async function fetchMinigameLeaderboard(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: any[] }>> {
   return api.get<APIResponse<{ entries: any[] }>>(`/api/guilds/${guildId}/minigames/leaderboard`, params);
 }
+
+export async function fetchMetricsSnapshots(): Promise<APIResponse<{ snapshots: SystemMetricsSnapshot[] }>> {
+  return api.get<APIResponse<{ snapshots: SystemMetricsSnapshot[] }>>('/api/system/metrics/snapshots');
+}
+
+export interface SystemMetricsSnapshot {
+  id: string;
+  cpuUsage: number;
+  ramUsage: number;
+  ramTotal: number;
+  uptimeSeconds: number;
+  guildCount: number;
+  userCount: number;
+  commandCount: number;
+  messagesToday: number;
+  activeChannels: number;
+  onlineMembers: number;
+  timestamp: string;
+}

@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFla
 import { prisma } from '@pinguin/db';
 import { infoEmbed, errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
+import { parseDuration, formatDuration } from '../../utils/parseDuration';
 
 export const data = new SlashCommandBuilder()
   .setName('giveaway')
@@ -13,7 +14,7 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption((opt) => opt.setName('winners').setDescription('Nombre de gagnants').setRequired(true).setMinValue(1).setMaxValue(20))
       .addStringOption((opt) =>
         opt.setName('duration')
-          .setDescription('Durée (ex: 10m, 1h, 1d)')
+          .setDescription('Durée (ex: 1h30m, 2d, 1w, 30s)')
           .setRequired(true)
       )
   )
@@ -38,20 +39,6 @@ export const permissions = true;
 export const requireAdmin = false;
 export const module = 'giveaways';
 
-function parseDuration(duration: string): number {
-  const match = duration.match(/^(\d+)([smhd])$/);
-  if (!match) return 3600;
-  const num = parseInt(match[1]);
-  const unit = match[2];
-  switch (unit) {
-    case 's': return num;
-    case 'm': return num * 60;
-    case 'h': return num * 3600;
-    case 'd': return num * 86400;
-    default: return 3600;
-  }
-}
-
 export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
   const subcommand = interaction.options.getSubcommand();
 
@@ -64,8 +51,15 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       const prize = interaction.options.get('prize')?.value as string;
       const winnerCount = interaction.options.get('winners')?.value as number;
       const durationStr = interaction.options.get('duration')?.value as string;
-      const durationSeconds = parseDuration(durationStr);
-      const endsAt = new Date(Date.now() + durationSeconds * 1000);
+
+      const parsedDuration = parseDuration(durationStr);
+      if (!parsedDuration || parsedDuration.error) {
+        await interaction.editReply({ embeds: [errorEmbed('Erreur', parsedDuration?.error ?? 'Format de durée invalide.')] });
+        return;
+      }
+
+      const durationSeconds = Math.floor(parsedDuration.milliseconds / 1000);
+      const endsAt = new Date(Date.now() + parsedDuration.milliseconds);
 
       const embed = createEmbed('giveaway')
         .setTitle('🎉 Giveaway !')

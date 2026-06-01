@@ -1,149 +1,237 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, Client, EmbedBuilder } from 'discord.js';
-import { infoEmbed, createEmbed } from '../../services/embed';
+import { SlashCommandBuilder, ChatInputCommandInteraction, Client, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, StringSelectMenuInteraction, ButtonInteraction } from 'discord.js';
+import { createEmbed } from '../../services/embed';
 
-const modules = [
-  { name: 'moderation', description: 'Gestion des sanctions et de la modération' },
-  { name: 'protection', description: 'Protection anti-spam et anti-raid' },
-  { name: 'tickets', description: 'Système de tickets de support' },
-  { name: 'logs', description: 'Journalisation des événements' },
-  { name: 'levels', description: 'Système de niveaux et d\'XP' },
-  { name: 'economy', description: 'Économie et monnaie virtuelle' },
-  { name: 'music', description: 'Musique en salon vocal' },
-  { name: 'giveaways', description: 'Organisation de giveaways' },
-  { name: 'polls', description: 'Création de sondages' },
-  { name: 'suggestions', description: 'Système de suggestions' },
-  { name: 'welcome', description: 'Messages de bienvenue' },
-  { name: 'autoroles', description: 'Rôles automatiques' },
-  { name: 'embeds', description: 'Embeds personnalisés' },
-];
+interface CommandInfo {
+  name: string;
+  description: string;
+  category: string;
+}
 
-const commandList: Record<string, { name: string; description: string }[]> = {
-  moderation: [
-    { name: '/ban', description: 'Bannir un utilisateur' },
-    { name: '/tempban', description: 'Bannir temporairement' },
-    { name: '/unban', description: 'Débannir un utilisateur' },
-    { name: '/kick', description: 'Expulser un utilisateur' },
-    { name: '/mute', description: 'Rendre muet un utilisateur' },
-    { name: '/unmute', description: 'Retirer le mute' },
-    { name: '/warn', description: 'Avertir un utilisateur' },
-    { name: '/unwarn', description: 'Retirer un avertissement' },
-    { name: '/purge', description: 'Supprimer des messages' },
-    { name: '/slowmode', description: 'Définir le mode lent' },
-    { name: '/lock', description: 'Verrouiller un salon' },
-    { name: '/unlock', description: 'Déverrouiller un salon' },
-    { name: '/nuke', description: 'Recréer un salon' },
-    { name: '/history', description: 'Historique de modération' },
-    { name: '/notes', description: 'Notes staff' },
-    { name: '/automod', description: 'Configurer l\'auto-modération' },
-  ],
-  tickets: [{ name: '/ticket', description: 'Gérer les tickets' }],
-  music: [
-    { name: '/play', description: 'Jouer une musique' },
-    { name: '/skip', description: 'Passer la musique' },
-    { name: '/stop', description: 'Arrêter la musique' },
-    { name: '/pause', description: 'Mettre en pause' },
-    { name: '/resume', description: 'Reprendre la musique' },
-    { name: '/queue', description: 'Voir la file d\'attente' },
-    { name: '/nowplaying', description: 'Musique en cours' },
-    { name: '/volume', description: 'Régler le volume' },
-    { name: '/shuffle', description: 'Mélanger la file' },
-    { name: '/loop', description: 'Mode répétition' },
-    { name: '/previous', description: 'Musique précédente' },
-    { name: '/autoplay', description: 'Lecture automatique' },
-    { name: '/seek', description: 'Avancer dans la musique' },
-    { name: '/remove', description: 'Retirer une musique' },
-  ],
-  levels: [
-    { name: '/rank', description: 'Voir votre niveau' },
-    { name: '/leaderboard', description: 'Classement XP' },
-  ],
-  economy: [
-    { name: '/balance', description: 'Voir votre solde' },
-    { name: '/daily', description: 'Récompense quotidienne' },
-    { name: '/transfer', description: 'Transférer des pièces' },
-    { name: '/shop', description: 'Voir la boutique' },
-    { name: '/buy', description: 'Acheter un article' },
-  ],
-  giveaways: [{ name: '/giveaway', description: 'Gérer les giveaways' }],
-  polls: [{ name: '/poll', description: 'Créer un sondage' }],
-  suggestions: [
-    { name: '/suggest', description: 'Faire une suggestion' },
-    { name: '/approve', description: 'Approuver une suggestion' },
-    { name: '/reject', description: 'Refuser une suggestion' },
-  ],
-  welcome: [{ name: '/welcome', description: 'Configurer les bienvenues' }],
-  autoroles: [{ name: '/autorole', description: 'Gérer les rôles auto' }],
-  embeds: [{ name: '/embed', description: 'Gérer les embeds' }],
-  utility: [
-    { name: '/help', description: 'Afficher cette aide' },
-    { name: '/ping', description: 'Latence du bot' },
-    { name: '/stats', description: 'Statistiques du bot' },
-    { name: '/info', description: 'Informations utilisateur' },
-    { name: '/invite', description: 'Inviter le bot' },
-    { name: '/serverinfo', description: 'Informations du serveur' },
-    { name: '/roles', description: 'Liste des rôles' },
-  ],
+const CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  economy: '💰 Économie et monnaie virtuelle',
+  moderation: '🔨 Gestion des sanctions et de la modération',
+  levels: '📊 Système de niveaux et d\'XP',
+  minigames: '🎮 Jeux et divertissement',
+  fun: '😂 Commandes fun',
+  utility: '🛠️ Commandes utilitaires',
+  admin: '⚙️ Commandes d\'administration',
+  music: '🎵 Musique en salon vocal',
+  tickets: '🎫 Système de tickets de support',
+  giveaways: '🎁 Organisation de giveaways',
+  polls: '📊 Création de sondages',
+  suggestions: '💡 Système de suggestions',
+  welcome: '👋 Messages de bienvenue',
+  autoroles: '🤖 Rôles automatiques',
+  embeds: '📝 Embeds personnalisés',
+  forms: '📋 Formulaires',
+  starboard: '⭐ Système de starboard',
 };
+
+const CATEGORY_EMOJIS: Record<string, string> = {
+  economy: '💰',
+  moderation: '🔨',
+  levels: '📊',
+  minigames: '🎮',
+  fun: '😂',
+  utility: '🛠️',
+  admin: '⚙️',
+  music: '🎵',
+  tickets: '🎫',
+  giveaways: '🎁',
+  polls: '📊',
+  suggestions: '💡',
+  welcome: '👋',
+  autoroles: '🤖',
+  embeds: '📝',
+  forms: '📋',
+  starboard: '⭐',
+};
+
+const COMMANDS_PER_PAGE = 10;
+
+function getCommandsByCategory(client: Client): Record<string, CommandInfo[]> {
+  const commandsByCategory: Record<string, CommandInfo[]> = {};
+
+  for (const [name, command] of client.commands) {
+    const category = (command as any).module || 'utility';
+    const description = command.data.description || 'Pas de description';
+
+    if (!commandsByCategory[category]) {
+      commandsByCategory[category] = [];
+    }
+
+    commandsByCategory[category].push({
+      name: `/${name}`,
+      description,
+      category,
+    });
+  }
+
+  for (const category in commandsByCategory) {
+    commandsByCategory[category].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  return commandsByCategory;
+}
+
+function createCategorySelect(commandsByCategory: Record<string, CommandInfo[]>, selectedCategory?: string): ActionRowBuilder<StringSelectMenuBuilder> {
+  const categories = Object.keys(commandsByCategory).sort();
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('help_category_select')
+    .setPlaceholder('Choisir une catégorie')
+    .addOptions(
+      categories.map((cat) => {
+        const emoji = CATEGORY_EMOJIS[cat] || '📁';
+        const label = `${emoji} ${cat.charAt(0).toUpperCase() + cat.slice(1)}`;
+        const count = commandsByCategory[cat].length;
+
+        return new StringSelectMenuOptionBuilder()
+          .setLabel(label)
+          .setDescription(`${CATEGORY_DESCRIPTIONS[cat] || cat} (${count} commandes)`)
+          .setValue(cat)
+          .setDefault(selectedCategory === cat);
+      })
+    );
+
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+}
+
+function createPaginationButtons(category: string, page: number, totalPages: number): ActionRowBuilder<ButtonBuilder> {
+  const row = new ActionRowBuilder<ButtonBuilder>();
+
+  const prevButton = new ButtonBuilder()
+    .setCustomId(`help_prev_${category}`)
+    .setLabel('◀ Précédent')
+    .setStyle(ButtonStyle.Secondary)
+    .setDisabled(page === 0);
+
+  const nextButton = new ButtonBuilder()
+    .setCustomId(`help_next_${category}`)
+    .setLabel('Suivant ▶')
+    .setStyle(ButtonStyle.Secondary)
+    .setDisabled(page >= totalPages - 1);
+
+  row.addComponents(prevButton, nextButton);
+
+  return row;
+}
+
+function createCategoryEmbed(commandsByCategory: Record<string, CommandInfo[]>, category: string, page: number): ReturnType<typeof createEmbed> {
+  const commands = commandsByCategory[category] || [];
+  const totalPages = Math.ceil(commands.length / COMMANDS_PER_PAGE);
+  const startIndex = page * COMMANDS_PER_PAGE;
+  const endIndex = startIndex + COMMANDS_PER_PAGE;
+  const pageCommands = commands.slice(startIndex, endIndex);
+
+  const emoji = CATEGORY_EMOJIS[category] || '📁';
+  const embed = createEmbed('default')
+    .setTitle(`${emoji} ${category.charAt(0).toUpperCase() + category.slice(1)}`)
+    .setDescription(CATEGORY_DESCRIPTIONS[category] || category)
+    .addFields(
+      pageCommands.map((cmd) => ({
+        name: cmd.name,
+        value: cmd.description,
+        inline: true,
+      }))
+    )
+    .setFooter({ text: `Page ${page + 1}/${totalPages} • ${commands.length} commande(s)` })
+    .setTimestamp();
+
+  return embed;
+}
 
 export const data = new SlashCommandBuilder()
   .setName('help')
-  .setDescription('Afficher la liste des commandes ou les détails d\'un module')
-  .addStringOption((opt) =>
-    opt.setName('module')
-      .setDescription('Module à consulter')
-      .addChoices(
-        { name: 'Modération', value: 'moderation' },
-        { name: 'Protection', value: 'protection' },
-        { name: 'Tickets', value: 'tickets' },
-        { name: 'Logs', value: 'logs' },
-        { name: 'Niveaux', value: 'levels' },
-        { name: 'Économie', value: 'economy' },
-        { name: 'Musique', value: 'music' },
-        { name: 'Giveaways', value: 'giveaways' },
-        { name: 'Sondages', value: 'polls' },
-        { name: 'Suggestions', value: 'suggestions' },
-        { name: 'Bienvenue', value: 'welcome' },
-        { name: 'Rôles auto', value: 'autoroles' },
-        { name: 'Embeds', value: 'embeds' },
-        { name: 'Utilitaire', value: 'utility' }
-      )
-  );
+  .setDescription('Afficher l\'aide interactive avec les commandes par catégorie');
+
+export const module = 'utility';
 
 export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
-  const moduleName = interaction.options.get('module')?.value as string | undefined;
+  const commandsByCategory = getCommandsByCategory(client);
+  const categories = Object.keys(commandsByCategory).sort();
 
-  if (moduleName) {
-    const commands = commandList[moduleName];
-    const modInfo = modules.find((m) => m.name === moduleName);
-
-    if (!commands) {
-      await interaction.reply({ embeds: [createEmbed('default')
-        .setTitle('📚 Aide')
-        .setDescription(`Module **${moduleName}** introuvable.`)
-      ], ephemeral: true });
-      return;
-    }
-
-    const embed = createEmbed('default')
-      .setTitle(`📚 Module ${modInfo?.description || moduleName}`)
-      .setDescription(commands.map((c) => `**${c.name}** — ${c.description}`).join('\n'))
-      .setTimestamp();
-
-    await interaction.reply({ embeds: [embed], ephemeral: true });
-  } else {
-    const embed = createEmbed('default')
-      .setTitle('📚 Aide — Pinguin BOAT')
-      .setDescription('Voici la liste des modules disponibles. Utilisez `/help <module>` pour plus de détails.')
-      .addFields(
-        ...modules.map((m) => ({
-          name: m.name.charAt(0).toUpperCase() + m.name.slice(1),
-          value: m.description,
-          inline: true,
-        }))
-      )
-      .addFields({ name: 'Utilitaire', value: 'Commandes générales du bot', inline: true })
-      .setTimestamp();
-
-    await interaction.reply({ embeds: [embed] });
+  if (categories.length === 0) {
+    await interaction.reply({
+      embeds: [createEmbed('error').setTitle('❌ Erreur').setDescription('Aucune commande disponible.')],
+      ephemeral: true,
+    });
+    return;
   }
+
+  const firstCategory = categories[0];
+  const embed = createCategoryEmbed(commandsByCategory, firstCategory, 0);
+  const selectRow = createCategorySelect(commandsByCategory, firstCategory);
+  const buttonRow = createPaginationButtons(firstCategory, 0, Math.ceil(commandsByCategory[firstCategory].length / COMMANDS_PER_PAGE));
+
+  await interaction.reply({
+    embeds: [embed],
+    components: [selectRow, buttonRow],
+  });
+}
+
+export async function handleHelpSelect(interaction: StringSelectMenuInteraction, client: Client): Promise<void> {
+  const categoryId = interaction.values[0];
+  const commandsByCategory = getCommandsByCategory(client);
+  const commands = commandsByCategory[categoryId];
+
+  if (!commands) {
+    await interaction.update({
+      embeds: [createEmbed('error').setTitle('❌ Erreur').setDescription('Catégorie introuvable.')],
+      components: [],
+    });
+    return;
+  }
+
+  const embed = createCategoryEmbed(commandsByCategory, categoryId, 0);
+  const selectRow = createCategorySelect(commandsByCategory, categoryId);
+  const buttonRow = createPaginationButtons(categoryId, 0, Math.ceil(commands.length / COMMANDS_PER_PAGE));
+
+  await interaction.update({
+    embeds: [embed],
+    components: [selectRow, buttonRow],
+  });
+}
+
+export async function handleHelpPagination(interaction: ButtonInteraction, client: Client, direction: 'prev' | 'next'): Promise<void> {
+  const customId = interaction.customId;
+  const category = customId.split('_')[2];
+  const commandsByCategory = getCommandsByCategory(client);
+  const commands = commandsByCategory[category];
+
+  if (!commands) {
+    await interaction.update({
+      embeds: [createEmbed('error').setTitle('❌ Erreur').setDescription('Catégorie introuvable.')],
+      components: [],
+    });
+    return;
+  }
+
+  const totalPages = Math.ceil(commands.length / COMMANDS_PER_PAGE);
+  let currentPage = 0;
+
+  const message = interaction.message;
+  const embed = message.embeds[0];
+  if (embed && embed.footer) {
+    const footerText = embed.footer.text;
+    const match = footerText.match(/Page (\d+)\/(\d+)/);
+    if (match) {
+      currentPage = parseInt(match[1], 10) - 1;
+    }
+  }
+
+  if (direction === 'prev' && currentPage > 0) {
+    currentPage--;
+  } else if (direction === 'next' && currentPage < totalPages - 1) {
+    currentPage++;
+  }
+
+  const newEmbed = createCategoryEmbed(commandsByCategory, category, currentPage);
+  const selectRow = createCategorySelect(commandsByCategory, category);
+  const buttonRow = createPaginationButtons(category, currentPage, totalPages);
+
+  await interaction.update({
+    embeds: [newEmbed],
+    components: [selectRow, buttonRow],
+  });
 }

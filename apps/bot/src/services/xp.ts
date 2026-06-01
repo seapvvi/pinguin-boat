@@ -1,5 +1,7 @@
 import { prisma } from '@pinguin/db';
 import { ensureUser } from './user';
+import { updateQuestProgress } from './quests';
+import { isEconomyActive } from './economy';
 
 /** Constantes XP — non modifiables depuis le dashboard */
 export const XP_PER_MESSAGE = 10;
@@ -97,6 +99,13 @@ export async function addMessageXp(
       lastMessageAt: now,
     },
   });
+
+  if (leveledUp) {
+    const economyActive = await isEconomyActive(guildId);
+    if (economyActive) {
+      await updateQuestProgress(guildId, userId, 'LEVEL_UP', 1);
+    }
+  }
 
   return { xp: newXp, level: newLevel, leveledUp };
 }

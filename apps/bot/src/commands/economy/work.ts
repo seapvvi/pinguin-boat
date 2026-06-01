@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive } from '../../services/economy';
 import { successEmbed, enrichedErrorEmbed } from '../../services/embed';
+import { updateQuestProgress } from '../../services/quests';
 
 const workCooldowns = new Map<string, number>();
 
@@ -62,6 +63,8 @@ export async function execute(interaction: CommandInteraction, _client: Client):
     },
   });
   workCooldowns.set(key, Date.now());
+
+  await updateQuestProgress(interaction.guild.id, interaction.user.id, 'EARN_MONEY', amount);
 
   await interaction.editReply({
     embeds: [successEmbed('Travail terminé', `Tu as gagné ${formatCoins(amount, settings.currencySymbol, settings.currencyName)} !\nSolde : ${formatCoins(newBalance, settings.currencySymbol, settings.currencyName)}`)],

@@ -47,6 +47,13 @@ enum LogEventType {
   MEMBER_UNMUTE
 }
 
+/// Préférences de notification de level up
+enum LevelUpNotification {
+  DM
+  CHANNEL
+  NONE
+}
+
 /// Types de sanctions de modération
 enum ModerationCaseType {
   WARN
@@ -93,6 +100,38 @@ enum TransactionType {
   GAMBLE
   ADMIN
   EARN
+  INTEREST
+}
+
+/// Type d'item de boutique
+enum ItemType {
+  ROLE
+  XP_BOOST
+  ANTI_THEFT
+  LOTTO_TICKET
+}
+
+/// Type de quête
+enum QuestType {
+  DAILY
+  WEEKLY
+}
+
+/// Statut d'une quête
+enum QuestStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+}
+
+/// Type d'objectif de quête
+enum QuestObjectiveType {
+  SEND_MESSAGES
+  WIN_BLACKJACK
+  WIN_ROULETTE
+  EARN_MONEY
+  USE_COMMAND
+  LEVEL_UP
 }
 
 /// Statut d'un giveaway
@@ -194,6 +233,8 @@ model User {
   locale          String   @default("fr") @map("locale")
   theme           String   @default("DARK") @map("theme")
   snowflakes      Boolean  @default(true) @map("snowflakes")
+  notifyDaily     Boolean  @default(false) @map("notify_daily")
+  notifyWeekly    Boolean  @default(false) @map("notify_weekly")
 
   premiumSubscription PremiumSubscription?
 
@@ -283,6 +324,8 @@ model Guild {
   xpRoleRewards    XPRoleReward[]
   economyWallets   EconomyWallet[]
   economyTransactions EconomyTransaction[]
+  quests           Quest[]
+  questProgress    QuestProgress[]
   musicHistory     MusicHistoryEntry[]
   giveaways        Giveaway[]
   polls            Poll[]
@@ -529,18 +572,19 @@ model XPSettings {
 
 /// Profil d'XP d'un utilisateur sur un serveur
 model XPProfile {
-  id            String    @id @default(cuid()) @map("id")
-  guildId       String    @map("guild_id")
-  userId        String    @map("user_id")
-  xp            Int       @default(0) @map("xp")
-  level         Int       @default(0) @map("level")
-  voiceXp       Int       @default(0) @map("voice_xp")
-  messageCount  Int       @default(0) @map("message_count")
-  voiceMinutes  Int       @default(0) @map("voice_minutes")
-  lastMessageAt DateTime? @map("last_message_at")
-  lastVoiceAt   DateTime? @map("last_voice_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id                   String              @id @default(cuid()) @map("id")
+  guildId              String              @map("guild_id")
+  userId               String              @map("user_id")
+  xp                   Int                 @default(0) @map("xp")
+  level                Int                 @default(0) @map("level")
+  voiceXp              Int                 @default(0) @map("voice_xp")
+  messageCount         Int                 @default(0) @map("message_count")
+  voiceMinutes         Int                 @default(0) @map("voice_minutes")
+  lastMessageAt        DateTime?           @map("last_message_at")
+  lastVoiceAt          DateTime?           @map("last_voice_at")
+  levelUpNotification  LevelUpNotification @default(CHANNEL) @map("level_up_notification")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
 
   guild Guild @relation(fields: [guildId], references: [id])
   user  User  @relation(fields: [userId], references: [discordId])
@@ -569,15 +613,20 @@ model XPRoleReward {
 
 /// Portefeuille économique d'un utilisateur sur un serveur
 model EconomyWallet {
-  id          String    @id @default(cuid()) @map("id")
-  guildId     String    @map("guild_id")
-  userId      String    @map("user_id")
-  wallet      Int       @default(0) @map("wallet")
-  bank        Int       @default(0) @map("bank")
-  totalEarned Int       @default(0) @map("total_earned")
-  lastDailyAt DateTime? @map("last_daily_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id                String    @id @default(cuid()) @map("id")
+  guildId           String    @map("guild_id")
+  userId            String    @map("user_id")
+  wallet            Int       @default(0) @map("wallet")
+  bank              Int       @default(0) @map("bank")
+  totalEarned       Int       @default(0) @map("total_earned")
+  lastDailyAt       DateTime? @map("last_daily_at")
+  lastWeeklyAt      DateTime? @map("last_weekly_at")
+  xpBoostEndsAt     DateTime? @map("xp_boost_ends_at")
+  xpBoostMultiplier Int       @default(2) @map("xp_boost_multiplier")
+  antiTheftEndsAt   DateTime? @map("anti_theft_ends_at")
+  lottoTicketsCount Int       @default(0) @map("lotto_tickets_count")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   guild Guild @relation(fields: [guildId], references: [id])
   user  User  @relation(fields: [userId], references: [discordId])
@@ -602,6 +651,50 @@ model EconomyTransaction {
   @@index([guildId, fromUserId])
   @@index([guildId, toUserId])
   @@map("economy_transactions")
+}
+
+/// Quête disponible sur un serveur
+model Quest {
+  id              String              @id @default(cuid()) @map("id")
+  guildId         String              @map("guild_id")
+  type            QuestType           @map("type")
+  objectiveType   QuestObjectiveType  @map("objective_type")
+  objectiveTarget Int                 @map("objective_target")
+  reward          Int                 @map("reward")
+  title           String              @map("title")
+  description     String              @map("description")
+  startsAt        DateTime            @map("starts_at")
+  endsAt          DateTime            @map("ends_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  guild       Guild            @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  progress    QuestProgress[]
+
+  @@index([guildId, type])
+  @@index([guildId, startsAt, endsAt])
+  @@map("quests")
+}
+
+/// Progression d'un utilisateur sur une quête
+model QuestProgress {
+  id          String      @id @default(cuid()) @map("id")
+  guildId     String      @map("guild_id")
+  userId      String      @map("user_id")
+  questId     String      @map("quest_id")
+  progress    Int         @default(0) @map("progress")
+  status      QuestStatus @default(ACTIVE) @map("status")
+  completedAt DateTime?   @map("completed_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId, questId])
+  @@index([guildId, userId])
+  @@index([questId])
+  @@map("quest_progress")
 }
 
 /// File d'attente musicale
@@ -801,13 +894,65 @@ model ShopItem {
   name              String          @map("name")
   description       String?         @map("description")
   price             Int             @map("price")
+  type              ItemType        @default(ROLE) @map("type")
   roleId            String?         @map("role_id")
+  duration          Int?            @map("duration")
+  effectValue       Int?            @map("effect_value")
   createdAt         DateTime        @default(now()) @map("created_at")
 
   economySettings EconomySettings @relation(fields: [economySettingsId], references: [id], onDelete: Cascade)
+  inventoryEntries InventoryEntry[]
+  marketListings  MarketListing[]
 
   @@index([economySettingsId])
   @@map("shop_items")
+}
+
+/// Entrée d'inventaire d'un utilisateur
+model InventoryEntry {
+  id        String   @id @default(cuid()) @map("id")
+  guildId   String   @map("guild_id")
+  userId    String   @map("user_id")
+  itemId    String   @map("item_id")
+  quantity  Int      @default(1) @map("quantity")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  item ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId, itemId])
+  @@index([guildId, userId])
+  @@map("inventory_entries")
+}
+
+/// Statut d'une annonce de marché
+enum MarketListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
+}
+
+/// Annonce de marché entre joueurs
+model MarketListing {
+  id          String             @id @default(cuid()) @map("id")
+  guildId     String             @map("guild_id")
+  sellerId    String             @map("seller_id")
+  itemId      String             @map("item_id")
+  price       Int                @map("price")
+  status      MarketListingStatus @default(ACTIVE) @map("status")
+  buyerId     String?            @map("buyer_id")
+  expiresAt   DateTime           @map("expires_at")
+  soldAt      DateTime?          @map("sold_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  item ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, status])
+  @@index([sellerId])
+  @@index([expiresAt])
+  @@map("market_listings")
 }
 
 /// Configuration du module de protection anti-raid/anti-spam
@@ -1125,7 +1270,10 @@ model AutoModSettings {
   muteDuration          Int      @default(10) @map("mute_duration")
   kickEnabled           Boolean  @default(false) @map("kick_enabled")
   banEnabled            Boolean  @default(false) @map("ban_enabled")
-  autoSanctionThreshold Int      @default(3) @map("auto_sanction_threshold")
+  autoSanctionThreshold  Int      @default(3) @map("auto_sanction_threshold")
+  autoWarnMuteThreshold  Int?     @map("auto_warn_mute_threshold")
+  autoWarnBanThreshold   Int?     @map("auto_warn_ban_threshold")
+  autoWarnMuteDuration   Int      @default(60) @map("auto_warn_mute_duration")
   whitelistRoles        String   @default("[]") @map("whitelist_roles")
   whitelistChannels     String   @default("[]") @map("whitelist_channels")
   logChannelId          String?  @map("log_channel_id")
@@ -1154,6 +1302,7 @@ model TicketSettings {
   mentionModerators      Boolean  @default(true) @map("mention_moderators")
   maxOpenPerUser         Int      @default(1) @map("max_open_per_user")
   autoDelete             Boolean  @default(false) @map("auto_delete")
+  inactivityAlertHours   Int      @default(24) @map("inactivity_alert_hours")
   welcomeMessageNoReason String   @default("Un membre de l'équipe va te répondre sous peu.") @map("welcome_message_no_reason")
   openMessage            String   @default("Bienvenue ! Décris ton problème.") @map("open_message")
   panelMessage           String   @default("Cliquez sur le bouton ci-dessous pour ouvrir un ticket de support.\nNotre équipe vous répondra dès que possible.") @map("panel_message")
@@ -1195,19 +1344,24 @@ model OwnerNote {
 
 /// Paramètres des minijeux pour un serveur
 model MinigameSettings {
-  id              String  @id @default(cuid()) @map("id")
-  guildId         String  @unique @map("guild_id")
-  enabled         Boolean @default(true) @map("enabled")
-  gamesChannelId  String? @map("games_channel_id")
-  betMin          Int     @default(10) @map("bet_min")
-  betMax          Int     @default(1000) @map("bet_max")
-  blackjackReward Int     @default(150) @map("blackjack_reward")
-  rpsReward       Int     @default(50) @map("rps_reward")
-  morpionReward   Int     @default(100) @map("morpion_reward")
-  guessReward     Int     @default(200) @map("guess_reward")
-  guessRange      Int     @default(100) @map("guess_range")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                   String  @id @default(cuid()) @map("id")
+  guildId              String  @unique @map("guild_id")
+  enabled              Boolean @default(true) @map("enabled")
+  gamesChannelId       String? @map("games_channel_id")
+  betMin               Int     @default(10) @map("bet_min")
+  betMax               Int     @default(1000) @map("bet_max")
+  blackjackReward      Int     @default(150) @map("blackjack_reward")
+  rpsReward            Int     @default(50) @map("rps_reward")
+  morpionReward        Int     @default(100) @map("morpion_reward")
+  guessReward          Int     @default(200) @map("guess_reward")
+  guessRange           Int     @default(100) @map("guess_range")
+  hangmanReward        Int     @default(150) @map("hangman_reward")
+  hangmanWordCategories String  @default("{}") @map("hangman_word_categories")
+  connect4Reward       Int     @default(200) @map("connect4_reward")
+  pokerReward          Int     @default(300) @map("poker_reward")
+  horseRaceReward      Int     @default(250) @map("horse_race_reward")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   guild     Guild            @relation(fields: [guildId], references: [id], onDelete: Cascade)
   sessions  MinigameSession[]

@@ -1,4 +1,4 @@
-import { CommandInteraction, Client, Interaction, AutocompleteInteraction, ButtonInteraction, ModalSubmitInteraction } from 'discord.js';
+import { CommandInteraction, Client, Interaction, AutocompleteInteraction, ButtonInteraction, ModalSubmitInteraction, StringSelectMenuInteraction } from 'discord.js';
 import { getConfig } from '@pinguin/config';
 import { checkCooldown } from '../guards/cooldown';
 import { checkModPermissions } from '../guards/permissions';
@@ -51,6 +51,13 @@ export async function execute(interaction: Interaction, client: Client): Promise
         return;
       }
 
+      if (interaction.customId.startsWith('help_prev_') || interaction.customId.startsWith('help_next_')) {
+        const { handleHelpPagination } = await import('../commands/utility/help');
+        const direction = interaction.customId.startsWith('help_prev_') ? 'prev' : 'next';
+        await handleHelpPagination(interaction, client, direction);
+        return;
+      }
+
       // Minigame buttons (blackjack, morpion) are handled by their own
       // per-message component collectors. We must NOT acknowledge them here:
       // doing so races with the collector's i.update() and triggers
@@ -61,6 +68,23 @@ export async function execute(interaction: Interaction, client: Client): Promise
     } catch (err) {
       console.error('[Bot] Erreur bouton:', interaction.customId, err);
       await replyButtonError(interaction, 'Une erreur est survenue. Réessayez dans un instant.');
+    }
+    return;
+  }
+
+  if (interaction.isStringSelectMenu()) {
+    try {
+      if (interaction.customId === 'help_category_select') {
+        const { handleHelpSelect } = await import('../commands/utility/help');
+        await handleHelpSelect(interaction, client);
+        return;
+      }
+    } catch (err) {
+      console.error('[Bot] Erreur menu select:', interaction.customId, err);
+      await interaction.update({
+        embeds: [errorEmbed('Erreur', 'Une erreur est survenue. Réessayez dans un instant.')],
+        components: [],
+      }).catch(() => {});
     }
     return;
   }
@@ -244,6 +268,19 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Cl
         embeds: [successEmbed('Formulaire soumis', 'Votre réponse a été enregistrée avec succès !')],
         ephemeral: true,
       });
+      return;
+    }
+
+    if (interaction.customId.startsWith('warn_modal_')) {
+      const { handleModalSubmit: handleWarnModal } = await import('../commands/moderation/warn-context');
+      await handleWarnModal(interaction, client);
+      return;
+    }
+
+    if (interaction.customId.startsWith('kick_modal_')) {
+      const { handleModalSubmit: handleKickModal } = await import('../commands/moderation/kick-context');
+      await handleKickModal(interaction, client);
+      return;
     }
   } catch (error) {
     console.error('Error handling modal submit:', error);

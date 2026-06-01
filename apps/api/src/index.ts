@@ -13,6 +13,7 @@ import { deployRoutes } from './routes/deploy';
 import { musicRoutes } from './routes/music';
 import { webhookRoutes } from './routes/webhooks';
 import { internalRoutes } from './routes/internal';
+import { systemRoutes } from './routes/system';
 import { authenticate } from './middleware/auth';
 import { success, error, paginated, sanitizeError } from './utils/response';
 import { getSystemMetrics, getGlobalStats } from './services/metrics';
@@ -57,6 +58,7 @@ async function main() {
   await app.register(musicRoutes, { prefix: '/api/music' });
   await app.register(webhookRoutes, { prefix: '/api/webhooks' });
   await app.register(internalRoutes, { prefix: '/api/internal' });
+  await app.register(systemRoutes, { prefix: '/api/system' });
 
   app.get('/api/bot/invite', async (request, reply) => {
     try {

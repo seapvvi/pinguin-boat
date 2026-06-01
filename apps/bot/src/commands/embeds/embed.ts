@@ -17,7 +17,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub.setName('send')
       .setDescription('Envoyer un embed personnalisé')
-      .addStringOption((opt) => opt.setName('name').setDescription('Nom de l\'embed').setRequired(true))
+      .addStringOption((opt) => opt.setName('name').setDescription('Nom de l\'embed').setRequired(true).setAutocomplete(true))
       .addChannelOption((opt) =>
         opt.setName('channel').setDescription('Salon de destination').addChannelTypes(ChannelType.GuildText)
       )
@@ -190,4 +190,25 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       break;
     }
   }
+}
+
+export async function autocomplete(interaction: any, _client: Client): Promise<void> {
+  if (!interaction.guild) return;
+
+  const focusedValue = interaction.options.getFocused();
+  const subcommand = interaction.options.getSubcommand();
+
+  if (subcommand !== 'send') return;
+
+  const embeds = await prisma.savedEmbed.findMany({
+    where: { guildId: interaction.guild.id },
+  });
+
+  const filtered = embeds
+    .filter((embed) => embed.name.toLowerCase().includes(focusedValue.toLowerCase()))
+    .slice(0, 25);
+
+  await interaction.respond(
+    filtered.map((embed) => ({ name: embed.name, value: embed.name }))
+  );
 }

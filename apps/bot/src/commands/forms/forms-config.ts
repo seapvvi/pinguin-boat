@@ -233,3 +233,22 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la configuration.')] });
   }
 }
+
+export async function autocomplete(interaction: any, _client: Client): Promise<void> {
+  if (!interaction.guild) return;
+
+  const focusedValue = interaction.options.getFocused();
+  const subcommand = interaction.options.getSubcommand();
+
+  if (subcommand !== 'delete') return;
+
+  const templates = await getEnabledTemplates(interaction.guild.id);
+
+  const filtered = templates
+    .filter((template: any) => template.name.toLowerCase().includes(focusedValue.toLowerCase()))
+    .slice(0, 25);
+
+  await interaction.respond(
+    filtered.map((template: any) => ({ name: template.name, value: template.id }))
+  );
+}

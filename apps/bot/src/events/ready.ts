@@ -1,6 +1,9 @@
 import { Client, ActivityType } from 'discord.js';
 import { getConfig } from '@pinguin/config';
 import { prisma } from '@pinguin/db';
+import { initializeInterestCrons } from '../services/economy-interests';
+import { initializeNotificationCrons } from '../services/economy-notifications';
+import { initializeInactivityAlertCrons } from '../services/ticket-inactivity-alert';
 
 export const once = true;
 
@@ -62,6 +65,16 @@ export async function execute(client: Client): Promise<void> {
       } catch { /* ignore */ }
     }
   }, 10 * 60 * 1000);
+
+  // Initialisation des crons d'intérêts bancaires
+  const guildIds = Array.from(client.guilds.cache.keys());
+  await initializeInterestCrons(guildIds);
+
+  // Initialisation des crons de notifications économiques
+  await initializeNotificationCrons(client, guildIds);
+
+  // Initialisation des crons d'alertes d'inactivité de tickets
+  await initializeInactivityAlertCrons(client, guildIds);
 
   console.log('[Bot] Prêt !');
 }

@@ -41,15 +41,26 @@ export async function execute(oldState: VoiceState, newState: VoiceState, client
               try { await newState.member.roles.add(reward.roleId); } catch {}
             }
           }
+
+          const profile = await prisma.xPProfile.findUnique({
+            where: { guildId_userId: { guildId, userId } },
+          });
+
           const settings = await prisma.xPSettings.findUnique({ where: { guildId } });
-          if (settings?.announcementChannelId) {
+          const notificationType = profile?.levelUpNotification ?? 'CHANNEL';
+          const msg = settings?.announcementMessage
+            ? settings.announcementMessage
+                .replace('{user}', `<@${userId}>`)
+                .replace('{level}', result.level.toString())
+            : `Bravo <@${userId}>, tu as atteint le niveau **${result.level}** !`;
+
+          if (notificationType === 'DM') {
+            try {
+              await newState.member.send(msg);
+            } catch {}
+          } else if (notificationType === 'CHANNEL' && settings?.announcementChannelId) {
             const channel = newState.guild.channels.cache.get(settings.announcementChannelId);
             if (channel?.isTextBased()) {
-              const msg = settings.announcementMessage
-                ? settings.announcementMessage
-                    .replace('{user}', `<@${userId}>`)
-                    .replace('{level}', result.level.toString())
-                : `Bravo <@${userId}>, tu as atteint le niveau **${result.level}** !`;
               await channel.send(msg);
             }
           }

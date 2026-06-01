@@ -4,6 +4,7 @@ import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive } from '../../services/economy';
 import { enrichedErrorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
+import { updateQuestProgress } from '../../services/quests';
 
 export const data = new SlashCommandBuilder()
   .setName('daily')
@@ -72,6 +73,8 @@ export async function execute(interaction: CommandInteraction, client: Client): 
         description: 'Récompense quotidienne',
       },
     });
+
+    await updateQuestProgress(interaction.guild.id, interaction.user.id, 'EARN_MONEY', dailyAmount);
 
     await interaction.editReply({
       embeds: [successEmbed('Récompense quotidienne', `Vous avez reçu ${formatCoins(dailyAmount, settings.currencySymbol, settings.currencyName)} !\nNouveau solde : ${formatCoins(newWallet, settings.currencySymbol, settings.currencyName)}`)],

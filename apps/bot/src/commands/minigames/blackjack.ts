@@ -5,6 +5,7 @@ import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
 import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { updateQuestProgress } from '../../services/quests';
 
 const SUITS = ['♠️', '♥️', '♦️', '♣️'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -197,6 +198,10 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         },
       });
 
+      if (result === 'blackjack') {
+        await updateQuestProgress(interaction.guild!.id, interaction.user.id, 'WIN_BLACKJACK', 1);
+      }
+
       await endGameSession(session.id, result, winnings - bet);
 
       const embed = createEmbed('minigame')
@@ -367,6 +372,10 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
             description: 'Blackjack - ' + result,
           },
         });
+
+        if (winnings > bet) {
+          await updateQuestProgress(interaction.guild!.id, interaction.user.id, 'WIN_BLACKJACK', 1);
+        }
 
         await endGameSession(session.id, winnings > bet ? 'won' : winnings === bet ? 'push' : 'lost', winnings - bet);
 
