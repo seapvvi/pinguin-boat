@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFla
 import { prisma } from '@pinguin/db';
 import { errorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
+import { logger } from '@pinguin/shared';
 import { ensureUser } from '../../services/user';
 
 export const data = new SlashCommandBuilder()

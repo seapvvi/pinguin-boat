@@ -4,6 +4,7 @@ import { getEconomySettings } from '../../services/economy';
 import { getActiveQuests, generateDailyQuests, generateWeeklyQuests } from '../../services/quests';
 import { enrichedErrorEmbed, createEmbed } from '../../services/embed';
 import { isEconomyActive } from '../../services/economy';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('quests')
