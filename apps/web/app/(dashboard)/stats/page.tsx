@@ -142,7 +142,7 @@ export default function StatsPage() {
                   }}
                   labelStyle={{ color: 'var(--text-primary)' }}
                   itemStyle={{ color: 'var(--text-primary)' }}
-                  formatter={(value: number) => [`${value.toFixed(1)}%`, 'CPU']}
+                   formatter={(value) => [typeof value === 'number' ? `${value.toFixed(1)}%` : '—', 'CPU']}
                 />
                 <Line 
                   type="monotone" 
@@ -190,7 +190,7 @@ export default function StatsPage() {
                   }}
                   labelStyle={{ color: 'var(--text-primary)' }}
                   itemStyle={{ color: 'var(--text-primary)' }}
-                  formatter={(value: number) => [`${value.toFixed(1)}%`, 'RAM']}
+                   formatter={(value) => [typeof value === 'number' ? `${value.toFixed(1)}%` : '—', 'RAM']}
                 />
                 <Line 
                   type="monotone" 
@@ -239,8 +239,8 @@ export default function StatsPage() {
                   }}
                   labelStyle={{ color: 'var(--text-primary)' }}
                   itemStyle={{ color: 'var(--text-primary)' }}
-                  formatter={(value: number, name: string) => [
-                    formatNumber(value),
+                   formatter={(value, name) => [
+                    typeof value === 'number' ? formatNumber(value) : '—',
                     name === 'guilds' ? 'Serveurs' : 'Utilisateurs'
                   ]}
                 />
@@ -299,7 +299,7 @@ export default function StatsPage() {
                   }}
                   labelStyle={{ color: 'var(--text-primary)' }}
                   itemStyle={{ color: 'var(--text-primary)' }}
-                  formatter={(value: number) => [formatNumber(value), 'Commandes']}
+                   formatter={(value) => [typeof value === 'number' ? formatNumber(value) : '—', 'Commandes']}
                 />
                 <Line 
                   type="monotone" 
