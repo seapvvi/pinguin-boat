@@ -1364,7 +1364,7 @@ export async function guildRoutes(app: FastifyInstance) {
         const votesRecord: Record<string, string> = {};
         const voteCounts: number[] = new Array(rawOptions.length).fill(0);
         for (const v of p.votes) {
-          const discordId = v.userId ? ((v as { user?: { discordId: string } }).user?.discordId ?? v.userId) : `anon_${v.id}`;
+          const discordId = v.userId ? ((v as { user?: { discordId: string } }).user?.discordId ?? v.userId) : `anon_${v.optionIndex}`;
           if (p.anonymous) {
             voteCounts[v.optionIndex]++;
           } else {

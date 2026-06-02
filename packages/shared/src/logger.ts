@@ -1,5 +1,4 @@
 import pino, { type Logger as PinoLogger } from 'pino';
-import pinoRoll from 'pino-roll';
 
 export type LoggerLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -12,6 +11,8 @@ export interface LoggerContext {
 export interface CreateLoggerOptions {
   level?: LoggerLevel;
 }
+
+const isServer = typeof process !== 'undefined' && process.release?.name === 'node';
 
 function resolveLogLevel(envLevel: string | undefined): LoggerLevel {
   switch (envLevel) {
@@ -30,32 +31,28 @@ function createBaseLogger(options?: CreateLoggerOptions): PinoLogger {
 
   const destination = process.env.LOG_DESTINATION ?? 'logs/pinguin.log';
 
-  const base = pino(
-    {
-      level,
-      base: {
-        pid: process.pid,
-        hostname: process.env.HOSTNAME,
-      },
-      messageKey: 'msg',
-      timestamp: pino.stdTimeFunctions.isoTime,
+  return pino({
+    level,
+    base: {
+      pid: process.pid,
+      hostname: process.env.HOSTNAME,
     },
-    pino.destination(destination),
-  );
-
-  return pinoRoll({
-    logger: base,
-    // Rotation quotidienne + répertoire dédié pour éviter les collisions.
-    // pino-roll gère aussi les suppressions selon la config par défaut.
-    // Format: logs/pinguin-YYYY-MM-DD.log
-    interval: '1d',
-    path: destination.replace(/\.log$/, '-%Y-%m-%d.log'),
-    // Ne pas dupliquer des niveaux si pino-roll ajoute ses propres labels.
-    // On garde le comportement de pino.
+    messageKey: 'msg',
+    timestamp: pino.stdTimeFunctions.isoTime,
+    transport: {
+      targets: [
+        { target: 'pino/file', options: { destination: 1 } },
+        { target: 'pino-roll', options: { file: destination, frequency: 'daily', mkdir: true } },
+      ],
+    },
   });
 }
 
-const singletonLogger = createBaseLogger();
+function createNoopLogger(): PinoLogger {
+  return pino({ enabled: false });
+}
+
+const singletonLogger = isServer ? createBaseLogger() : createNoopLogger();
 
 export function getLogger(context?: LoggerContext): PinoLogger {
   if (!context || Object.keys(context).length === 0) return singletonLogger;
@@ -71,4 +68,3 @@ export function getLogger(context?: LoggerContext): PinoLogger {
 }
 
 export const logger: PinoLogger = singletonLogger;
-
