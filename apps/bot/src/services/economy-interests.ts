@@ -1,5 +1,6 @@
 import { prisma } from '@pinguin/db';
 import { getEconomySettings, isEconomyActive } from './economy';
+import { logger } from '@pinguin/shared';
 
 const runningIntervals = new Map<string, NodeJS.Timeout>();
 
@@ -64,14 +65,14 @@ export async function startInterestCron(guildId: string): Promise<void> {
         });
       }
 
-      console.log(`[Economy] Intérêts appliqués pour ${wallets.length} wallets sur ${guildId}`);
+      logger.info(`[Economy] Intérêts appliqués pour ${wallets.length} wallets sur ${guildId}`);
     } catch (error) {
-      console.error(`[Economy] Erreur lors de l'application des intérêts pour ${guildId}:`, error);
+      logger.error(`[Economy] Erreur lors de l'application des intérêts pour ${guildId}`, { err: error instanceof Error ? error.message : String(error) });
     }
   }, settings.interestInterval);
 
   runningIntervals.set(guildId, interval);
-  console.log(`[Economy] Cron d'intérêts démarré pour ${guildId} (interval: ${settings.interestInterval}ms)`);
+  logger.info(`[Economy] Cron d'intérêts démarré pour ${guildId} (interval: ${settings.interestInterval}ms)`);
 }
 
 export function stopInterestCron(guildId: string): void {
@@ -79,14 +80,14 @@ export function stopInterestCron(guildId: string): void {
   if (interval) {
     clearInterval(interval);
     runningIntervals.delete(guildId);
-    console.log(`[Economy] Cron d'intérêts arrêté pour ${guildId}`);
+    logger.info(`[Economy] Cron d'intérêts arrêté pour ${guildId}`);
   }
 }
 
 export function stopAllInterestCrons(): void {
   for (const [guildId, interval] of runningIntervals.entries()) {
     clearInterval(interval);
-    console.log(`[Economy] Cron d'intérêts arrêté pour ${guildId}`);
+    logger.info(`[Economy] Cron d'intérêts arrêté pour ${guildId}`);
   }
   runningIntervals.clear();
 }
@@ -102,7 +103,7 @@ export async function initializeInterestCrons(guildIds: string[]): Promise<void>
         startInterestCron(guildId);
       }
     } catch (error) {
-      console.error(`[Economy] Erreur lors de l'initialisation du cron d'intérêts pour ${guildId}:`, error);
+      logger.error(`[Economy] Erreur lors de l'initialisation du cron d'intérêts pour ${guildId}`, { err: error instanceof Error ? error.message : String(error) });
     }
   }
 }

@@ -13,8 +13,14 @@ async function getPermissionLevel(member: GuildMember): Promise<PermissionLevel>
 
   const settings = await prisma.guildSettings.findUnique({ where: { guildId: member.guild.id } });
   if (settings) {
-    const adminRoleIds: string[] = JSON.parse(settings.adminRoleIds);
-    const modRoleIds: string[] = JSON.parse(settings.modRoleIds);
+    let adminRoleIds: string[] = [];
+    let modRoleIds: string[] = [];
+    try {
+      adminRoleIds = JSON.parse(settings.adminRoleIds);
+      modRoleIds = JSON.parse(settings.modRoleIds);
+    } catch {
+      // données corrompues, on ignore
+    }
     if (member.roles.cache.some((r) => adminRoleIds.includes(r.id))) return PermissionLevel.ADMIN;
     if (member.roles.cache.some((r) => modRoleIds.includes(r.id))) return PermissionLevel.MODERATOR;
   }

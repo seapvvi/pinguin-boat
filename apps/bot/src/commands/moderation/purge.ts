@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFlagsBits, TextChannel } from 'discord.js';
 import { errorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('purge')
@@ -46,7 +47,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     if (error.code === 50034) {
       await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de supprimer des messages de plus de 14 jours.')] });
     } else {
-      console.error(error);
+      logger.error('Erreur lors de la suppression des messages', { err: error instanceof Error ? error.message : String(error) });
       await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de supprimer les messages.')] });
     }
   }

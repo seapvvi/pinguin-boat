@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFlagsBits, TextChannel, ChannelType } from 'discord.js';
 import { errorEmbed, successEmbed } from '../../services/embed';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('slowmode')
@@ -35,7 +36,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       await interaction.editReply({ embeds: [successEmbed('Mode lent défini', `Le mode lent est maintenant de **${seconds} seconde${seconds > 1 ? 's' : ''}** dans ${channel}.`)] });
     }
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors du réglage du mode lent', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de définir le mode lent.')] });
   }
 }

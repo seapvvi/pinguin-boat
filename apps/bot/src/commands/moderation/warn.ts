@@ -4,6 +4,7 @@ import { errorEmbed, successEmbed, infoEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 import { ensureUser } from '../../services/user';
 import { checkWarnEscalation } from '../../services/moderation-escalation';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('warn')
@@ -73,7 +74,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
     await interaction.editReply({ embeds: [replyEmbed] });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de l\'avertissement', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible d\'avertir cet utilisateur.')] });
   }
 }

@@ -5,6 +5,7 @@ import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
 import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 const WORD_CATEGORIES: Record<string, string[]> = {
   animaux: ['CHAT', 'CHIEN', 'ELEPHANT', 'GIRAFE', 'LION', 'TIGRE', 'SINGE', 'POULE', 'LAPIN', 'CHEVAL', 'DAUPHIN', 'BALEINE', 'AIGLE', 'PERROQUET', 'PANDA'],
@@ -380,7 +381,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           components: updatedRows,
         });
       } catch (err) {
-        console.error('Hangman interaction error:', err);
+        logger.error('Hangman interaction error', { err: err instanceof Error ? err.message : String(err) });
       }
     });
 
@@ -416,7 +417,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     });
 
   } catch (error) {
-    console.error('Hangman game error:', error);
+    logger.error('Hangman game error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la partie.')] });
   }
 }

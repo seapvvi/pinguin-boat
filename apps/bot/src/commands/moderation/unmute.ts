@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { errorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 import { ensureUser } from '../../services/user';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('unmute')
@@ -65,7 +66,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       embeds: [successEmbed('Utilisateur démuté', `**${user.username}** a été démuté.\nRaison : ${reason}`)],
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors du démute', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de démuter cet utilisateur.')] });
   }
 }

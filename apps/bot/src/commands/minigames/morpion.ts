@@ -5,6 +5,7 @@ import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
 import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 type Player = 'X' | 'O';
 type Board = (Player | null)[];
@@ -321,7 +322,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         });
       }
      } catch (err) {
-       console.error('Morpion interaction error:', err);
+        logger.error('Morpion interaction error', { err: err instanceof Error ? err.message : String(err) });
      }
     });
 
@@ -358,7 +359,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     });
 
   } catch (error) {
-    console.error('Morpion game error:', error);
+    logger.error('Morpion game error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la partie.')] });
   }
 }

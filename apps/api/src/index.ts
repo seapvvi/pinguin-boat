@@ -1,8 +1,10 @@
-import Fastify from 'fastify';
+import Fastify, { FastifyError } from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import helmet from '@fastify/helmet';
+import requestId from '@fastify/request-id';
+import { z } from 'zod';
 import { getConfig } from '@pinguin/config';
 import { prisma } from '@pinguin/db';
 import { authRoutes } from './routes/auth';
@@ -15,7 +17,7 @@ import { webhookRoutes } from './routes/webhooks';
 import { internalRoutes } from './routes/internal';
 import { systemRoutes } from './routes/system';
 import { authenticate } from './middleware/auth';
-import { success, error, paginated, sanitizeError } from './utils/response';
+import { success, error, paginated, sanitizeError, getErrorMessage } from './utils/response';
 import { getSystemMetrics, getGlobalStats } from './services/metrics';
 import { botFetch } from './services/bot-proxy';
 
@@ -23,6 +25,8 @@ const config = getConfig();
 
 async function main() {
   const app = Fastify({ logger: true });
+
+  await app.register(requestId);
 
   await app.register(cors, {
     origin: config.CORS_ORIGIN,
@@ -39,10 +43,16 @@ async function main() {
   });
 
   await app.register(helmet, {
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        frameSrc: [],
+        frameAncestors: ["'none'"],
+      },
+    },
   });
 
-  app.setErrorHandler((error: any, _request, reply) => {
+  app.setErrorHandler((error: FastifyError, _request, reply) => {
     app.log.error(error);
     reply.status(error.statusCode || 500).send({
       success: false,
@@ -60,9 +70,13 @@ async function main() {
   await app.register(internalRoutes, { prefix: '/api/internal' });
   await app.register(systemRoutes, { prefix: '/api/system' });
 
+  const inviteQuerySchema = z.object({
+    guild_id: z.string().optional(),
+  });
+
   app.get('/api/bot/invite', async (request, reply) => {
     try {
-      const query = request.query as { guild_id?: string };
+      const query = inviteQuerySchema.parse(request.query);
       const clientId = config.DISCORD_CLIENT_ID;
       if (!clientId) {
         return reply.status(500).send(error('DISCORD_CLIENT_ID non configuré'));
@@ -72,8 +86,8 @@ async function main() {
       let url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scope}`;
       if (query.guild_id) url += `&guild_id=${query.guild_id}&disable_guild_select=true`;
       reply.send(success({ url }));
-    } catch (err: any) {
-      reply.status(500).send(error(err.message));
+    } catch (err: unknown) {
+      reply.status(500).send(error(getErrorMessage(err)));
     }
   });
 
@@ -86,8 +100,8 @@ async function main() {
         take: 50,
       });
       reply.send(success({ donors }));
-    } catch (err: any) {
-      reply.status(500).send(error(err.message));
+    } catch (err: unknown) {
+      reply.status(500).send(error(getErrorMessage(err)));
     }
   });
 
@@ -100,13 +114,19 @@ async function main() {
     try {
       await botFetch('/internal/ping');
       reply.send({ success: true, status: 'ONLINE' });
-    } catch (err: any) {
-      if (err.message === 'BOT_OFFLINE' || err.name === 'AbortError') {
+    } catch (err: unknown) {
+      const message = getErrorMessage(err);
+      if (message === 'BOT_OFFLINE' || (err instanceof Error && err.name === 'AbortError')) {
         reply.send({ success: true, status: 'OFFLINE' });
       } else {
         reply.send({ success: true, status: 'DEGRADED', error: sanitizeError(err) });
       }
     }
+  });
+
+  const paginationQuerySchema = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(10),
   });
 
   app.get('/api/stats', { preHandler: [authenticate] }, async (request, reply) => {
@@ -115,20 +135,22 @@ async function main() {
       const isOwner = discordId === config.DISCORD_OWNER_ID;
 
       if (!isOwner) {
-        const guilds = await prisma.guild.findMany({
-          where: { botPresent: true },
-          select: { memberCount: true },
-        });
+        const [guildCount, memberAgg] = await Promise.all([
+          prisma.guild.count({ where: { botPresent: true } }),
+          prisma.guild.aggregate({
+            where: { botPresent: true },
+            _sum: { memberCount: true },
+          }),
+        ]);
         let onlineMembers = 0;
         try {
           const botStats = await botFetch('/internal/stats');
           onlineMembers = botStats?.data?.onlineMembers ?? 0;
         } catch { /* bot offline */ }
-        const totalMembers = guilds.reduce((s, g) => s + g.memberCount, 0);
         return reply.send(success({
           isOwner: false,
-          totalGuilds: guilds.length,
-          totalUsers: totalMembers,
+          totalGuilds: guildCount,
+          totalUsers: memberAgg._sum.memberCount ?? 0,
           activeMembers: onlineMembers,
           onlineMembers,
           activeChannels: 0,
@@ -151,34 +173,29 @@ async function main() {
         premiumRevenue: 0,
         systemStatus: 'OPERATIONAL',
       }));
-    } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de la récupération des stats'));
+    } catch (err: unknown) {
+      reply.status(500).send(error(getErrorMessage(err) || 'Erreur lors de la récupération des stats'));
     }
   });
 
   app.get('/api/changelogs', { preHandler: [authenticate] }, async (request, reply) => {
     try {
-      const query = request.query as any;
-      const page = Math.max(1, parseInt(query.page) || 1);
-      const limit = Math.min(50, Math.max(1, parseInt(query.limit) || 10));
+      const query = paginationQuerySchema.parse(request.query);
       const [entries, total] = await Promise.all([
         prisma.changelog.findMany({
           where: { published: true },
           orderBy: { createdAt: 'desc' },
-          skip: (page - 1) * limit,
-          take: limit,
+          skip: (query.page - 1) * query.limit,
+          take: query.limit,
           include: {
             author: { select: { username: true, avatar: true } },
           },
         }),
         prisma.changelog.count({ where: { published: true } }),
       ]);
-      reply.send({
-        success: true,
-        data: { entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } },
-      });
-    } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur lors de la récupération des changelogs'));
+      reply.send(paginated(entries, total, query.page, query.limit));
+    } catch (err: unknown) {
+      reply.status(500).send(error(getErrorMessage(err) || 'Erreur lors de la récupération des changelogs'));
     }
   });
 
@@ -187,7 +204,7 @@ async function main() {
       host: config.API_HOST,
       port: config.API_PORT,
     });
-    console.log(`[API] Serveur démarré sur ${config.API_URL}`);
+    app.log.info(`Serveur démarré sur ${config.API_URL}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);
@@ -197,6 +214,11 @@ async function main() {
 main();
 
 process.on('SIGTERM', async () => {
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
   await prisma.$disconnect();
   process.exit(0);
 });

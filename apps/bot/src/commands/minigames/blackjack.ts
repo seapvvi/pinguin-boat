@@ -6,6 +6,7 @@ import { getMinigameSettings, createGameSession, getActiveSession, updateGameSes
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
 import { updateQuestProgress } from '../../services/quests';
+import { logger } from '@pinguin/shared';
 
 const SUITS = ['♠️', '♥️', '♦️', '♣️'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -398,7 +399,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         });
       }
      } catch (err) {
-       console.error('Blackjack interaction error:', err);
+        logger.error('Blackjack interaction error', { err: err instanceof Error ? err.message : String(err) });
      }
     });
 
@@ -432,7 +433,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     });
 
   } catch (error) {
-    console.error('Blackjack game error:', error);
+    logger.error('Blackjack game error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la partie.')] });
   }
 }

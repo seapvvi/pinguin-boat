@@ -5,6 +5,7 @@ import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive, ge
 import { enrichedErrorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 import { updateQuestProgress } from '../../services/quests';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('daily')
@@ -82,7 +83,7 @@ export async function execute(interaction: CommandInteraction, client: Client): 
       embeds: [successEmbed('Récompense quotidienne', `Vous avez reçu ${formatCoins(dailyAmount, settings.currencySymbol, settings.currencyName)} !${bonusNote}\nNouveau solde : ${formatCoins(newWallet, settings.currencySymbol, settings.currencyName)}`)],
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la réclamation de la récompense quotidienne', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ 
       embeds: [enrichedErrorEmbed(
         'Erreur',

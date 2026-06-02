@@ -1357,6 +1357,23 @@ model TicketSettings {
   @@map("ticket_settings")
 }
 
+/// Membre autorisé d'un serveur (owner ou admin avec MANAGE_GUILD)
+model GuildMember {
+  id          String   @id @default(cuid()) @map("id")
+  guildId     String   @map("guild_id")
+  userId      String   @map("user_id")
+  permissions String   @default("0") @map("permissions")
+  isOwner     Boolean  @default(false) @map("is_owner")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@index([userId])
+  @@map("guild_members")
+}
+
 /// Donateur du projet
 model Donor {
   id         String   @id @default(cuid()) @map("id")

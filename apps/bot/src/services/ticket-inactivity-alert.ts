@@ -1,6 +1,7 @@
 import { Client, TextChannel, EmbedBuilder } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { createEmbed } from './embed';
+import { logger } from '@pinguin/shared';
 
 const runningIntervals = new Map<string, NodeJS.Timeout>();
 
@@ -92,9 +93,9 @@ async function checkInactiveTickets(client: Client, guildId: string): Promise<vo
         embeds: [embed],
       });
 
-      console.log(`[TicketInactivity] Alerte envoyée pour le ticket ${ticket.id} dans ${guildId}`);
+      logger.info(`[TicketInactivity] Alerte envoyée pour le ticket ${ticket.id} dans ${guildId}`);
     } catch (error) {
-      console.error(`[TicketInactivity] Erreur lors de l'envoi de l'alerte pour le ticket ${ticket.id}:`, error);
+      logger.error(`[TicketInactivity] Erreur lors de l'envoi de l'alerte pour le ticket ${ticket.id}`, { err: error instanceof Error ? error.message : String(error) });
     }
   }
 }
@@ -113,12 +114,12 @@ export async function startInactivityAlertCron(client: Client, guildId: string):
     try {
       await checkInactiveTickets(client, guildId);
     } catch (error) {
-      console.error(`[TicketInactivity] Erreur lors de la vérification des tickets inactifs pour ${guildId}:`, error);
+      logger.error(`[TicketInactivity] Erreur lors de la vérification des tickets inactifs pour ${guildId}`, { err: error instanceof Error ? error.message : String(error) });
     }
   }, 30 * 60 * 1000);
 
   runningIntervals.set(guildId, interval);
-  console.log(`[TicketInactivity] Cron d'alertes d'inactivité démarré pour ${guildId} (toutes les 30 minutes)`);
+  logger.info(`[TicketInactivity] Cron d'alertes d'inactivité démarré pour ${guildId} (toutes les 30 minutes)`);
 }
 
 export function stopInactivityAlertCron(guildId: string): void {
@@ -126,14 +127,14 @@ export function stopInactivityAlertCron(guildId: string): void {
   if (interval) {
     clearInterval(interval);
     runningIntervals.delete(guildId);
-    console.log(`[TicketInactivity] Cron d'alertes d'inactivité arrêté pour ${guildId}`);
+    logger.info(`[TicketInactivity] Cron d'alertes d'inactivité arrêté pour ${guildId}`);
   }
 }
 
 export function stopAllInactivityAlertCrons(): void {
   for (const [guildId, interval] of runningIntervals.entries()) {
     clearInterval(interval);
-    console.log(`[TicketInactivity] Cron d'alertes d'inactivité arrêté pour ${guildId}`);
+    logger.info(`[TicketInactivity] Cron d'alertes d'inactivité arrêté pour ${guildId}`);
   }
   runningIntervals.clear();
 }
@@ -149,7 +150,7 @@ export async function initializeInactivityAlertCrons(client: Client, guildIds: s
         startInactivityAlertCron(client, guildId);
       }
     } catch (error) {
-      console.error(`[TicketInactivity] Erreur lors de l'initialisation du cron d'alertes d'inactivité pour ${guildId}:`, error);
+      logger.error(`[TicketInactivity] Erreur lors de l'initialisation du cron d'alertes d'inactivité pour ${guildId}`, { err: error instanceof Error ? error.message : String(error) });
     }
   }
 }

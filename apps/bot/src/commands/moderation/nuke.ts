@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFlagsBits, TextChannel, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder, OverwriteType } from 'discord.js';
 import { errorEmbed, successEmbed, warningEmbed } from '../../services/embed';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('nuke')
@@ -95,7 +96,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
     await collected.editReply({ embeds: [successEmbed('Salon recréé', `${newChannel} a été recréé avec succès.`)], components: [] });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la recréation du salon', { err: error instanceof Error ? error.message : String(error) });
     await collected.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de recréer le salon.')], components: [] });
   }
 }

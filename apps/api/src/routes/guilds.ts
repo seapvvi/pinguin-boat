@@ -673,7 +673,33 @@ export async function guildRoutes(app: FastifyInstance) {
     }
   });
 
-  app.patch('/:guildId/modules/:moduleKey', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.patch('/:guildId/modules', {
+    preHandler: [authenticate, requireGuildAdmin],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, boolean>;
+      const validModules = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'];
+      const updates: Record<string, boolean> = {};
+      for (const [key, val] of Object.entries(body)) {
+        if (validModules.includes(key) && typeof val === 'boolean') {
+          updates[key] = val;
+        }
+      }
+      if (Object.keys(updates).length === 0) {
+        return reply.status(400).send(error('Aucun module valide à mettre à jour'));
+      }
+      const result = await prisma.moduleEnabled.upsert({
+        where: { guildId },
+        update: updates,
+        create: { guildId, ...updates },
+      });
+      try { await notifyModuleChange(guildId, validModules.filter((m) => !(result as any)[m])); } catch {}
+      reply.send(success(result, 'Modules mis à jour'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.patch('/:guildId/modules/:moduleKey', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId, moduleKey } = request.params as any;
       const { enabled } = request.body as any;

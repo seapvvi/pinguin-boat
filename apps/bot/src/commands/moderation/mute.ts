@@ -4,6 +4,7 @@ import { errorEmbed, successEmbed, infoEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 import { ensureUser } from '../../services/user';
 import { parseDuration, formatDuration } from '../../utils/parseDuration';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('mute')
@@ -84,7 +85,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       embeds: [successEmbed('Utilisateur rendu muet', `**${user.username}** a été rendu muet pour **${formatDuration(parsedDuration.milliseconds)}**.\nRaison : ${reason}`)],
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors du mute', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de rendre muet cet utilisateur.')] });
   }
 }

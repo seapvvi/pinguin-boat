@@ -7,6 +7,7 @@ import {
 } from '../../services/forms';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('form-submit')
@@ -77,7 +78,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     await interaction.showModal(modal);
 
   } catch (error) {
-    console.error('Form submit error:', error);
+    logger.error('Form submit error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.reply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de l\'ouverture du formulaire.')], ephemeral: true });
   }
 }

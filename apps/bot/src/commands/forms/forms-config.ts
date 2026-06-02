@@ -8,6 +8,7 @@ import {
 } from '../../services/forms';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('forms')
@@ -229,7 +230,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Sous-commande inconnue.')] });
     }
   } catch (error) {
-    console.error('Forms config error:', error);
+    logger.error('Forms config error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la configuration.')] });
   }
 }

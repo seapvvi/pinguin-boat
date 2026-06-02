@@ -5,6 +5,7 @@ import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
 import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 type Player = 'R' | 'Y';
 type Board = (Player | null)[][];
@@ -405,7 +406,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         resetTurnTimeout();
       }
      } catch (err) {
-       console.error('Connect4 interaction error:', err);
+        logger.error('Connect4 interaction error', { err: err instanceof Error ? err.message : String(err) });
      }
     });
 
@@ -446,7 +447,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     });
 
   } catch (error) {
-    console.error('Connect4 game error:', error);
+    logger.error('Connect4 game error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la partie.')] });
   }
 }

@@ -5,6 +5,7 @@ import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
 import { getMinigameSettings, createGameSession, getActiveSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, enrichedErrorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 const RPS_CHOICES = ['🪨', '📄', '✂️'] as const;
 const RPS_NAMES = ['pierre', 'feuille', 'ciseaux'] as const;
@@ -222,7 +223,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error('RPS game error:', error);
+    logger.error('RPS game error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ 
       embeds: [enrichedErrorEmbed(
         'Erreur',

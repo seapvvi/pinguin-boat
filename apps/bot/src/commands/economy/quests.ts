@@ -81,7 +81,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error('Erreur lors de la récupération des quêtes:', error);
+    logger.error('Erreur lors de la récupération des quêtes', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ 
       embeds: [enrichedErrorEmbed(
         'Erreur de récupération',

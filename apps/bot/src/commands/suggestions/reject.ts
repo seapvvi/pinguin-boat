@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { infoEmbed, errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 import { sendDM } from '../../services/dm';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('reject')
@@ -82,7 +83,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     await interaction.editReply({ embeds: [successEmbed('Suggestion refusée', 'La suggestion a été refusée.')] });
     log({ level: 'info', message: `Suggestion refusée: ${suggestion.id}`, guildId: interaction.guild.id, userId: interaction.user.id });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors du refus de la suggestion', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de refuser la suggestion.')] });
   }
 }

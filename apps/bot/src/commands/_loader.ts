@@ -1,6 +1,7 @@
 import { readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { Client } from 'discord.js';
+import { logger } from '@pinguin/shared';
 
 export function loadCommands(client: Client): void {
   const commandsPath = join(__dirname);
@@ -21,12 +22,15 @@ export function loadCommands(client: Client): void {
       const command = commandModule.default || commandModule;
 
       if (!command.data || !command.execute) {
-        console.warn(`[Bot] Commande ignorée (data/execute manquant): ${category}/${file}`);
+        logger.warn(`Commande ignorée (data/execute manquant): ${category}/${file}`);
         continue;
       }
 
+      if (client.commands.has(command.data.name)) {
+        logger.warn(`DOUBLON détecté : ${command.data.name} dans ${category}/${file}`);
+      }
       client.commands.set(command.data.name, command);
-      console.log(`[Bot] Commande chargée: ${command.data.name}`);
+      logger.info(`Commande chargée: ${command.data.name}`);
     }
   }
 }

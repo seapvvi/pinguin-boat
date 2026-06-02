@@ -1,12 +1,18 @@
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { prisma } from '@pinguin/db';
 import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
-import { success, error, sanitizeError } from '../utils/response';
+import { success, error, sanitizeError, getErrorMessage } from '../utils/response';
 import { getSystemMetrics, getGlobalStats } from '../services/metrics';
 import { botFetch } from '../services/bot-proxy';
 
 const config = getConfig();
+
+const paginationQuerySchema = z.object({
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
+});
 
 function isOwner(discordId: string): boolean {
   return discordId === config.DISCORD_OWNER_ID;
@@ -47,7 +53,7 @@ export async function overviewRoutes(app: FastifyInstance) {
           onlineMembers,
         })
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -94,7 +100,7 @@ export async function overviewRoutes(app: FastifyInstance) {
           isOwner: true,
         })
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -124,22 +130,20 @@ export async function overviewRoutes(app: FastifyInstance) {
       }));
 
       reply.send(success({ entries }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.get('/leaderboard', { preHandler: [authenticate] }, async (request, reply) => {
     try {
-      const query = request.query as any;
-      const page = Math.max(1, parseInt(query.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
+      const query = paginationQuerySchema.parse(request.query);
 
       const [entries, total] = await Promise.all([
         prisma.xPProfile.findMany({
           orderBy: { xp: 'desc' },
-          skip: (page - 1) * limit,
-          take: limit,
+          skip: (query.page - 1) * query.limit,
+          take: query.limit,
           include: {
             user: { select: { username: true, avatar: true } },
             guild: { select: { name: true } },
@@ -148,8 +152,8 @@ export async function overviewRoutes(app: FastifyInstance) {
         prisma.xPProfile.count(),
       ]);
 
-      const data = entries.map((e: any, i: number) => ({
-        rank: (page - 1) * limit + i + 1,
+      const data = entries.map((e, i) => ({
+        rank: (query.page - 1) * query.limit + i + 1,
         userId: e.userId,
         username: e.user?.username || 'Inconnu',
         avatar: e.user?.avatar || null,
@@ -159,8 +163,8 @@ export async function overviewRoutes(app: FastifyInstance) {
         guildName: e.guild?.name || 'Inconnu',
       }));
 
-      reply.send(success({ entries: data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) {
+      reply.send(success({ entries: data, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } }));
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -180,30 +184,28 @@ export async function overviewRoutes(app: FastifyInstance) {
         },
       });
       reply.send(success({ guilds }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.get('/changelogs', { preHandler: [authenticate] }, async (request, reply) => {
     try {
-      const query = request.query as any;
-      const page = Math.max(1, parseInt(query.page) || 1);
-      const limit = Math.min(50, Math.max(1, parseInt(query.limit) || 10));
+      const query = paginationQuerySchema.parse(request.query);
 
       const [entries, total] = await Promise.all([
         prisma.changelog.findMany({
           where: { published: true },
           orderBy: { createdAt: 'desc' },
-          skip: (page - 1) * limit,
-          take: limit,
+          skip: (query.page - 1) * query.limit,
+          take: query.limit,
           include: { author: { select: { username: true, avatar: true } } },
         }),
         prisma.changelog.count({ where: { published: true } }),
       ]);
 
-      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) {
+      reply.send(success({ entries, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } }));
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -225,7 +227,7 @@ export async function overviewRoutes(app: FastifyInstance) {
           services: { api: { status: 'up' }, database: { status: 'up' }, bot: { status: 'unknown' }, web: { status: 'unknown' } },
         })
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });

@@ -2,6 +2,7 @@ import { SlashCommandBuilder, CommandInteraction, Client, StringSelectMenuBuilde
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { enrichedErrorEmbed, successEmbed } from '../../services/embed';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('notify')
@@ -118,7 +119,7 @@ export async function execute(interaction: CommandInteraction, client: Client): 
       await interaction.editReply({ components: [] }).catch(() => {});
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la gestion des notifications', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({
       embeds: [enrichedErrorEmbed(
         'Erreur',

@@ -2,6 +2,7 @@ import { Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { getEconomySettings, isEconomyActive } from './economy';
 import { EmbedBuilder } from 'discord.js';
+import { logger } from '@pinguin/shared';
 
 const runningIntervals = new Map<string, NodeJS.Timeout>();
 const NOTIFIED_DAILY = new Set<string>();
@@ -79,7 +80,7 @@ export async function startNotificationCron(client: Client, guildId: string): Pr
                 }, 25 * 60 * 60 * 1000);
               }
             } catch (error) {
-              console.error(`[Economy] Impossible d'envoyer DM à ${wallet.userId}:`, error);
+              logger.error(`[Economy] Impossible d'envoyer DM à ${wallet.userId}`, { err: error instanceof Error ? error.message : String(error) });
             }
           }
         }
@@ -104,18 +105,18 @@ export async function startNotificationCron(client: Client, guildId: string): Pr
                 }, 8 * 24 * 60 * 60 * 1000);
               }
             } catch (error) {
-              console.error(`[Economy] Impossible d'envoyer DM à ${wallet.userId}:`, error);
+              logger.error(`[Economy] Impossible d'envoyer DM à ${wallet.userId}`, { err: error instanceof Error ? error.message : String(error) });
             }
           }
         }
       }
     } catch (error) {
-      console.error(`[Economy] Erreur lors du cron de notifications pour ${guildId}:`, error);
+      logger.error(`[Economy] Erreur lors du cron de notifications pour ${guildId}`, { err: error instanceof Error ? error.message : String(error) });
     }
   }, 5 * 60 * 1000);
 
   runningIntervals.set(guildId, interval);
-  console.log(`[Economy] Cron de notifications démarré pour ${guildId} (interval: 5min)`);
+  logger.info(`[Economy] Cron de notifications démarré pour ${guildId} (interval: 5min)`);
 }
 
 export function stopNotificationCron(guildId: string): void {
@@ -123,14 +124,14 @@ export function stopNotificationCron(guildId: string): void {
   if (interval) {
     clearInterval(interval);
     runningIntervals.delete(guildId);
-    console.log(`[Economy] Cron de notifications arrêté pour ${guildId}`);
+    logger.info(`[Economy] Cron de notifications arrêté pour ${guildId}`);
   }
 }
 
 export function stopAllNotificationCrons(): void {
   for (const [guildId, interval] of runningIntervals.entries()) {
     clearInterval(interval);
-    console.log(`[Economy] Cron de notifications arrêté pour ${guildId}`);
+    logger.info(`[Economy] Cron de notifications arrêté pour ${guildId}`);
   }
   runningIntervals.clear();
 }
@@ -146,7 +147,7 @@ export async function initializeNotificationCrons(client: Client, guildIds: stri
         startNotificationCron(client, guildId);
       }
     } catch (error) {
-      console.error(`[Economy] Erreur lors de l'initialisation du cron de notifications pour ${guildId}:`, error);
+      logger.error(`[Economy] Erreur lors de l'initialisation du cron de notifications pour ${guildId}`, { err: error instanceof Error ? error.message : String(error) });
     }
   }
 }

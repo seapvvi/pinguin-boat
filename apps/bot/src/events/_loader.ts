@@ -1,6 +1,7 @@
 import { readdirSync } from 'fs';
 import { join } from 'path';
 import { Client } from 'discord.js';
+import { logger } from '@pinguin/shared';
 
 export function loadEvents(client: Client): void {
   const eventsPath = join(__dirname);
@@ -22,6 +23,6 @@ export function loadEvents(client: Client): void {
       client.on(eventName, (...args: unknown[]) => eventHandler.execute(...args, client));
     }
 
-    console.log(`[Bot] Événement chargé: ${eventName}`);
+    logger.info(`[Bot] Événement chargé: ${eventName}`);
   }
 }

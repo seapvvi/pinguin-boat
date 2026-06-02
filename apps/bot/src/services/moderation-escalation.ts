@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { errorEmbed, successEmbed, infoEmbed } from './embed';
 import { log } from './logger';
 import { ensureUser } from './user';
+import { logger } from '@pinguin/shared';
 
 interface EscalationResult {
   escalated: boolean;
@@ -101,7 +102,7 @@ async function applyMute(
 
     return { escalated: true, action: 'MUTE', reason: `Mute appliqué pour ${durationMinutes} minutes` };
   } catch (error) {
-    console.error('Erreur lors du mute automatique:', error);
+    logger.error('Erreur lors du mute automatique', { err: error instanceof Error ? error.message : String(error) });
     return { escalated: false, action: null, reason: 'Erreur lors de l\'application du mute' };
   }
 }
@@ -151,7 +152,7 @@ async function applyBan(
 
     return { escalated: true, action: 'BAN', reason: 'Ban appliqué' };
   } catch (error) {
-    console.error('Erreur lors du ban automatique:', error);
+    logger.error('Erreur lors du ban automatique', { err: error instanceof Error ? error.message : String(error) });
     return { escalated: false, action: null, reason: 'Erreur lors de l\'application du ban' };
   }
 }

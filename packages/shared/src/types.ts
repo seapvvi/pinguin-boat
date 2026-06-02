@@ -433,3 +433,25 @@ export interface QueueState {
   autoplay: boolean;
   volume: number;
 }
+
+export interface DiscordGuild {
+  id: string;
+  name: string;
+  icon: string | null;
+  owner: boolean;
+  permissions: string;
+  features: string[];
+}
+
+export interface DiscordBotGuild {
+  id: string;
+  name: string;
+  icon: string | null;
+  owner: boolean;
+  permissions: string;
+  features: string[];
+}
+
+export function toErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Erreur inconnue';
+}

@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFlagsBits, TextChannel, ChannelType, OverwriteType } from 'discord.js';
 import { errorEmbed, successEmbed } from '../../services/embed';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('lock')
@@ -29,7 +30,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
     await interaction.editReply({ embeds: [successEmbed('Salon verrouillé', `${channel} a été verrouillé. Seuls les membres avec des permissions spécifiques peuvent y parler.`)] });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors du verrouillage du salon', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de verrouiller le salon.')] });
   }
 }

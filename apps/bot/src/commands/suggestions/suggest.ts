@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { infoEmbed, errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('suggest')
@@ -63,7 +64,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
     log({ level: 'info', message: `Suggestion: ${content.slice(0, 50)}...`, guildId: interaction.guild.id });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de l\'envoi de la suggestion', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible d\'envoyer votre suggestion.')] });
   }
 }

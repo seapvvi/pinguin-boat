@@ -8,7 +8,9 @@ import {
   createStarboardEntry, 
   updateStarboardEntry, 
   deleteStarboardEntry 
+
 } from '../services/starboard';
+import { logger } from '@pinguin/shared';
 import { createEmbed } from '../services/embed';
 
 const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
@@ -166,7 +168,7 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
           starboardId: starMessage.id,
         });
       } catch (err) {
-        console.error('Error posting to starboard:', err);
+        logger.error('Error posting to starboard', { err: err instanceof Error ? err.message : String(err) });
         // Delete entry if posting failed
         await deleteStarboardEntry(entry.id);
       }
@@ -185,7 +187,7 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
             content: `${starSettings.starEmoji} **${starCount}**`,
           });
         } catch (err) {
-          console.error('Error updating starboard message:', err);
+          logger.error('Error updating starboard message', { err: err instanceof Error ? err.message : String(err) });
         }
       }
     }

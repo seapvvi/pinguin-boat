@@ -4,6 +4,7 @@ import { errorEmbed, successEmbed, infoEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 import { ensureUser } from '../../services/user';
 import { parseDuration, formatDuration } from '../../utils/parseDuration';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('tempban')
@@ -84,7 +85,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       embeds: [successEmbed('Utilisateur banni temporairement', `**${user.username}** a été banni pour **${formatDuration(parsedDuration.milliseconds)}**.\nRaison : ${reason}\nExpire le : ${expiresAt.toLocaleDateString('fr-FR')}`)],
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors du bannissement temporaire', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de bannir cet utilisateur.')] });
   }
 }

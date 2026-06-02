@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFla
 import { prisma } from '@pinguin/db';
 import { errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 interface BoosterRole {
   roleId: string;
@@ -125,7 +126,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la récupération des boosteurs', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de récupérer la liste des boosteurs.')] });
   }
 }
@@ -197,7 +198,7 @@ async function handleAdd(interaction: ChatInputCommandInteraction): Promise<void
       });
     }
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de l\'ajout du boosteur', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible d\'ajouter le boosteur.')] });
   }
 }
@@ -270,7 +271,7 @@ async function handleRemove(interaction: ChatInputCommandInteraction): Promise<v
       });
     }
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la suppression du boosteur', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de supprimer le boosteur.')] });
   }
 }

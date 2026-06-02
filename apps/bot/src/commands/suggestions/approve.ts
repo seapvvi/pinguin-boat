@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { infoEmbed, errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 import { sendDM } from '../../services/dm';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('approve')
@@ -82,7 +83,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     await interaction.editReply({ embeds: [successEmbed('Suggestion approuvée', 'La suggestion a été approuvée.')] });
     log({ level: 'info', message: `Suggestion approuvée: ${suggestion.id}`, guildId: interaction.guild.id, userId: interaction.user.id });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de l\'approbation de la suggestion', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible d\'approuver la suggestion.')] });
   }
 }

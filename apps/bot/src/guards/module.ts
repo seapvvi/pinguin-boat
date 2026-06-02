@@ -1,5 +1,5 @@
 import { prisma, type ModuleEnabled } from '@pinguin/db';
-import { getCache, setCache } from '../utils/cache';
+import { getCache, setCache, invalidateCache } from '../utils/cache';
 
 const moduleFieldMap: Record<string, keyof ModuleEnabled> = {
   moderation: 'moderation',
@@ -31,13 +31,23 @@ export async function isModuleEnabled(guildId: string, moduleName: string): Prom
     let modules = getCache<ModuleEnabled>(cacheKey);
     if (!modules) {
       modules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
-      if (modules) setCache(cacheKey, modules, 30_000);
+      if (!modules) {
+        modules = await prisma.moduleEnabled.upsert({
+          where: { guildId },
+          update: {},
+          create: { guildId },
+        });
+      }
+      setCache(cacheKey, modules, 30_000);
     }
-    if (!modules) return true;
     return (modules[field] as boolean) ?? true;
   } catch {
     return true;
   }
+}
+
+export function invalidateModuleCache(guildId: string): void {
+  invalidateCache(`modules:${guildId}`);
 }
 
 export async function requireModule(

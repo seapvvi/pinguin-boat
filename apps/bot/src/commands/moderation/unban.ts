@@ -60,7 +60,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       embeds: [successEmbed('Utilisateur débanni', `<@${userId}> a été débanni.\nRaison : ${reason}`)],
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors du débannissement', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de débannir cet utilisateur.')] });
   }
 }

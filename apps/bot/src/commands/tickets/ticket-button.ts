@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 import { closeTicketViaApi } from '../../services/ticket-close';
+import { logger } from '@pinguin/shared';
 type DiscordErrorLike = {
   code?: number;
   status?: number;
@@ -358,7 +359,7 @@ async function handleTicketOpen(interaction: ButtonInteraction, client: Client):
       ],
     });
   } catch (error) {
-    console.error('[TICKET OPEN ERROR]', error);
+    logger.error('[TICKET OPEN ERROR]', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({
       embeds: [errorEmbed('Erreur Discord', formatTicketCreationError(error))],
     }).catch(() => {});

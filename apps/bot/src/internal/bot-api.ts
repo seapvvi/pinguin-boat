@@ -3,6 +3,8 @@ import { Client, TextChannel } from 'discord.js';
 import * as music from '../services/music';
 import { invalidateCache } from '../utils/cache';
 import { invalidateAutoModCache } from '../services/automod';
+import { invalidateModuleCache } from '../guards/module';
+import { logger } from '@pinguin/shared';
 
 export function startInternalBotApi(client: Client): void {
   const port = parseInt(process.env.BOT_INTERNAL_PORT || '3002');
@@ -234,7 +236,7 @@ export function startInternalBotApi(client: Client): void {
       if (path === `/internal/guilds/${guildId}/modules` && req.method === 'POST') {
         const body = await readBody(req);
         const disabledModules: string[] = body.disabledModules ?? [];
-        console.log(`[BotAPI] Modules mis à jour pour ${guildId}:`, disabledModules);
+        logger.info(`Modules mis à jour pour ${guildId}`, { disabledModules });
         invalidateCache(`modules:${guildId}`);
         res.end(JSON.stringify({ success: true }));
         return;
@@ -243,6 +245,14 @@ export function startInternalBotApi(client: Client): void {
       // POST /internal/guilds/:guildId/automod/invalidate — invalidate automod cache
       if (path === `/internal/guilds/${guildId}/automod/invalidate` && req.method === 'POST') {
         invalidateAutoModCache(guildId);
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
+      // POST /internal/invalidate-modules/:guildId — invalidate module cache
+      const invalidateModulesMatch = path.match(/\/internal\/invalidate-modules\/([^/]+)/);
+      if (invalidateModulesMatch && req.method === 'POST') {
+        invalidateModuleCache(invalidateModulesMatch[1]);
         res.end(JSON.stringify({ success: true }));
         return;
       }
@@ -282,7 +292,7 @@ export function startInternalBotApi(client: Client): void {
   });
 
   server.listen(port, '127.0.0.1', () => {
-    console.log(`[BotAPI] Internal API listening on 127.0.0.1:${port}`);
+    logger.info(`Internal API listening on 127.0.0.1:${port}`);
   });
 }
 

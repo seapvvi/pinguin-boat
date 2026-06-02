@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { errorEmbed, createEmbed } from '../../services/embed';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('history')
@@ -32,7 +33,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la récupération de l\'historique musical', { err: error instanceof Error ? error.message : String(error) });
     await interaction.reply({ embeds: [errorEmbed('Erreur', 'Impossible de récupérer l\'historique.')] });
   }
 }

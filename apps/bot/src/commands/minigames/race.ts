@@ -6,6 +6,7 @@ import { getMinigameSettings, createGameSession, getActiveSession, updateGameSes
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
 import { checkCooldown } from '../../guards/cooldown';
+import { logger } from '@pinguin/shared';
 
 interface Horse {
   id: string;
@@ -193,7 +194,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         // Start race animation
         await runRaceAnimation(i, session, gameState, economySettings, interaction);
       } catch (err) {
-        console.error('Race selection error:', err);
+        logger.error('Race selection error', { err: err instanceof Error ? err.message : String(err) });
       }
     });
 
@@ -217,7 +218,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     });
 
   } catch (error) {
-    console.error('Race game error:', error);
+    logger.error('Race game error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la course.')] });
   }
 }

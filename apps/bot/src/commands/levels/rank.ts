@@ -5,6 +5,7 @@ import { errorEmbed } from '../../services/embed';
 import { calculateXpForNextLevel } from '../../services/xp';
 import { isModuleEnabled } from '../../guards/module';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { logger } from '@pinguin/shared';
 import { AttachmentBuilder } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
@@ -76,7 +77,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
     await interaction.editReply({ files: [attachment] });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la récupération du profil XP', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de récupérer le profil XP.')] });
   }
 }

@@ -5,6 +5,7 @@ import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
 import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 const GAMES_TIMEOUT = 60000; // 1 minute per guess attempt
 
@@ -257,7 +258,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     });
 
   } catch (error) {
-    console.error('Guess game error:', error);
+    logger.error('Guess game error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la partie.')] });
   }
 }

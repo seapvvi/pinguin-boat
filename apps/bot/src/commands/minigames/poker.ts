@@ -5,6 +5,7 @@ import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
 import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 const SUITS = ['♠️', '♥️', '♦️', '♣️'];
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -446,7 +447,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           await runGamePhase(interaction, session, currentGameState, message, economySettings);
         }
       } catch (err) {
-        console.error('Poker interaction error:', err);
+        logger.error('Poker interaction error', { err: err instanceof Error ? err.message : String(err) });
       }
     });
 
@@ -490,7 +491,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     });
 
   } catch (error) {
-    console.error('Poker game error:', error);
+    logger.error('Poker game error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la partie.')] });
   }
 }
@@ -612,7 +613,7 @@ async function runGamePhase(
         await handlePlayerAction(interaction, session, currentGameState, message, economySettings, collector);
       }
     } catch (err) {
-      console.error('Poker action error:', err);
+      logger.error('Poker action error', { err: err instanceof Error ? err.message : String(err) });
     }
   });
 

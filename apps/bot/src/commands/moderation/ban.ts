@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { errorEmbed, successEmbed, infoEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 import { ensureUser } from '../../services/user';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('ban')
@@ -75,7 +76,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       embeds: [successEmbed('Utilisateur banni', `**${user.username}** a été banni.\nRaison : ${reason}`)],
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors du bannissement', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de bannir cet utilisateur.')] });
   }
 }

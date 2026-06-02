@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, ButtonBuilder
 import { prisma } from '@pinguin/db';
 import { errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('leaderboard')
@@ -61,7 +62,7 @@ async function handleXpLeaderboard(interaction: ChatInputCommandInteraction): Pr
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la récupération du classement XP', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de récupérer le classement.')] });
   }
 }
@@ -173,7 +174,7 @@ async function handleVoiceLeaderboard(interaction: ChatInputCommandInteraction):
     });
 
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la récupération du classement vocal', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de récupérer le classement vocal.')] });
   }
 }

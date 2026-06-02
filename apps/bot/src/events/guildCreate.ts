@@ -1,5 +1,6 @@
 import { Guild, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { logger } from '@pinguin/shared';
 
 export async function execute(guild: Guild, client: Client): Promise<void> {
   try {
@@ -34,8 +35,8 @@ export async function execute(guild: Guild, client: Client): Promise<void> {
       create: { guildId: guild.id },
     });
 
-    console.log(`[Bot] Rejoint le serveur: ${guild.name} (${guild.id})`);
+    logger.info(`[Bot] Rejoint le serveur: ${guild.name} (${guild.id})`);
   } catch (error) {
-    console.error(`[Bot] Erreur lors de l'ajout de la guild ${guild.id}:`, error);
+    logger.error(`[Bot] Erreur lors de l'ajout de la guild ${guild.id}`, { err: error instanceof Error ? error.message : String(error) });
   }
 }

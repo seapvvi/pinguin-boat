@@ -6,6 +6,7 @@ import { checkInteractionBlacklist } from '../guards/blacklist';
 import { requireModule } from '../guards/module';
 import { errorEmbed, successEmbed, createEmbed } from '../services/embed';
 import { getFormTemplate, createFormSubmission, getFormSettings } from '../services/forms';
+import { logger } from '@pinguin/shared';
 
 async function replyButtonError(interaction: ButtonInteraction, message: string): Promise<void> {
   const payload = { embeds: [errorEmbed('Erreur', message)], ephemeral: true as const };
@@ -71,8 +72,13 @@ export async function execute(interaction: Interaction, client: Client): Promise
       if (interaction.customId.startsWith('bj_') || interaction.customId.startsWith('morpion_')) {
         return;
       }
+
+      // Bouton non géré : acknowledge pour éviter "interaction échouée"
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.deferUpdate().catch(() => {});
+      }
     } catch (err) {
-      console.error('[Bot] Erreur bouton:', interaction.customId, err);
+      logger.error('[Bot] Erreur bouton', { customId: interaction.customId, err: err instanceof Error ? err.message : String(err) });
       await replyButtonError(interaction, 'Une erreur est survenue. Réessayez dans un instant.');
     }
     return;
@@ -86,7 +92,7 @@ export async function execute(interaction: Interaction, client: Client): Promise
         return;
       }
     } catch (err) {
-      console.error('[Bot] Erreur menu select:', interaction.customId, err);
+      logger.error('[Bot] Erreur menu select', { customId: interaction.customId, err: err instanceof Error ? err.message : String(err) });
       await interaction.update({
         embeds: [errorEmbed('Erreur', 'Une erreur est survenue. Réessayez dans un instant.')],
         components: [],
@@ -142,8 +148,8 @@ export async function execute(interaction: Interaction, client: Client): Promise
     }
   }
 
-  if (command.permissions) {
-    const permCheck = await checkModPermissions(interaction.member as any, command.requireAdmin);
+  if (command.permissions || command.requireAdmin) {
+    const permCheck = await checkModPermissions(interaction.member as any, command.requireAdmin ?? false);
     if (!permCheck.allowed) {
       await interaction.reply({
         embeds: [errorEmbed('Permission refusée', permCheck.message!)],
@@ -156,7 +162,7 @@ export async function execute(interaction: Interaction, client: Client): Promise
   try {
     await command.execute(interaction, client);
   } catch (error) {
-    console.error(`[Bot] Erreur commande ${command.data.name}:`, error);
+      logger.error(`Erreur commande ${command.data.name}`, { err: error instanceof Error ? error.message : String(error) });
 
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
@@ -178,7 +184,7 @@ async function handleAutocomplete(interaction: AutocompleteInteraction, client: 
   try {
     await command.autocomplete(interaction, client);
   } catch (error) {
-    console.error(`[Bot] Erreur autocomplete ${command.data.name}:`, error);
+    logger.error(`Erreur autocomplete ${command.data.name}`, { err: error instanceof Error ? error.message : String(error) });
   }
 }
 
@@ -195,7 +201,13 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Cl
         return;
       }
 
-      const fields = JSON.parse(template.fields);
+      let fields: any[];
+      try {
+        fields = JSON.parse(template.fields);
+      } catch {
+        await interaction.reply({ embeds: [errorEmbed('Erreur', 'Formulaire corrompu.')], ephemeral: true });
+        return;
+      }
       const responses: any[] = [];
 
       for (const field of fields) {
@@ -252,7 +264,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Cl
             await channel.send({ embeds: [embed] });
           }
         } catch (err) {
-          console.error('Error sending form submission:', err);
+          logger.error('Error sending form submission', { err: err instanceof Error ? err.message : String(err) });
         }
       }
 
@@ -266,7 +278,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Cl
             });
           }
         } catch (err) {
-          console.error('Error sending form log:', err);
+          logger.error('Error sending form log', { err: err instanceof Error ? err.message : String(err) });
         }
       }
 
@@ -295,7 +307,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Cl
       return;
     }
   } catch (error) {
-    console.error('Error handling modal submit:', error);
+    logger.error('Error handling modal submit', { err: error instanceof Error ? error.message : String(error) });
     await interaction.reply({
       embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors du traitement de votre soumission.')],
       ephemeral: true,

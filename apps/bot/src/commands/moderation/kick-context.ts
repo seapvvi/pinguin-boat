@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { errorEmbed, successEmbed, infoEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
 import { ensureUser } from '../../services/user';
+import { logger } from '@pinguin/shared';
 
 export const data = new ContextMenuCommandBuilder()
   .setName('👢 Kick')
@@ -104,7 +105,7 @@ export async function handleModalSubmit(interaction: any, client: Client): Promi
       ephemeral: true,
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de l\'expulsion', { err: error instanceof Error ? error.message : String(error) });
     await interaction.reply({ embeds: [errorEmbed('Erreur', 'Impossible d\'expulser cet utilisateur.')], ephemeral: true });
   }
 }

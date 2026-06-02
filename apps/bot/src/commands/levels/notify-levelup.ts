@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { errorEmbed, successEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('notify-levelup')
@@ -64,7 +65,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       )],
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la modification des préférences de notification', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de modifier vos préférences de notification.')] });
   }
 }

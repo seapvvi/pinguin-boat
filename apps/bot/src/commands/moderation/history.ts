@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client, PermissionFla
 import { prisma, type ModerationCaseType } from '@pinguin/db';
 import { errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('history')
@@ -190,7 +191,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       await message.edit({ components: [] }).catch(() => {});
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors de la récupération de l\'historique', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible de récupérer l\'historique.')] });
   }
 }

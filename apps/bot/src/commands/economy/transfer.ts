@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { infoEmbed, errorEmbed, successEmbed } from '../../services/embed';
 import { log } from '../../services/logger';
+import { logger } from '@pinguin/shared';
 
 export const data = new SlashCommandBuilder()
   .setName('transfer')
@@ -83,7 +84,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       embeds: [successEmbed('Transfert effectué', `**${amount} 🪙** ont été transférés à **${targetUser.username}**.`)],
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erreur lors du transfert', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Impossible d\'effectuer le transfert.')] });
   }
 }

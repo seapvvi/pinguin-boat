@@ -5,6 +5,7 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import { createEmbed } from '../../services/embed';
+import { logger } from '@pinguin/shared';
 
 interface MemeApiResponse {
   title?: string;
@@ -89,7 +90,7 @@ export async function execute(
 
     await interaction.editReply({ embeds: [embed] });
   } catch (err) {
-    console.error('[Meme] Erreur lors de la récupération du meme:', err);
+    logger.error('[Meme] Erreur lors de la récupération du meme', { err: err instanceof Error ? err.message : String(err) });
     await interaction.editReply({
       content: 'Une erreur est survenue lors de la récupération du meme. Réessaie plus tard.',
     });
