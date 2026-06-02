@@ -15,20 +15,20 @@ export const module = 'suggestions';
 export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  const content = interaction.options.get('content')?.value as string;
+  const content = interaction.options.getString('content', true);
 
   if (!interaction.guild) return;
 
   try {
     const settings = await prisma.guildSettings.findUnique({ where: { guildId: interaction.guild.id } });
-    const suggestionChannelId = settings?.modLogChannel;
+    const suggestionChannelId = settings?.suggestionChannelId || settings?.modLogChannel;
 
     await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
 
     const suggestion = await prisma.suggestion.create({
       data: {
         guildId: interaction.guild.id,
-        channelId: suggestionChannelId || interaction.channelId,
+        channelId: interaction.channelId,
         authorId: interaction.user.id,
         content,
         status: 'PENDING',
@@ -45,17 +45,17 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       )
       .setTimestamp();
 
-    if (suggestionChannelId) {
-      const channel = interaction.guild.channels.cache.get(suggestionChannelId);
-      if (channel?.isTextBased()) {
-        const msg = await channel.send({ embeds: [embed] });
-        await msg.react('👍');
-        await msg.react('👎');
-        await prisma.suggestion.update({
-          where: { id: suggestion.id },
-          data: { messageId: msg.id },
-        });
-      }
+    const channel = suggestionChannelId
+      ? interaction.guild.channels.cache.get(suggestionChannelId)
+      : interaction.channel;
+    if (channel?.isTextBased()) {
+      const msg = await channel.send({ embeds: [embed] });
+      await msg.react('👍');
+      await msg.react('👎');
+      await prisma.suggestion.update({
+        where: { id: suggestion.id },
+        data: { messageId: msg.id, channelId: channel.id },
+      });
     }
 
     await interaction.editReply({

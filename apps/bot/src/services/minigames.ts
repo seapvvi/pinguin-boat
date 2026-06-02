@@ -57,7 +57,7 @@ export async function createGameSession(
   });
 }
 
-export async function getActiveSession(userId: string, gameType?: string) {
+export async function getActiveSession(userId: string, gameType?: string, guildId?: string) {
   const where: any = {
     userId,
     status: 'active',
@@ -65,6 +65,9 @@ export async function getActiveSession(userId: string, gameType?: string) {
   
   if (gameType) {
     where.gameType = gameType;
+  }
+  if (guildId) {
+    where.guildId = guildId;
   }
   
   const session = await prisma.minigameSession.findFirst({

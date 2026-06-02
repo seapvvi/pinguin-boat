@@ -54,13 +54,15 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     });
     const rank = allProfiles.findIndex((p) => p.userId === targetUser.id) + 1;
 
-    const currentLevel = profile.level;
-    const xpForNext = calculateXpForNextLevel(profile.xp);
-    const progress = Math.min((profile.xp / xpForNext) * 100, 100);
-
     const settings = await prisma.xPSettings.findUnique({
       where: { guildId: interaction.guild.id },
     });
+    const levelFormula = settings?.levelFormula || '100 * level * 1.5';
+
+    const currentLevel = profile.level;
+    const xpForNext = calculateXpForNextLevel(profile.xp, levelFormula);
+    const progress = Math.min((profile.xp / xpForNext) * 100, 100);
+
     const levelColor = settings?.levelColor || '#14b8a6';
 
     const image = await generateRankCard(

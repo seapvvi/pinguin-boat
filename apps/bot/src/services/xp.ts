@@ -5,22 +5,42 @@ import { isEconomyActive } from './economy';
 import { isEventActive } from './events';
 import { trackWarXp } from './clans';
 
-/** Constantes XP — non modifiables depuis le dashboard */
 export const XP_PER_MESSAGE = 10;
 export const XP_PER_VOCAL_MINUTE = 15;
 export const MESSAGE_COOLDOWN_MS = 60_000;
+export const DEFAULT_LEVEL_FORMULA = '100 * level * 1.5';
 
-export function calculateLevel(xp: number): number {
-  return Math.floor(0.1 * Math.sqrt(xp));
+function evaluateFormula(formula: string, level: number): number {
+  try {
+    const sanitized = formula.replace(/[^0-9+\-*/.()\s^level]/g, '');
+    const fn = new Function('level', `"use strict"; return Math.floor(${sanitized});`);
+    const result = fn(level);
+    return Number.isFinite(result) ? Math.max(0, result) : 0;
+  } catch {
+    return Math.floor(100 * level * 1.5);
+  }
 }
 
-export function calculateXpForLevel(level: number): number {
-  return Math.floor(100 * level * 1.5);
+export function calculateLevel(xp: number, formula: string = DEFAULT_LEVEL_FORMULA): number {
+  if (!Number.isFinite(xp) || xp < 0) return 0;
+  let level = 0;
+  const maxIter = 10000;
+  while (level < maxIter) {
+    const required = evaluateFormula(formula, level + 1);
+    if (required > xp) break;
+    level++;
+  }
+  return level;
 }
 
-export function calculateXpForNextLevel(currentXp: number): number {
-  const currentLevel = calculateLevel(currentXp);
-  return calculateXpForLevel(currentLevel + 1);
+export function calculateXpForLevel(level: number, formula: string = DEFAULT_LEVEL_FORMULA): number {
+  if (!Number.isFinite(level) || level < 0) return 0;
+  return evaluateFormula(formula, level);
+}
+
+export function calculateXpForNextLevel(currentXp: number, formula: string = DEFAULT_LEVEL_FORMULA): number {
+  const currentLevel = calculateLevel(currentXp, formula);
+  return calculateXpForLevel(currentLevel + 1, formula);
 }
 
 function parseJsonIds(raw: string): string[] {
@@ -45,6 +65,8 @@ export async function addMessageXp(
     const p = await prisma.xPProfile.findUnique({ where: { guildId_userId: { guildId, userId } } });
     return { xp: p?.xp ?? 0, level: p?.level ?? 0, leveledUp: false };
   }
+
+  const levelFormula = settings?.levelFormula || DEFAULT_LEVEL_FORMULA;
 
   if (settings) {
     const noXpChannels = parseJsonIds(settings.noXpChannels);
@@ -80,6 +102,14 @@ export async function addMessageXp(
     }
   }
 
+  // Check settings-based message cooldown
+  if (settings?.messageCooldown && profile.lastMessageAt) {
+    const msSince = now.getTime() - profile.lastMessageAt.getTime();
+    if (msSince < settings.messageCooldown * 1000) {
+      return { xp: profile.xp, level: profile.level, leveledUp: false };
+    }
+  }
+
   let xpGain = XP_PER_MESSAGE;
   if (settings?.doubleXpLongMessages && (options?.contentLength ?? 0) > 250) {
     xpGain *= 2;
@@ -92,7 +122,7 @@ export async function addMessageXp(
   }
 
   const newXp = profile.xp + xpGain;
-  const newLevel = calculateLevel(newXp);
+  const newLevel = calculateLevel(newXp, levelFormula);
   const leveledUp = newLevel > profile.level;
 
   await prisma.xPProfile.update({
@@ -131,6 +161,8 @@ export async function addVoiceXp(
     return { xp: p?.xp ?? 0, level: p?.level ?? 0, leveledUp: false };
   }
 
+  const levelFormula = settings?.levelFormula || DEFAULT_LEVEL_FORMULA;
+
   let profile = await prisma.xPProfile.findUnique({
     where: { guildId_userId: { guildId, userId } },
   });
@@ -158,7 +190,7 @@ export async function addVoiceXp(
   }
 
   const newXp = profile.xp + xpGain;
-  const newLevel = calculateLevel(newXp);
+  const newLevel = calculateLevel(newXp, levelFormula);
   const leveledUp = newLevel > profile.level;
 
   await prisma.xPProfile.update({

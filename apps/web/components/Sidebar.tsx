@@ -116,6 +116,7 @@ const categoryDefs: CategoryDef[] = [
       { label: 'Starboard', icon: <Star size={18} />, href: '/starboard', guildPage: true },
       { label: 'Formulaires', icon: <ClipboardList size={18} />, href: '/forms', guildPage: true },
       { label: 'Minijeux', icon: <Gamepad2 size={18} />, href: '/minigames', guildPage: true },
+      { label: 'Clans', icon: <Users size={18} />, href: '/clans', guildPage: true },
     ],
   },
   {

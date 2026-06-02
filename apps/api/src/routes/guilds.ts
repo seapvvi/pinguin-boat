@@ -90,12 +90,12 @@ export async function guildRoutes(app: FastifyInstance) {
     }
   });
 
-  const MODULE_FIELDS = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms'] as const;
+  const MODULE_FIELDS = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'] as const;
   const MODULE_DEFAULTS: Record<string, boolean> = {
     moderation: true, protection: true, tickets: true, logs: true,
     levels: true, economy: false, music: true, giveaways: true,
     polls: true, suggestions: true, welcome: true, autoroles: true, embeds: true,
-    minigames: true, starboard: false, forms: false,
+    minigames: true, starboard: false, forms: false, clans: false, notifications: false,
   };
 
   function computeDisabledModules(modulesEnabled: any): string[] {
@@ -597,6 +597,7 @@ export async function guildRoutes(app: FastifyInstance) {
         disabledModules: computeDisabledModules(guild.modulesEnabled),
         memberCount: guild.memberCount, channelCount, roleCount,
         dashboardAccessRoles: guild.settings ? JSON.parse(guild.settings.dashboardAccessRoles || '[]') : [],
+        suggestionChannelId: guild.settings?.suggestionChannelId ?? null,
       };
       reply.send(success({ guild: payload }));
     } catch (err: any) {
@@ -631,6 +632,7 @@ export async function guildRoutes(app: FastifyInstance) {
           modRoleIds: body.modRoleIds ? JSON.stringify(body.modRoleIds) : undefined,
           adminRoleIds: body.adminRoleIds ? JSON.stringify(body.adminRoleIds) : undefined,
           muteRoleId: body.muteRoleId ?? undefined,
+          suggestionChannelId: body.suggestionChannelId ?? undefined,
         },
         create: {
           guildId,
@@ -661,7 +663,7 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as any;
       const body = request.body as any;
-      const fields = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms'];
+      const fields = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'];
       const data: any = {};
       for (const f of fields) { if (typeof body[f] === 'boolean') data[f] = body[f]; }
       if (Object.keys(data).length > 0) {
@@ -703,7 +705,7 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId, moduleKey } = request.params as any;
       const { enabled } = request.body as any;
-      const validModules = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms'];
+      const validModules = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'];
       if (!validModules.includes(moduleKey)) return reply.status(400).send(error('Module inconnu'));
       await prisma.moduleEnabled.upsert({
         where: { guildId },
@@ -2451,6 +2453,60 @@ export async function guildRoutes(app: FastifyInstance) {
         author: userMap.get(e.authorId) ?? { discordId: e.authorId, username: e.authorId, avatar: null },
       }));
       reply.send(success({ entries: enriched, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  // ─── Clans ───
+
+  app.get('/:guildId/clans', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const clans = await prisma.clan.findMany({
+        where: { guildId },
+        include: {
+          members: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      const enriched = await Promise.all(clans.map(async (clan) => {
+        const userIds = clan.members.map((m) => m.userId);
+        const profiles = userIds.length > 0
+          ? await prisma.xPProfile.findMany({ where: { guildId, userId: { in: userIds } } })
+          : [];
+        const totalXp = profiles.reduce((s, p) => s + p.xp, 0);
+        const wallets = userIds.length > 0
+          ? await prisma.economyWallet.findMany({ where: { guildId, userId: { in: userIds } } })
+          : [];
+        const totalWallet = wallets.reduce((s, w) => s + w.wallet + w.bank, 0);
+        return {
+          ...clan,
+          memberCount: clan.members.length,
+          totalXp,
+          totalWallet,
+          members: clan.members.map((m) => ({
+            ...m,
+            username: '',
+            avatar: null,
+          })),
+        };
+      }));
+      const enrichedWithUsers = await Promise.all(enriched.map(async (clan) => {
+        const userIds = clan.members.map((m) => m.userId);
+        const users = userIds.length > 0
+          ? await prisma.user.findMany({ where: { discordId: { in: userIds } }, select: { discordId: true, username: true, avatar: true } })
+          : [];
+        const userMap = new Map(users.map((u) => [u.discordId, u]));
+        return {
+          ...clan,
+          members: clan.members.map((m) => ({
+            ...m,
+            username: userMap.get(m.userId)?.username ?? m.userId,
+            avatar: userMap.get(m.userId)?.avatar ?? null,
+          })),
+        };
+      }));
+      const sorted = enrichedWithUsers.sort((a, b) => b.totalXp - a.totalXp);
+      reply.send(success({ clans: sorted }));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 

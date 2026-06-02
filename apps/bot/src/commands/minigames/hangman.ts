@@ -159,7 +159,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     const category = interaction.options.getString('categorie') ?? 'animaux';
 
     // Check if user has an active session
-    const activeSession = await getActiveSession(interaction.user.id, 'hangman');
+    const activeSession = await getActiveSession(interaction.user.id, 'hangman', interaction.guild.id);
     if (activeSession) {
       await interaction.editReply({ embeds: [errorEmbed('Session active', 'Vous avez déjà une partie de Pendu en cours.')] });
       return;
@@ -216,19 +216,6 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     const guildId = interaction.guild.id;
 
-    const session = await createGameSession(
-      guildId,
-      interaction.user.id,
-      'hangman',
-      bet,
-      interaction.channelId,
-      interaction.id
-    );
-
-    await updateGameSession(session.id, {
-      gameState: JSON.stringify(gameState),
-    });
-
     const embed = createEmbed('minigame')
       .setTitle('🎯 Pendu')
       .setDescription('Devinez le mot avant d\'être pendu !')
@@ -248,6 +235,19 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     const message = await interaction.editReply({ 
       embeds: [embed],
       components: rows,
+    });
+
+    const session = await createGameSession(
+      guildId,
+      interaction.user.id,
+      'hangman',
+      bet,
+      interaction.channelId,
+      message.id
+    );
+
+    await updateGameSession(session.id, {
+      gameState: JSON.stringify(gameState),
     });
 
     const collector = message.createMessageComponentCollector({

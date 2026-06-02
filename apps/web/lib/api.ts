@@ -391,6 +391,12 @@ export async function fetchStarboardEntries(guildId: string, params?: Record<str
   return api.get<APIResponse<{ entries: any[]; pagination: any }>>(`/api/guilds/${guildId}/starboard/entries`, params);
 }
 
+// ─── Clans ───
+
+export async function fetchClans(guildId: string): Promise<APIResponse<{ clans: any[] }>> {
+  return api.get<APIResponse<{ clans: any[] }>>(`/api/guilds/${guildId}/clans`);
+}
+
 // ─── Minigames ───
 
 export async function fetchMinigameSettings(guildId: string): Promise<APIResponse<{ settings: any }>> {

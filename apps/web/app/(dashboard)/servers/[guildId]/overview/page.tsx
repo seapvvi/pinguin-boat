@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Users, Hash, Shield, Scale, Activity,
+  Hash, Shield, Scale, Activity,
   MessageSquare, Terminal, Music, Gift, Check, X,
-  Gamepad2, Star, ClipboardList,
+  Gamepad2, Star, ClipboardList, Users,
 } from 'lucide-react';
 import { Card, KPICard, Skeleton, Badge, Toggle } from '@pinguin/ui';
 import { EmptyState } from '@pinguin/ui';
@@ -94,6 +94,7 @@ export default function GuildOverviewPage() {
     { key: ModuleName.MINIGAMES, label: 'Minijeux', icon: <Gamepad2 size={16} /> },
     { key: ModuleName.STARBOARD, label: 'Starboard', icon: <Star size={16} /> },
     { key: ModuleName.FORMS, label: 'Formulaires', icon: <ClipboardList size={16} /> },
+    { key: ModuleName.CLANS, label: 'Clans', icon: <Users size={16} /> },
   ];
 
   return (

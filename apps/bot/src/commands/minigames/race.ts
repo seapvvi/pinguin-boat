@@ -89,7 +89,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     }
 
     // Check if user has an active session
-    const activeSession = await getActiveSession(interaction.user.id, 'horse_race');
+    const activeSession = await getActiveSession(interaction.user.id, 'horse_race', interaction.guild.id);
     if (activeSession) {
       await interaction.editReply({ embeds: [errorEmbed('Session active', 'Vous avez déjà une course en cours.')] });
       return;
@@ -170,7 +170,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         // Initialize race state
         const raceHorses = HORSES.map((h) => ({ ...h, position: 0, speed: 0 }));
         
-        const gameState = {
+        const gameState: any = {
           horses: raceHorses,
           selectedHorseId: horseId,
           currentRound: 0,
@@ -178,21 +178,8 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           gameOver: false,
         };
 
-        const session = await createGameSession(
-          interaction.guild!.id,
-          interaction.user.id,
-          'horse_race',
-          bet,
-          interaction.channelId,
-          interaction.id
-        );
-
-        await updateGameSession(session.id, {
-          gameState: JSON.stringify(gameState),
-        });
-
-        // Start race animation
-        await runRaceAnimation(i, session, gameState, economySettings, interaction);
+        // Start race animation (creates session inside)
+        await runRaceAnimation(i, gameState, economySettings, interaction);
       } catch (err) {
         logger.error('Race selection error', { err: err instanceof Error ? err.message : String(err) });
       }
@@ -225,13 +212,28 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
 async function runRaceAnimation(
   buttonInteraction: any,
-  session: any,
   gameState: any,
   economySettings: any,
   originalInteraction: ChatInputCommandInteraction
 ): Promise<void> {
   const { horses, selectedHorseId, bet } = gameState;
   const selectedHorse = horses.find((h: Horse) => h.id === selectedHorseId);
+
+  const message = await originalInteraction.fetchReply().catch(() => null);
+  const messageId = message?.id ?? undefined;
+
+  const session = await createGameSession(
+    originalInteraction.guild!.id,
+    originalInteraction.user.id,
+    'horse_race',
+    bet,
+    originalInteraction.channelId,
+    messageId
+  );
+
+  await updateGameSession(session.id, {
+    gameState: JSON.stringify(gameState),
+  });
 
   // i.update() pour la réponse immédiate au clic bouton
   const raceEmbed = createEmbed('minigame')

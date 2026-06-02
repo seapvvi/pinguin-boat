@@ -15,6 +15,7 @@ export enum ModuleName {
   MINIGAMES = 'MINIGAMES',
   STARBOARD = 'STARBOARD',
   FORMS = 'FORMS',
+  CLANS = 'CLANS',
 }
 
 export enum PermissionLevel {

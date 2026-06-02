@@ -371,6 +371,7 @@ model GuildSettings {
   dashboardProtectionAccess String @default("[]") @map("dashboard_protection_access")
   dashboardAuditAccess String @default("[]") @map("dashboard_audit_access")
   changelogChannel String? @map("changelog_channel")
+  suggestionChannelId String? @map("suggestion_channel_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

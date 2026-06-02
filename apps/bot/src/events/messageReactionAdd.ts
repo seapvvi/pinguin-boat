@@ -102,8 +102,11 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
     // starboard only needs a destination channel configured to be active.
     if (!starSettings.channelId) return;
 
-    // Check if this is the star emoji
-    if (reaction.emoji.name !== starSettings.starEmoji) return;
+    // Check if this is the star emoji (support both Unicode and custom emojis)
+    const emojiIdentifier = reaction.emoji.id
+      ? `<${reaction.emoji.animated ? 'a' : ''}:${reaction.emoji.name}:${reaction.emoji.id}>`
+      : reaction.emoji.name;
+    if (emojiIdentifier !== starSettings.starEmoji) return;
 
     // Check self-star restriction
     if (!starSettings.selfStar && reaction.message.author?.id === user.id) return;
