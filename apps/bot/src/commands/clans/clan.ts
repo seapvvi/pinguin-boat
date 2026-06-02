@@ -153,7 +153,7 @@ async function handleInvite(interaction: ChatInputCommandInteraction): Promise<v
 
     await addMember(userClan.clan.id, interaction.guild!.id, targetUser.id);
 
-    const embed = successEmbed('Membre invité', `**${targetUser.tag}** a rejoint le clan **${userClan.clan.name}** !`);
+    const embed = successEmbed('Membre invité', `**${targetUser.username}** a rejoint le clan **${userClan.clan.name}** !`);
     await interaction.editReply({ embeds: [embed] });
   } catch (err) {
     await interaction.editReply({
@@ -306,25 +306,31 @@ async function handleWarChallenge(interaction: ChatInputCommandInteraction): Pro
       return;
     }
 
-    const opponent = await getClanByName(interaction.guild!.id, opponentName);
-    if (!opponent) {
+    const opponentClan = await getClanByName(interaction.guild!.id, opponentName);
+    if (!opponentClan) {
       await interaction.editReply({ embeds: [errorEmbed('Introuvable', 'Aucun clan trouvé avec ce nom.')] });
       return;
     }
 
-    if (opponent.id === userClan.clan.id) {
+    const opponentActive = await getActiveWarForClan(interaction.guild!.id, opponentClan.id);
+    if (opponentActive) {
+      await interaction.editReply({ embeds: [errorEmbed('Guerre en cours', 'Le clan adverse a déjà une guerre active ou en attente.')] });
+      return;
+    }
+
+    if (opponentClan.id === userClan.clan.id) {
       await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Vous ne pouvez pas défier votre propre clan.')] });
       return;
     }
 
-    const opponentMembers = await getClanMembers(opponent.id);
+    const opponentMembers = await getClanMembers(opponentClan.id);
     const prize = WAR_PRIZE_PER_MEMBER * Math.max(1, opponentMembers.length);
 
-    const war = await startWar(interaction.guild!.id, userClan.clan.id, opponent.id);
+    const war = await startWar(interaction.guild!.id, userClan.clan.id, opponentClan.id);
 
     const embed = createEmbed('default')
       .setTitle('⚔️ Défi lancé !')
-      .setDescription(`**${userClan.clan.name}** défie **${opponent.name}** en guerre de clans !`)
+      .setDescription(`**${userClan.clan.name}** défie **${opponentClan.name}** en guerre de clans !`)
       .addFields(
         { name: 'Durée', value: '24 heures', inline: true },
         { name: 'Prix par gagnant', value: `${prize} 🪙`, inline: true },
@@ -420,14 +426,87 @@ async function handleWarStatus(interaction: ChatInputCommandInteraction): Promis
       if (war.endsAt) {
         const remaining = war.endsAt.getTime() - Date.now();
         if (remaining <= 0) {
-          const completed = await completeWar(war.id);
-          if (completed?.winnerId) {
-            const winnerName = completed.winnerId === challenger.id ? challenger.name : opponent.name;
-            statusText = `🏆 Terminée — **${winnerName}** a gagné !`;
-            color = 0x22c55e;
+          const raceGuard = await prisma.clanWar.updateMany({
+            where: { id: war.id, status: 'ACTIVE' },
+            data: { status: 'COMPLETED' },
+          });
+
+          if (raceGuard.count > 0) {
+            // Race gagnée — on complète la guerre et on distribue les gains
+            const winnerId = war.challengerXp > war.opponentXp
+              ? war.challengerId
+              : war.opponentXp > war.challengerXp
+                ? war.opponentId
+                : null;
+
+            if (winnerId) {
+              await prisma.$transaction(async (tx) => {
+                await tx.clanWar.update({
+                  where: { id: war.id },
+                  data: { winnerId },
+                });
+
+                const members = await tx.clanMember.findMany({
+                  where: { clanId: winnerId, guildId: interaction.guild!.id },
+                });
+
+                for (const member of members) {
+                  await ensureUser(member.userId);
+
+                  const existing = await tx.economyWallet.findUnique({
+                    where: { guildId_userId: { guildId: interaction.guild!.id, userId: member.userId } },
+                  });
+
+                  if (existing) {
+                    await tx.economyWallet.update({
+                      where: { guildId_userId: { guildId: interaction.guild!.id, userId: member.userId } },
+                      data: {
+                        wallet: { increment: war.prizePool },
+                        totalEarned: { increment: war.prizePool },
+                      },
+                    });
+                  } else {
+                    await tx.economyWallet.create({
+                      data: {
+                        guildId: interaction.guild!.id,
+                        userId: member.userId,
+                        wallet: war.prizePool,
+                        bank: 0,
+                        totalEarned: war.prizePool,
+                      },
+                    });
+                  }
+
+                  await tx.economyTransaction.create({
+                    data: {
+                      guildId: interaction.guild!.id,
+                      toUserId: member.userId,
+                      amount: war.prizePool,
+                      type: 'EARN',
+                      description: `Victoire de guerre de clan — ${challenger.name} vs ${opponent.name}`,
+                    },
+                  });
+                }
+              });
+
+              const winnerName = winnerId === challenger.id ? challenger.name : opponent.name;
+              statusText = `🏆 Terminée — **${winnerName}** a gagné !`;
+              color = 0x22c55e;
+            } else {
+              statusText = '🤝 Terminée — Égalité !';
+              color = 0x888888;
+            }
           } else {
-            statusText = '🤝 Terminée — Égalité !';
-            color = 0x888888;
+            // Race perdue — déjà complété par un autre appel
+            const completedWar = await prisma.clanWar.findUnique({ where: { id: war.id } });
+            if (completedWar?.winnerId) {
+              const winnerName = completedWar.winnerId === challenger.id ? challenger.name : opponent.name;
+              statusText = `🏆 Terminée — **${winnerName}** a gagné !`;
+              color = 0x22c55e;
+            } else {
+              statusText = '🤝 Terminée — Égalité !';
+              color = 0x888888;
+            }
           }
         } else {
           const hours = Math.floor(remaining / 3600000);

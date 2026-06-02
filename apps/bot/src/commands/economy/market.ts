@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
-import { getEconomySettings, getOrCreateWallet, isEconomyActive, formatCoins } from '../../services/economy';
+import { getEconomySettings, isEconomyActive, formatCoins } from '../../services/economy';
 import { getInventoryEntry, removeItemFromInventory, addItemToInventory } from '../../services/inventory';
 import { errorEmbed, successEmbed, createEmbed } from '../../services/embed';
 
@@ -151,7 +151,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-      await prisma.marketListing.create({
+      const createdListing = await prisma.marketListing.create({
         data: {
           guildId: interaction.guild.id,
           sellerId: interaction.user.id,
@@ -168,7 +168,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         embeds: [
           successEmbed(
             'Offre créée',
-            `**${item.name}** mis en vente pour ${formatCoins(price, settings.currencySymbol, settings.currencyName)}.\nID de l'offre: #${item.id.slice(-6)}\nExpire dans 24h.`
+            `**${item.name}** mis en vente pour ${formatCoins(price, settings.currencySymbol, settings.currencyName)}.\nID de l'offre: #${createdListing.id.slice(-6)}\nExpire dans 24h.`
           ),
         ],
       });
@@ -207,46 +207,77 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         return;
       }
 
-      const wallet = await getOrCreateWallet(interaction.guild.id, interaction.user.id, settings.startupBalance);
-      if (wallet.wallet < listing.price) {
+      const guildId = interaction.guild.id;
+
+      try {
+        await prisma.$transaction(async (tx) => {
+          const result = await tx.economyWallet.updateMany({
+            where: {
+              guildId,
+              userId: interaction.user.id,
+              wallet: { gte: listing.price },
+            },
+            data: { wallet: { decrement: listing.price } },
+          });
+
+          if (result.count === 0) {
+            throw new Error('Solde insuffisant');
+          }
+
+          await tx.economyWallet.update({
+            where: { guildId_userId: { guildId, userId: listing.sellerId } },
+            data: { wallet: { increment: listing.price } },
+          });
+
+          await tx.economyTransaction.create({
+            data: {
+              guildId,
+              fromUserId: interaction.user.id,
+              toUserId: listing.sellerId,
+              amount: listing.price,
+              type: 'TRANSFER',
+              description: `Achat marché: ${listing.item.name}`,
+            },
+          });
+
+          await tx.marketListing.update({
+            where: { id: listing.id },
+            data: {
+              status: 'SOLD',
+              buyerId: interaction.user.id,
+              soldAt: new Date(),
+            },
+          });
+
+          const existingEntry = await tx.inventoryEntry.findUnique({
+            where: { guildId_userId_itemId: { guildId, userId: interaction.user.id, itemId: listing.item.id } },
+          });
+
+          if (existingEntry) {
+            await tx.inventoryEntry.update({
+              where: { guildId_userId_itemId: { guildId, userId: interaction.user.id, itemId: listing.item.id } },
+              data: { quantity: { increment: 1 } },
+            });
+          } else {
+            await tx.inventoryEntry.create({
+              data: {
+                guildId,
+                userId: interaction.user.id,
+                itemId: listing.item.id,
+                quantity: 1,
+              },
+            });
+          }
+        });
+      } catch (err) {
+        const msg = (err as Error).message === 'Solde insuffisant'
+          ? `Il vous faut ${formatCoins(listing.price, settings.currencySymbol, settings.currencyName)}.`
+          : 'Une erreur est survenue lors de l\'achat.';
         await interaction.editReply({
-          embeds: [errorEmbed('Solde insuffisant', `Il vous faut ${formatCoins(listing.price, settings.currencySymbol, settings.currencyName)}.`)],
+          embeds: [errorEmbed('Erreur', msg)],
         });
         return;
       }
-
-      const sellerWallet = await getOrCreateWallet(interaction.guild.id, listing.sellerId, settings.startupBalance);
-
-      await prisma.$transaction([
-        prisma.economyWallet.update({
-          where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
-          data: { wallet: { decrement: listing.price } },
-        }),
-        prisma.economyWallet.update({
-          where: { guildId_userId: { guildId: interaction.guild.id, userId: listing.sellerId } },
-          data: { wallet: { increment: listing.price } },
-        }),
-        prisma.economyTransaction.create({
-          data: {
-            guildId: interaction.guild.id,
-            fromUserId: interaction.user.id,
-            toUserId: listing.sellerId,
-            amount: listing.price,
-            type: 'TRANSFER',
-            description: `Achat marché: ${listing.item.name}`,
-          },
-        }),
-        prisma.marketListing.update({
-          where: { id: listing.id },
-          data: {
-            status: 'SOLD',
-            buyerId: interaction.user.id,
-            soldAt: new Date(),
-          },
-        }),
-      ]);
-
-      await addItemToInventory(interaction.guild.id, interaction.user.id, listing.item.id, 1);
 
       const buyer = await interaction.guild.members.fetch(interaction.user.id);
       const seller = await interaction.guild.members.fetch(listing.sellerId).catch(() => null);

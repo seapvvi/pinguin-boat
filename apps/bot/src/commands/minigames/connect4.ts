@@ -204,20 +204,9 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         });
         return;
       }
-
-      // Deduct bets
-      await prisma.economyWallet.update({
-        where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
-        data: { wallet: { decrement: bet } },
-      });
-
-      await prisma.economyWallet.update({
-        where: { guildId_userId: { guildId: interaction.guild!.id, userId: opponent.id } },
-        data: { wallet: { decrement: bet } },
-      });
     }
 
-    // Create game session
+    // Create game session (avant débit pour rollback safe)
     const board: Board = createEmptyBoard();
     const gameState = {
       board,
@@ -240,12 +229,25 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       gameState: JSON.stringify(gameState),
     });
 
+    // Deduct bets (dans une transaction atomique)
+    if (bet > 0) {
+      await prisma.$transaction([
+        prisma.economyWallet.update({
+          where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
+          data: { wallet: { decrement: bet } },
+        }),
+        prisma.economyWallet.update({
+          where: { guildId_userId: { guildId: interaction.guild!.id, userId: opponent.id } },
+          data: { wallet: { decrement: bet } },
+        }),
+      ]);
+    }
+
     // Send initial board
     const embed = createEmbed('minigame')
       .setTitle('🎮 Puissance 4')
-      .setDescription(`${interaction.user} (🔴) vs ${opponent} (🟡)`)
+      .setDescription(`${interaction.user} (🔴) vs ${opponent} (🟡)\n${formatBoard(board)}`)
       .addFields(
-        { name: 'Plateau', value: `\`\`\`\n${formatBoard(board)}\n\`\`\``, inline: false },
         { name: 'Tour', value: `<@${interaction.user.id}> (🔴)`, inline: true },
         { name: 'Mise', value: bet > 0 ? `${bet * 2} ${economySettings.currencySymbol}` : 'Gratuit', inline: true }
       )
@@ -310,9 +312,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       
       const updatedEmbed = createEmbed('minigame')
         .setTitle('🎮 Puissance 4')
-        .setDescription(`${interaction.user} (🔴) vs ${opponent} (🟡)`)
+        .setDescription(`${interaction.user} (🔴) vs ${opponent} (🟡)\n${formatBoard(board)}`)
         .addFields(
-          { name: 'Plateau', value: `\`\`\`\n${formatBoard(board)}\n\`\`\``, inline: false },
           { name: 'Tour', value: winner ? 'Terminé' : `<@${gameState.currentPlayer}> (${gameState.currentPlayer === gameState.playerR ? '🔴' : '🟡'})`, inline: true },
           { name: 'Mise', value: bet > 0 ? `${bet * 2} ${economySettings.currencySymbol}` : 'Gratuit', inline: true }
         );
@@ -362,7 +363,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
               },
             });
           } else {
-            winnings = settings.connect4Reward;
+            winnings = settings.connect4Reward ?? 0;
             await prisma.economyWallet.update({
               where: { guildId_userId: { guildId: interaction.guild!.id, userId: winnerId } },
               data: { wallet: { increment: winnings }, totalEarned: { increment: winnings } },
