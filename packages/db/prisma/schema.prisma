@@ -332,6 +332,7 @@ model Guild {
   suggestions      Suggestion[]
   autoroleEntries  AutoroleEntry[]
   savedEmbeds      SavedEmbed[]
+  guildMembers     GuildMember[]
   auditLogs        AuditLog[]
   clans            Clan[]
   clanMembers      ClanMember[]
