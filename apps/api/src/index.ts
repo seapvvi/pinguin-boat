@@ -3,7 +3,6 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import helmet from '@fastify/helmet';
-import requestId from '@fastify/request-id';
 import { z } from 'zod';
 import { getConfig } from '@pinguin/config';
 import { prisma } from '@pinguin/db';
@@ -25,8 +24,6 @@ const config = getConfig();
 
 async function main() {
   const app = Fastify({ logger: true });
-
-  await app.register(requestId);
 
   await app.register(cors, {
     origin: config.CORS_ORIGIN,
