@@ -5,6 +5,8 @@ import { registerCommands } from './utils/register';
 import { loadEvents } from './events/_loader';
 import { loadCommands } from './commands/_loader';
 import { startInternalBotApi } from './internal/bot-api';
+import { cleanStaleSessions } from './services/minigames';
+import { initMusicService } from './services/music';
 import { logger } from '@pinguin/shared';
 
 const config = getConfig();
@@ -35,6 +37,11 @@ async function start() {
     loadEvents(client);
 
     await registerCommands(client);
+
+    const cleaned = await cleanStaleSessions();
+    if (cleaned > 0) logger.info(`Nettoyage: ${cleaned} sessions expirées`, { app: 'bot' });
+
+    initMusicService();
 
     await client.login(config.DISCORD_TOKEN);
     logger.info('Connecté à Discord', { app: 'bot' });

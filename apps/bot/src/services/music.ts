@@ -27,6 +27,17 @@ try {
   }
 
 
+export async function initMusicService(): Promise<void> {
+  if (process.env.YOUTUBE_COOKIE) {
+    try {
+      const playdl = await import('play-dl');
+      await playdl.setToken({ youtube: { cookie: process.env.YOUTUBE_COOKIE } });
+      musicLogger.info('YouTube cookie configured for play-dl');
+    } catch (err: any) {
+      musicLogger.warn('Failed to set YouTube cookie for play-dl', { err: err.message });
+    }
+  }
+}
 
 async function createStreamFromUrl(url: string): Promise<{ stream: any; type: StreamType }> {
   // Use play-dl as primary (more stable in 2024)
@@ -288,12 +299,16 @@ export async function play(guildId: string, query: string, requester: GuildMembe
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
       selfDeaf: true,
     });
-    connection.on('stateChange', (_oldState: any, newState: any) => {
+    connection.on('stateChange', async (_oldState: any, newState: any) => {
       if (newState.status === VoiceConnectionStatus.Disconnected) {
-        musicLogger.warn('Voice disconnected', { guildId });
-
-        state.connection = null;
-        state.voiceChannelId = null;
+        musicLogger.warn('Voice disconnected, attempting reconnect', { guildId });
+        try {
+          await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
+        } catch {
+          musicLogger.error('Reconnect failed, cleaning up', { guildId });
+          state.connection = null;
+          state.voiceChannelId = null;
+        }
       }
     });
     connection.on('error', (err: Error) => {
@@ -341,8 +356,10 @@ export async function play(guildId: string, query: string, requester: GuildMembe
 
 export async function skip(guildId: string): Promise<TrackInfo | null> {
   const state = getState(guildId);
-  // Save loop mode so the stop->idle->playNext flow doesn't lose it during a skip
   const savedLoop = state.loopMode;
+  if (savedLoop === LoopMode.TRACK) {
+    state.loopMode = LoopMode.NONE;
+  }
   state.player?.stop();
   state.loopMode = savedLoop;
   return state.currentTrack;

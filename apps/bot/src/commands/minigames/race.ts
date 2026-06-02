@@ -47,12 +47,6 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
   if (!interaction.guild) return;
 
   try {
-    const cooldownCheck = checkCooldown(interaction, 'race', 5);
-    if (!cooldownCheck.allowed) {
-      await interaction.editReply({ embeds: [errorEmbed('Cooldown', cooldownCheck.message!)] });
-      return;
-    }
-
     if (!(await isModuleEnabled(interaction.guild.id, 'minigames'))) {
       await interaction.editReply({ embeds: [errorEmbed('Module désactivé', 'Le module minijeux est désactivé sur ce serveur.')] });
       return;
@@ -68,13 +62,6 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     }
 
     const bet = interaction.options.getInteger('mise', true);
-
-    // Check if user has an active session
-    const activeSession = await getActiveSession(interaction.user.id, 'horse_race');
-    if (activeSession) {
-      await interaction.editReply({ embeds: [errorEmbed('Session active', 'Vous avez déjà une course en cours.')] });
-      return;
-    }
 
     // Check bet limits
     if (bet < settings.betMin || bet > settings.betMax) {
@@ -94,15 +81,35 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       return;
     }
 
-    // Create horse selection buttons
-    const horseButtons = HORSES.map((horse) => 
+    const cooldownCheck = checkCooldown(interaction, 'race', 5);
+    if (!cooldownCheck.allowed) {
+      await interaction.editReply({ embeds: [errorEmbed('Cooldown', cooldownCheck.message!)] });
+      return;
+    }
+
+    // Check if user has an active session
+    const activeSession = await getActiveSession(interaction.user.id, 'horse_race');
+    if (activeSession) {
+      await interaction.editReply({ embeds: [errorEmbed('Session active', 'Vous avez déjà une course en cours.')] });
+      return;
+    }
+
+    // Create horse selection buttons (split into 2 rows of 3, max 5 per row)
+    const horseButtons1 = HORSES.slice(0, 3).map((horse) => 
+      new ButtonBuilder()
+        .setCustomId('race_select_' + horse.id)
+        .setLabel(horse.emoji + ' ' + horse.name + ' (x' + horse.multiplier + ')')
+        .setStyle(ButtonStyle.Primary)
+    );
+    const horseButtons2 = HORSES.slice(3).map((horse) => 
       new ButtonBuilder()
         .setCustomId('race_select_' + horse.id)
         .setLabel(horse.emoji + ' ' + horse.name + ' (x' + horse.multiplier + ')')
         .setStyle(ButtonStyle.Primary)
     );
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(horseButtons);
+    const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(horseButtons1);
+    const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(horseButtons2);
 
     const selectionEmbed = createEmbed('minigame')
       .setTitle('🏇 Course de Chevaux')
@@ -123,7 +130,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     const message = await interaction.editReply({ 
       embeds: [selectionEmbed],
-      components: [row],
+      components: [row1, row2],
     });
 
     // Set up collector for horse selection
@@ -216,7 +223,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 }
 
 async function runRaceAnimation(
-  interaction: any,
+  buttonInteraction: any,
   session: any,
   gameState: any,
   economySettings: any,
@@ -225,7 +232,7 @@ async function runRaceAnimation(
   const { horses, selectedHorseId, bet } = gameState;
   const selectedHorse = horses.find((h: Horse) => h.id === selectedHorseId);
 
-  // Initial race embed
+  // i.update() pour la réponse immédiate au clic bouton
   const raceEmbed = createEmbed('minigame')
     .setTitle('🏇 Course en cours...')
     .setDescription('Les chevaux sont au départ !')
@@ -235,27 +242,24 @@ async function runRaceAnimation(
     )
     .setTimestamp();
 
-  await interaction.update({ 
+  await buttonInteraction.update({ 
     embeds: [raceEmbed],
     components: [],
   });
 
-  // Run race rounds
+  // Mises à jour des rounds via originalInteraction.editReply()
   for (let round = 0; round < RACE_ROUNDS; round++) {
-    await new Promise((resolve) => setTimeout(resolve, 1500)); // 1.5s between rounds
+    await new Promise((resolve) => setTimeout(resolve, 1500));
 
     gameState.currentRound = round + 1;
 
-    // Update horse positions with weighted random
     for (const horse of gameState.horses) {
-      // Weighted speed based on odds (higher odds = faster)
       const baseSpeed = Math.random() * 15 + 5;
       const oddsBonus = horse.odds * 10;
       horse.speed = Math.floor(baseSpeed + oddsBonus);
       horse.position = Math.min(RACE_LENGTH, horse.position + horse.speed);
     }
 
-    // Check if any horse finished
     const finishedHorse = gameState.horses.find((h: Horse) => h.position >= RACE_LENGTH);
     if (finishedHorse) {
       gameState.gameOver = true;
@@ -266,7 +270,6 @@ async function runRaceAnimation(
       gameState: JSON.stringify(gameState),
     });
 
-    // Update embed with current positions
     const progressFields = gameState.horses.map((h: Horse) => {
       const progressBar = '█'.repeat(Math.floor(h.position / 5)) + '░'.repeat(20 - Math.floor(h.position / 5));
       return {
@@ -289,7 +292,6 @@ async function runRaceAnimation(
     try {
       await originalInteraction.editReply({ embeds: [roundEmbed] });
     } catch (e) {
-      // Message might have been deleted
       return;
     }
   }

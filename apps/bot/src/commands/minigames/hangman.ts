@@ -80,15 +80,16 @@ function getRandomWord(category: string): string {
   return words[Math.floor(Math.random() * words.length)];
 }
 
-function createKeyboard(usedLetters: Set<string>): ActionRowBuilder<ButtonBuilder>[] {
+function createKeyboard(usedLetters: string[]): ActionRowBuilder<ButtonBuilder>[] {
   const rows: ActionRowBuilder<ButtonBuilder>[] = [];
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const groupSize = 6;
   
-  for (let i = 0; i < letters.length; i += 5) {
+  for (let i = 0; i < letters.length; i += groupSize) {
     const row = new ActionRowBuilder<ButtonBuilder>();
-    for (let j = 0; j < 5 && i + j < letters.length; j++) {
+    for (let j = 0; j < groupSize && i + j < letters.length; j++) {
       const letter = letters[i + j];
-      const isUsed = usedLetters.has(letter);
+      const isUsed = usedLetters.includes(letter);
       
       row.addComponents(
         new ButtonBuilder()
@@ -104,8 +105,8 @@ function createKeyboard(usedLetters: Set<string>): ActionRowBuilder<ButtonBuilde
   return rows;
 }
 
-function formatWord(word: string, guessedLetters: Set<string>): string {
-  return word.split('').map(letter => guessedLetters.has(letter) ? letter : '_').join(' ');
+function formatWord(word: string, guessedLetters: string[]): string {
+  return word.split('').map(letter => guessedLetters.includes(letter) ? letter : '_').join(' ');
 }
 
 export const data = new SlashCommandBuilder()
@@ -205,7 +206,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     const gameState = {
       word,
       category,
-      guessedLetters: new Set<string>(),
+      guessedLetters: [] as string[],
       wrongGuesses: 0,
       maxWrongGuesses: 6,
       bet,
@@ -224,10 +225,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     );
 
     await updateGameSession(session.id, {
-      gameState: JSON.stringify({
-        ...gameState,
-        guessedLetters: Array.from(gameState.guessedLetters),
-      }),
+      gameState: JSON.stringify(gameState),
     });
 
     const embed = createEmbed('minigame')
@@ -270,12 +268,12 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
         const letter = i.customId.replace('hm_', '');
         
-        if (gameState.guessedLetters.has(letter)) {
+        if (gameState.guessedLetters.includes(letter)) {
           await i.reply({ content: 'Vous avez déjà essayé cette lettre !', ephemeral: true });
           return;
         }
 
-        gameState.guessedLetters.add(letter);
+        gameState.guessedLetters.push(letter);
 
         if (word.includes(letter)) {
           // Correct guess
@@ -358,10 +356,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         }
 
         await updateGameSession(session.id, {
-          gameState: JSON.stringify({
-            ...gameState,
-            guessedLetters: Array.from(gameState.guessedLetters),
-          }),
+          gameState: JSON.stringify(gameState),
         });
 
         const updateEmbed = createEmbed('minigame')

@@ -119,6 +119,18 @@ export async function endGameSession(sessionId: string, status: string, payout =
  * Returns an error message if minigames are restricted to a specific channel
  * and the current channel is not the allowed one. Returns null when allowed.
  */
+export async function cleanStaleSessions(): Promise<number> {
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000);
+  const result = await prisma.minigameSession.updateMany({
+    where: {
+      status: 'active',
+      createdAt: { lt: cutoff },
+    },
+    data: { status: 'expired' },
+  });
+  return result.count;
+}
+
 export function minigameChannelError(
   settings: { gamesChannelId?: string | null },
   channelId: string | null
