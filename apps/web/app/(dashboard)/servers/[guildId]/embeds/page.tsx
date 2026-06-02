@@ -27,6 +27,7 @@ export default function EmbedsPage() {
   const [form, setForm] = useState<EmbedPreset>({
     id: '', name: '', title: '', description: '', color: '#5865F2',
     fields: [], footer: '', thumbnail: '', image: '', timestamp: false,
+    authorName: null, authorIcon: null,
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +51,7 @@ export default function EmbedsPage() {
   useEffect(() => { load(); }, [guildId]);
 
   const resetForm = () => {
-    setForm({ id: '', name: '', title: '', description: '', color: '#5865F2', fields: [], footer: '', thumbnail: '', image: '', timestamp: false });
+    setForm({ id: '', name: '', title: '', description: '', color: '#5865F2', fields: [], footer: '', thumbnail: '', image: '', timestamp: false, authorName: null, authorIcon: null });
     setFormErrors({});
     setEditingId(null);
   };
