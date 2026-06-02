@@ -553,7 +553,7 @@ export default function OwnerDashboardPage() {
                   </Pie>
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--bg-surface-alt)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}
-                    formatter={(value: any, name: any) => [value ?? 0, sourceLabels[name] || name ?? '']}
+                    formatter={(value: any, name: any) => [value ?? 0, sourceLabels[name] ?? name ?? '']}
                   />
                   <Legend formatter={(value: any) => <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{sourceLabels[value] ?? value}</span>} />
                 </PieChart>
