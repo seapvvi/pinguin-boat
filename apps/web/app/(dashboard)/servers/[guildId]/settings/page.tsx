@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Save, RotateCcw, LogOut, Trash2 } from 'lucide-react';
+import { Save, RotateCcw, LogOut, Trash2, RefreshCw } from 'lucide-react';
 import { Card, Button, Input, Select, Skeleton, Modal } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 
 export default function GuildSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -32,6 +34,8 @@ export default function GuildSettingsPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [guildId]);
+
+  const onboarding = useOnboarding(guildId);
 
   const handleSave = async () => {
     if (!settings) return;
@@ -138,6 +142,16 @@ export default function GuildSettingsPage() {
         </p>
       </Card>
 
+      <Card className="space-y-4 p-4">
+        <h2 className="text-lg font-medium text-[var(--text-primary)]">Onboarding</h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Relancez l'onboarding pour reconfigurer rapidement les paramètres essentiels du serveur.
+        </p>
+        <Button onClick={() => onboarding.openOnboarding()} loading={onboarding.loading}>
+          <RefreshCw className="w-4 h-4 mr-2" /> Relancer l'onboarding
+        </Button>
+      </Card>
+
       <Card className="space-y-4 p-4 border border-[var(--error)]">
         <h2 className="text-lg font-medium text-[var(--error)]">Zone de danger</h2>
         <p className="text-sm text-[var(--text-secondary)]">Actions irréversibles — confirmation par le nom du serveur requise.</p>
@@ -170,6 +184,20 @@ export default function GuildSettingsPage() {
           <Button variant="secondary" onClick={() => setDangerModal(null)}>Annuler</Button>
         </div>
       </Modal>
+
+      <OnboardingModal
+        guildId={guildId}
+        open={onboarding.open}
+        currentStep={onboarding.currentStep}
+        totalSteps={onboarding.totalSteps}
+        data={onboarding.data}
+        onClose={onboarding.skipOnboarding}
+        onSkip={onboarding.skipOnboarding}
+        onComplete={onboarding.completeOnboarding}
+        onStepChange={onboarding.setStep}
+        onNextStep={onboarding.nextStep}
+        onPrevStep={onboarding.prevStep}
+      />
     </motion.div>
   );
 }

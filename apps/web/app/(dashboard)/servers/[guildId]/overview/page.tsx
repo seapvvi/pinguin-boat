@@ -14,6 +14,8 @@ import { fetchGuildSettings, fetchModCases, updateGuildSettings, fetchAuditLogs 
 import { formatNumber, formatDate } from '@/lib/utils';
 import type { GuildConfig, ModCase } from '@pinguin/shared';
 import { ModuleName } from '@pinguin/shared';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 
 export default function GuildOverviewPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -27,6 +29,8 @@ export default function GuildOverviewPage() {
   const [channelCount, setChannelCount] = useState<number>(0);
   const [roleCount, setRoleCount] = useState<number>(0);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+
+  const onboarding = useOnboarding(guildId);
 
   const load = async () => {
     setLoading(true);
@@ -54,6 +58,12 @@ export default function GuildOverviewPage() {
   };
 
   useEffect(() => { load(); }, [guildId]);
+
+  useEffect(() => {
+    if (!loading && config) {
+      onboarding.checkOnboardingStatus();
+    }
+  }, [loading, config?.id]);
 
   const handleModuleToggle = async (module: ModuleName, enabled: boolean) => {
     setToggling(module);
@@ -215,6 +225,20 @@ export default function GuildOverviewPage() {
           </div>
         )}
       </Card>
+
+      <OnboardingModal
+        guildId={guildId}
+        open={onboarding.open}
+        currentStep={onboarding.currentStep}
+        totalSteps={onboarding.totalSteps}
+        data={onboarding.data}
+        onClose={onboarding.skipOnboarding}
+        onSkip={onboarding.skipOnboarding}
+        onComplete={onboarding.completeOnboarding}
+        onStepChange={onboarding.setStep}
+        onNextStep={onboarding.nextStep}
+        onPrevStep={onboarding.prevStep}
+      />
     </motion.div>
   );
 }

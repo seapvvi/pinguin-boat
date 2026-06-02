@@ -10,7 +10,10 @@ import {
 import {
   Card, Button, Badge, Skeleton, KPICard, EmptyState, ErrorMessage, Input
 } from '@pinguin/ui';
-import { fetchBotStats, fetchOwnerLogs, triggerBackup, triggerRestart, triggerDeploy, triggerRollback, api } from '@/lib/api';
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend
+} from 'recharts';
+import { fetchBotStats, fetchOwnerLogs, triggerBackup, triggerRestart, triggerDeploy, triggerRollback, fetchOnboardingSources, api } from '@/lib/api';
 import { formatNumber, formatDuration, formatDate } from '@/lib/utils';
 import DeploymentProgressModal from '@/components/DeploymentProgressModal';
 
@@ -49,6 +52,15 @@ interface Changelog {
   createdAt: string;
 }
 
+const sourceLabels: Record<string, string> = {
+  'top.gg': 'Top.gg',
+  'word_of_mouth': 'Bouche à oreille',
+  'social_media': 'Réseaux sociaux',
+  'other': 'Autre',
+};
+
+const PIE_COLORS = ['#5865f2', '#57f287', '#fee75c', '#ed4245'];
+
 const serviceLabels: Record<string, string> = {
   Bot: 'Bot Discord', API: 'API REST', Web: 'Interface Web',
   Database: 'Base de données', Cache: 'Cache Redis',
@@ -85,6 +97,22 @@ export default function OwnerDashboardPage() {
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [sourceData, setSourceData] = useState<any>(null);
+  const [sourceLoading, setSourceLoading] = useState(true);
+  const [sourcePage, setSourcePage] = useState(1);
+
+  const loadSources = useCallback(async () => {
+    setSourceLoading(true);
+    try {
+      const res = await fetchOnboardingSources({ page: String(sourcePage), limit: '20' });
+      if (res.success && res.data) setSourceData(res.data);
+    } catch { } finally {
+      setSourceLoading(false);
+    }
+  }, [sourcePage]);
+
+  useEffect(() => { loadSources(); }, [loadSources]);
 
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -493,6 +521,79 @@ export default function OwnerDashboardPage() {
               </div>
             ))}
           </div>
+        )}
+      </Card>
+
+      {/* Sources d'acquisition */}
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity size={16} className="text-[var(--accent)]" />
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Sources d'acquisition</h2>
+        </div>
+
+        {sourceLoading ? (
+          <Skeleton className="h-48 w-full rounded-[var(--radius-sm)]" />
+        ) : sourceData ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={sourceData.breakdown}
+                    dataKey="count"
+                    nameKey="source"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ source, percent }) => `${sourceLabels[source] || source} (${(percent * 100).toFixed(0)}%)`}
+                  >
+                    {sourceData.breakdown.map((_: any, i: number) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'var(--bg-surface-alt)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}
+                    formatter={(value: number, name: string) => [value, sourceLabels[name] || name]}
+                  />
+                  <Legend formatter={(value: string) => <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{sourceLabels[value] || value}</span>} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-3 uppercase tracking-wide">Réponses "Autre"</h3>
+              {sourceData.otherDetails?.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {sourceData.otherDetails.map((item: any, i: number) => (
+                    <div key={i} className="p-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
+                      <p className="text-xs text-[var(--text-primary)]">{item.details}</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                        {item.guildId} · {formatDate(item.createdAt)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-[var(--text-secondary)]">Aucune réponse détaillée.</span>
+              )}
+
+              {sourceData.pagination && sourceData.pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <Button variant="ghost" size="sm" disabled={sourcePage <= 1} onClick={() => setSourcePage((p) => p - 1)}>
+                    Précédent
+                  </Button>
+                  <span className="text-xs text-[var(--text-secondary)]">
+                    Page {sourceData.pagination.page} / {sourceData.pagination.totalPages}
+                  </span>
+                  <Button variant="ghost" size="sm" disabled={sourcePage >= sourceData.pagination.totalPages} onClick={() => setSourcePage((p) => p + 1)}>
+                    Suivant
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <EmptyState title="Aucune donnée" description="Aucune source d'acquisition enregistrée." />
         )}
       </Card>
 

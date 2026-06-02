@@ -411,6 +411,24 @@ export async function fetchMinigameLeaderboard(guildId: string, params?: Record<
   return api.get<APIResponse<{ entries: any[] }>>(`/api/guilds/${guildId}/minigames/leaderboard`, params);
 }
 
+// ─── Onboarding ───
+
+export async function fetchOnboardingData(guildId: string): Promise<APIResponse<any>> {
+  return api.get<APIResponse<any>>(`/api/guilds/${guildId}/onboarding-data`);
+}
+
+export async function markOnboardingDone(guildId: string): Promise<APIResponse<any>> {
+  return api.patch<APIResponse<any>>(`/api/guilds/${guildId}/settings/onboarding-done`);
+}
+
+export async function submitOnboardingSource(data: { guildId: string; source: string; details?: string }): Promise<APIResponse<any>> {
+  return api.post<APIResponse<any>>('/api/onboarding/source', data);
+}
+
+export async function fetchOnboardingSources(params?: Record<string, string>): Promise<APIResponse<any>> {
+  return api.get<APIResponse<any>>('/api/admin/onboarding/sources', params);
+}
+
 export async function fetchMetricsSnapshots(): Promise<APIResponse<{ snapshots: SystemMetricsSnapshot[] }>> {
   return api.get<APIResponse<{ snapshots: SystemMetricsSnapshot[] }>>('/api/system/metrics/snapshots');
 }

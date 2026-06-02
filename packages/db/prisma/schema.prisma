@@ -372,12 +372,26 @@ model GuildSettings {
   dashboardAuditAccess String @default("[]") @map("dashboard_audit_access")
   changelogChannel String? @map("changelog_channel")
   suggestionChannelId String? @map("suggestion_channel_id")
+  onboardingDone Boolean @default(false) @map("onboarding_done")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   guild Guild @relation(fields: [guildId], references: [id])
 
   @@map("guild_settings")
+}
+
+/// Source de découverte lors de l'onboarding
+model OnboardingSource {
+  id        String   @id @default(cuid()) @map("id")
+  guildId   String   @map("guild_id")
+  source    String   @map("source")
+  details   String?  @map("details")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([source])
+  @@index([createdAt])
+  @@map("onboarding_sources")
 }
 
 /// Modules activés ou désactivés sur un serveur
