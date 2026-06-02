@@ -45,9 +45,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       )
       .setTimestamp();
 
-    const channel = suggestionChannelId
-      ? interaction.guild.channels.cache.get(suggestionChannelId)
-      : interaction.channel;
+    const targetChannelId = suggestionChannelId || interaction.channelId;
+    const channel = interaction.guild.channels.cache.get(targetChannelId);
     if (channel?.isTextBased()) {
       const msg = await channel.send({ embeds: [embed] });
       await msg.react('👍');
