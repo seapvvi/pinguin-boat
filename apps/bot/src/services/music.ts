@@ -6,6 +6,10 @@ import {
 } from '@discordjs/voice';
 import type { TrackInfo } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
+import { getLogger } from '@pinguin/shared';
+
+const musicLogger = getLogger({ component: 'music' });
+
 
 // Ensure @discordjs/voice (prism-media) can find an FFmpeg binary even when one
 // is not installed system-wide. ffmpeg-static ships a prebuilt binary and
@@ -13,13 +17,16 @@ import { prisma } from '@pinguin/db';
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const ffmpegPath = require('ffmpeg-static');
-  if (ffmpegPath && !process.env.FFMPEG_PATH) {
+    if (ffmpegPath && !process.env.FFMPEG_PATH) {
     process.env.FFMPEG_PATH = ffmpegPath as string;
-    console.log(`[Music] Using bundled FFmpeg at ${ffmpegPath}`);
+    musicLogger.info(`Using bundled FFmpeg at ${ffmpegPath}`, { app: 'music' });
   }
-} catch {
-  console.warn('[Music] ffmpeg-static not available; relying on system FFmpeg.');
-}
+
+  } catch {
+    musicLogger.warn('ffmpeg-static not available; relying on system FFmpeg.', { app: 'music' });
+  }
+
+
 
 async function createStreamFromUrl(url: string): Promise<{ stream: any; type: StreamType }> {
   // Use play-dl as primary (more stable in 2024)
@@ -27,16 +34,23 @@ async function createStreamFromUrl(url: string): Promise<{ stream: any; type: St
     const playdl = await import('play-dl');
     const result = await playdl.stream(url, { quality: 2, discordPlayerCompatibility: true });
     // Prevent unhandled 'error' events from crashing the process.
-    result.stream.on('error', (err: Error) => console.error('[Music] play-dl stream error:', err.message));
+    result.stream.on('error', (err: Error) => {
+      musicLogger.error('play-dl stream error', { err: err.message });
+    });
+
+
+
     return { stream: result.stream, type: result.type as unknown as StreamType };
   } catch (e: any) {
-    console.warn('[Music] play-dl failed, trying ytdl-core:', e.message);
+    musicLogger.warn('play-dl failed, trying ytdl-core', { err: e.message });
   }
+
 
   // Fallback to ytdl-core
   try {
     const ytdl = await import('@distube/ytdl-core');
     if (ytdl.default.validateURL(url)) {
+
       const stream = ytdl.default(url, {
         filter: 'audioonly',
         quality: 'highestaudio',
@@ -45,12 +59,16 @@ async function createStreamFromUrl(url: string): Promise<{ stream: any; type: St
       });
       // ytdl emits 'error' asynchronously on the returned stream; without a
       // listener Node crashes the whole bot with an unhandled 'error' event.
-      stream.on('error', (err: Error) => console.error('[Music] ytdl-core stream error:', err.message));
+      stream.on('error', (err: Error) => {
+        musicLogger.error('ytdl-core stream error', { err: err.message });
+      });
+
       return { stream, type: StreamType.Arbitrary };
     }
   } catch (e: any) {
-    console.error('[Music] ytdl-core also failed:', e.message);
+    musicLogger.error('ytdl-core also failed', { err: e.message });
   }
+
 
   throw new Error('Impossible de créer le stream audio. Vérifiez que l\'URL est valide.');
 }
@@ -113,9 +131,10 @@ export function getPlayer(guildId: string): AudioPlayer {
       }
     });
     state.player.on('error', (err: Error) => {
-      console.error(`[Music] Player error in ${guildId}:`, err.message);
+      musicLogger.error('Player error', { guildId, err: err.message });
       playNext(guildId).catch(() => {});
     });
+
   }
   return state.player;
 }
@@ -153,7 +172,8 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
   try {
     streamData = await createStreamFromUrl(track.url);
   } catch (streamErr: any) {
-    console.error(`[Music] Stream error for "${track.title}":`, streamErr.message);
+    musicLogger.error('Stream error', { guildId, title: track.title, err: streamErr.message });
+
     playNext(guildId).catch(() => {});
     return;
   }
@@ -169,14 +189,16 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
     
     // Ensure connection is still valid before subscribing
     if (state.connection.state.status !== VoiceConnectionStatus.Ready) {
-      console.warn(`[Music] Connection not ready, skipping play for "${track.title}"`);
+    musicLogger.warn('Connection not ready, skipping play', { guildId, title: track.title });
+
       playNext(guildId).catch(() => {});
       return;
     }
     
     state.connection.subscribe(player);
     player.play(resource);
-    console.log(`[Music] Now playing: "${track.title}" in guild ${guildId}`);
+    musicLogger.info('Now playing', { guildId, title: track.title, url: track.url });
+
 
     prisma.musicHistoryEntry.create({
       data: {
@@ -189,7 +211,8 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
       },
     }).catch(() => {});
   } catch (err: any) {
-    console.error(`[Music] Error playing "${track.title}":`, err.message);
+    musicLogger.error('Error playing', { guildId, title: track.title, err: err.message });
+
     playNext(guildId).catch(() => {});
   }
 }
@@ -239,7 +262,8 @@ export async function play(guildId: string, query: string, requester: GuildMembe
     };
   }
 
-  console.log(`[Music] Resolved track: "${track.title}" -> ${track.url}`);
+  musicLogger.info('Resolved track', { title: track.title, url: track.url });
+
 
   const botMember = voiceChannel.guild.members.me!;
   if (!voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
@@ -266,14 +290,16 @@ export async function play(guildId: string, query: string, requester: GuildMembe
     });
     connection.on('stateChange', (_oldState: any, newState: any) => {
       if (newState.status === VoiceConnectionStatus.Disconnected) {
-        console.warn(`[Music] Voice disconnected in guild ${guildId}`);
+        musicLogger.warn('Voice disconnected', { guildId });
+
         state.connection = null;
         state.voiceChannelId = null;
       }
     });
     connection.on('error', (err: Error) => {
-      console.error(`[Music] Voice connection error in guild ${guildId}:`, err.message);
+      musicLogger.error('Voice connection error', { guildId, err: err.message });
     });
+
     try {
       await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
     } catch (err) {
@@ -390,8 +416,9 @@ export async function saveQueueToDb(guildId: string): Promise<void> {
       },
     });
   } catch (error) {
-    console.error('[Music] Erreur sauvegarde queue:', error);
+    musicLogger.error('Erreur sauvegarde queue', { error });
   }
+
 }
 
 export async function loadQueueFromDb(guildId: string): Promise<void> {
@@ -408,8 +435,10 @@ export async function loadQueueFromDb(guildId: string): Promise<void> {
     state.voiceChannelId = data.voiceChannelId;
     state.textChannelId = data.textChannelId;
   } catch (error) {
-    console.error('[Music] Erreur chargement queue:', error);
+    musicLogger.error('Erreur chargement queue', { error });
+
   }
+
 }
 
 export function getQueueState(guildId: string) {

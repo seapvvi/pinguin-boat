@@ -160,6 +160,18 @@ async function main() {
       description: 'Toutes les fonctionnalités premium sont accessibles gratuitement (phase alpha)',
       enabled: true,
     },
+    {
+      key: 'double_xp',
+      name: 'Double XP',
+      description: 'Multiplie les gains d\'XP par 2 pendant la durée de l\'événement',
+      enabled: false,
+    },
+    {
+      key: 'economy_bonus_x2',
+      name: 'Bonus Économie x2',
+      description: 'Multiplie les gains économiques par 2 pendant la durée de l\'événement',
+      enabled: false,
+    },
   ];
 
   for (const flag of globalFlags) {

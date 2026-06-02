@@ -72,6 +72,13 @@ const envSchema = z.object({
   // Pastebin
   PASTEBIN_API_KEY: z.string().optional().default(''),
 
+  // Twitch
+  TWITCH_CLIENT_ID: z.string().optional().default(''),
+  TWITCH_CLIENT_SECRET: z.string().optional().default(''),
+
+  // YouTube
+  YOUTUBE_API_KEY: z.string().optional().default(''),
+
   // Logging
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   LOG_FORMAT: z.enum(['pretty', 'json']).default('pretty'),

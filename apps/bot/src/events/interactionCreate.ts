@@ -58,6 +58,12 @@ export async function execute(interaction: Interaction, client: Client): Promise
         return;
       }
 
+      if (interaction.customId.startsWith('changelog_prev_') || interaction.customId.startsWith('changelog_next_')) {
+        const { handleChangelogPagination } = await import('../commands/utility/changelog');
+        await handleChangelogPagination(interaction, client);
+        return;
+      }
+
       // Minigame buttons (blackjack, morpion) are handled by their own
       // per-message component collectors. We must NOT acknowledge them here:
       // doing so races with the collector's i.update() and triggers
@@ -280,6 +286,12 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Cl
     if (interaction.customId.startsWith('kick_modal_')) {
       const { handleModalSubmit: handleKickModal } = await import('../commands/moderation/kick-context');
       await handleKickModal(interaction, client);
+      return;
+    }
+
+    if (interaction.customId === 'poll_create') {
+      const { handlePollCreateModal } = await import('../commands/polls/poll-create-modal');
+      await handlePollCreateModal(interaction, client);
       return;
     }
   } catch (error) {

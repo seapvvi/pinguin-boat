@@ -112,6 +112,8 @@ export interface CreatePollDTO {
   question: string;
   options: string[];
   duration: number;
+  anonymous?: boolean;
+  multiChoice?: boolean;
 }
 
 export interface PollListDTO {

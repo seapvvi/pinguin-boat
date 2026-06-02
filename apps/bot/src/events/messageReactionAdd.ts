@@ -64,13 +64,31 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
       const options = JSON.parse(poll.options);
       if (optionIndex < 0 || optionIndex >= options.length) return;
 
-      const dbUser = await ensureUser(user.id, user.username ?? user.id, user.displayAvatarURL?.() ?? null);
+      if (poll.anonymous) {
+        await prisma.pollVote.create({
+          data: { pollId: poll.id, optionIndex },
+        });
+      } else {
+        const dbUser = await ensureUser(user.id, user.username ?? user.id, user.displayAvatarURL?.() ?? null);
 
-      await prisma.pollVote.upsert({
-        where: { pollId_userId: { pollId: poll.id, userId: dbUser.id } },
-        update: { optionIndex },
-        create: { pollId: poll.id, userId: dbUser.id, optionIndex },
-      });
+        if (poll.multiChoice) {
+          const existing = await prisma.pollVote.findFirst({
+            where: { pollId: poll.id, userId: dbUser.id, optionIndex },
+          });
+          if (!existing) {
+            await prisma.pollVote.create({
+              data: { pollId: poll.id, userId: dbUser.id, optionIndex },
+            });
+          }
+        } else {
+          await prisma.pollVote.deleteMany({
+            where: { pollId: poll.id, userId: dbUser.id },
+          });
+          await prisma.pollVote.create({
+            data: { pollId: poll.id, userId: dbUser.id, optionIndex },
+          });
+        }
+      }
       return;
     }
   }

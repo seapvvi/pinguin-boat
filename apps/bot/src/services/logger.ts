@@ -1,4 +1,5 @@
 import { prisma, AuditAction } from '@pinguin/db';
+import { getLogger, type LoggerContext } from '@pinguin/shared';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
@@ -11,22 +12,27 @@ interface LogEntry {
 }
 
 export function log(entry: LogEntry): void {
-  const prefix = entry.guildId ? `[${entry.guildId}]` : '';
-  const timestamp = new Date().toISOString();
+  const context: LoggerContext = {
+    guildId: entry.guildId,
+    userId: entry.userId,
+    component: 'bot',
+  };
+
+  const l = getLogger(context);
 
   switch (entry.level) {
-    case 'info':
-      console.log(`[${timestamp}] [INFO] ${prefix} ${entry.message}`);
-      break;
-    case 'warn':
-      console.warn(`[${timestamp}] [WARN] ${prefix} ${entry.message}`);
-      break;
-    case 'error':
-      console.error(`[${timestamp}] [ERROR] ${prefix} ${entry.message}`);
-      break;
     case 'debug':
-      console.debug(`[${timestamp}] [DEBUG] ${prefix} ${entry.message}`);
-      break;
+      l.debug(entry.message, entry.details);
+      return;
+    case 'info':
+      l.info(entry.message, entry.details);
+      return;
+    case 'warn':
+      l.warn(entry.message, entry.details);
+      return;
+    case 'error':
+      l.error(entry.message, entry.details);
+      return;
   }
 }
 
@@ -45,19 +51,17 @@ export async function createAuditLog(
         details: details ?? null,
       },
     });
-  } catch (error) {
-    console.error('[Logger] Erreur lors de la création du log d\'audit:', error);
+  } catch (error: unknown) {
+    getLogger({ component: 'audit' }).error('Erreur lors de la création du log d\'audit', {
+      error,
+    });
   }
 }
 
 export async function logToModChannel(
   guildId: string,
-  embed: { title: string; description?: string; color?: number }
+  _embed: { title: string; description?: string; color?: number }
 ): Promise<void> {
-  try {
-    const { Client, GatewayIntentBits } = require('discord.js');
-    const settings = await prisma.guildSettings.findUnique({ where: { guildId } });
-    if (!settings?.modLogChannel) return;
-  } catch {
-  }
+  void guildId;
 }
+

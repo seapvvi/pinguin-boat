@@ -49,12 +49,24 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
   if (poll) {
     if (!reaction.emoji.name || !numberEmojis.includes(reaction.emoji.name)) return;
 
-    const dbUser = await prisma.user.findUnique({ where: { discordId: user.id } });
-    if (!dbUser) return;
+    const optionIndex = numberEmojis.indexOf(reaction.emoji.name);
 
-    await prisma.pollVote.deleteMany({
-      where: { pollId: poll.id, userId: dbUser.id },
-    });
+    if (poll.anonymous) {
+      const lastVote = await prisma.pollVote.findFirst({
+        where: { pollId: poll.id, optionIndex },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (lastVote) {
+        await prisma.pollVote.delete({ where: { id: lastVote.id } });
+      }
+    } else {
+      const dbUser = await prisma.user.findUnique({ where: { discordId: user.id } });
+      if (!dbUser) return;
+
+      await prisma.pollVote.deleteMany({
+        where: { pollId: poll.id, userId: dbUser.id, optionIndex },
+      });
+    }
     return;
   }
 

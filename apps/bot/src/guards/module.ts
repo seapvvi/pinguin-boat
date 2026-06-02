@@ -18,6 +18,8 @@ const moduleFieldMap: Record<string, keyof ModuleEnabled> = {
   minigames: 'minigames',
   starboard: 'starboard',
   forms: 'forms',
+  clans: 'clans',
+  notifications: 'notifications',
 };
 
 export async function isModuleEnabled(guildId: string, moduleName: string): Promise<boolean> {

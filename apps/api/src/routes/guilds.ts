@@ -1364,9 +1364,13 @@ export async function guildRoutes(app: FastifyInstance) {
         const votesRecord: Record<string, string> = {};
         const voteCounts: number[] = new Array(rawOptions.length).fill(0);
         for (const v of p.votes) {
-          const discordId = (v as { user?: { discordId: string } }).user?.discordId ?? v.userId;
-          votesRecord[discordId] = String(v.optionIndex);
-          voteCounts[v.optionIndex]++;
+          const discordId = v.userId ? ((v as { user?: { discordId: string } }).user?.discordId ?? v.userId) : `anon_${v.id}`;
+          if (p.anonymous) {
+            voteCounts[v.optionIndex]++;
+          } else {
+            votesRecord[discordId] = String(v.optionIndex);
+            voteCounts[v.optionIndex]++;
+          }
         }
         return {
           id: p.id,
@@ -1376,6 +1380,9 @@ export async function guildRoutes(app: FastifyInstance) {
           options: rawOptions.map((o, i) => ({ id: String(i), label: o.label, votes: voteCounts[i] })),
           votes: votesRecord,
           status: p.status === 'OPEN' ? 'ACTIVE' : 'CLOSED' as const,
+          anonymous: p.anonymous,
+          multiChoice: p.multiChoice,
+          endsAt: p.endsAt?.toISOString() ?? null,
         };
       });
       reply.send(success({
@@ -1417,6 +1424,8 @@ export async function guildRoutes(app: FastifyInstance) {
           return reply.status(500).send(error('Impossible de poster le sondage sur Discord'));
         }
       }
+      const endsAt = body.duration ? new Date(Date.now() + body.duration * 60 * 1000) : null;
+
       const poll = await prisma.poll.create({
         data: {
           guildId, channelId: channelId || '',
@@ -1424,6 +1433,9 @@ export async function guildRoutes(app: FastifyInstance) {
           question: body.question,
           options: JSON.stringify(body.options.map((o: string, i: number) => ({ id: String(i), label: o, votes: 0 }))),
           status: 'OPEN',
+          anonymous: body.anonymous ?? false,
+          multiChoice: body.multiChoice ?? false,
+          endsAt,
         },
       });
       reply.status(201).send(success(poll, 'Sondage créé'));
@@ -1459,7 +1471,11 @@ export async function guildRoutes(app: FastifyInstance) {
           }],
         }).catch(() => {});
       }
-      reply.send(success({ ...updated, options: JSON.parse(updated.options) }, 'Sondage mis à jour'));
+      reply.send(success({
+        ...updated,
+        options: JSON.parse(updated.options),
+        endsAt: updated.endsAt?.toISOString() ?? null,
+      }, 'Sondage mis à jour'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 

@@ -27,6 +27,10 @@
     },
     "db:migrate": {
       "cache": false
+    },
+    "test": {
+      "dependsOn": ["^test"],
+      "outputs": []
     }
   }
 }

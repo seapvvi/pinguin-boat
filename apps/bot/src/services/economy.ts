@@ -1,5 +1,6 @@
 import { prisma } from '@pinguin/db';
 import { ensureUser } from './user';
+import { isEventActive } from './events';
 
 const cache = new Map<string, { data: any; at: number }>();
 const CACHE_MS = 30_000;
@@ -48,4 +49,9 @@ export async function isEconomyActive(guildId: string): Promise<boolean> {
   if (settings.enabled) return true;
   const mods = await prisma.moduleEnabled.findUnique({ where: { guildId } });
   return mods?.economy ?? false;
+}
+
+export async function getEconomyMultiplier(): Promise<number> {
+  if (await isEventActive('economy_bonus_x2')) return 2;
+  return 1;
 }

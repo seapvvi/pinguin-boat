@@ -2,6 +2,8 @@ import { prisma } from '@pinguin/db';
 import { ensureUser } from './user';
 import { updateQuestProgress } from './quests';
 import { isEconomyActive } from './economy';
+import { isEventActive } from './events';
+import { trackWarXp } from './clans';
 
 /** Constantes XP — non modifiables depuis le dashboard */
 export const XP_PER_MESSAGE = 10;
@@ -85,6 +87,9 @@ export async function addMessageXp(
   if (settings?.xpMultiplier && settings.xpMultiplier !== 1) {
     xpGain = Math.floor(xpGain * settings.xpMultiplier);
   }
+  if (await isEventActive('double_xp')) {
+    xpGain *= 2;
+  }
 
   const newXp = profile.xp + xpGain;
   const newLevel = calculateLevel(newXp);
@@ -99,6 +104,8 @@ export async function addMessageXp(
       lastMessageAt: now,
     },
   });
+
+  await trackWarXp(guildId, userId, xpGain);
 
   if (leveledUp) {
     const economyActive = await isEconomyActive(guildId);
@@ -146,6 +153,9 @@ export async function addVoiceXp(
   if (settings?.xpMultiplier && settings.xpMultiplier !== 1) {
     xpGain = Math.floor(xpGain * settings.xpMultiplier);
   }
+  if (await isEventActive('double_xp')) {
+    xpGain *= 2;
+  }
 
   const newXp = profile.xp + xpGain;
   const newLevel = calculateLevel(newXp);
@@ -161,6 +171,8 @@ export async function addVoiceXp(
       lastVoiceAt: now,
     },
   });
+
+  await trackWarXp(guildId, userId, xpGain);
 
   return { xp: newXp, level: newLevel, leveledUp };
 }

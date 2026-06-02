@@ -1,16 +1,14 @@
 # TODO
 
-- [ ] Créer la commande Discord owner-only **/status** dans `apps/bot/src/commands/utility/status.ts`
-  - [ ] Récupérer le dernier `SystemMetricsSnapshot`
-  - [ ] Calculer/formatter : uptime, nb guilds, nb utilisateurs, latence API Discord, CPU/RAM
-  - [ ] Ajouter version depuis `apps/bot/package.json`
-  - [ ] Répondre en embed en français, ephemeral en erreur
-  - [ ] (Fallback) Si aucun snapshot, utiliser `process.uptime()` + caches discord.js
-
-- [ ] Tester la commande manuellement côté bot
-  - [ ] Owner : vérifier l’affichage de tous les champs
-  - [ ] Non-owner : vérifier le refus
-
-- [ ] Lancer un typecheck
-  - [ ] `pnpm -C apps/bot typecheck`
+- [ ] Mettre en place Vitest dans le workspace Turborepo
+  - [ ] Ajouter vitest + dépendances de dev dans `packages/shared` et `apps/bot`
+  - [ ] Ajouter `vitest.config.ts`
+  - [ ] Ajouter task `test` dans `turbo.json`
+- [ ] Créer tests unitaires (Vitest)
+  - [ ] `calculateLevel` / calcul XP pour level up
+  - [ ] `parseDuration` (tous les formats + erreurs)
+  - [ ] Calcul d’intérêts bancaires (fonction pure)
+  - [ ] Logique de cooldown (daily, work) (fonction pure + timers mock)
+- [ ] Ajouter script `test` dans `packages/shared/package.json` et `apps/bot/package.json`
+- [ ] Exécuter `pnpm test` (ou `pnpm --filter ... test`) + corriger les éventuels échecs
 

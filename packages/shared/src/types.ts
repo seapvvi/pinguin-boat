@@ -279,6 +279,9 @@ export interface Poll {
   options: PollOption[];
   votes: Record<string, string>;
   status: 'ACTIVE' | 'CLOSED' | 'DELETED';
+  anonymous: boolean;
+  multiChoice: boolean;
+  endsAt: string | null;
 }
 
 export interface PollOption {

@@ -4,6 +4,9 @@ import { prisma } from '@pinguin/db';
 import { initializeInterestCrons } from '../services/economy-interests';
 import { initializeNotificationCrons } from '../services/economy-notifications';
 import { initializeInactivityAlertCrons } from '../services/ticket-inactivity-alert';
+import { startStreamNotificationCron } from '../services/stream-notifications';
+import { startPollCron } from '../services/poll-cron';
+import { logger } from '@pinguin/shared';
 
 export const once = true;
 
@@ -11,9 +14,9 @@ export async function execute(client: Client): Promise<void> {
   const config = getConfig();
   const user = client.user!;
 
-  console.log(`[Bot] Connecté en tant que ${user.tag}`);
-  console.log(`[Bot] ${client.guilds.cache.size} serveurs`);
-  console.log(`[Bot] ${client.users.cache.size} utilisateurs`);
+  logger.info(`Connecté en tant que ${user.tag}`, { app: 'bot' });
+  logger.info(`${client.guilds.cache.size} serveurs`, { app: 'bot' });
+  logger.info(`${client.users.cache.size} utilisateurs`, { app: 'bot' });
 
   user.setActivity(config.BOT_ACTIVITY_NAME || '🏔️ Pinguin BOAT | /help', {
     type: config.BOT_ACTIVITY_TYPE as ActivityType,
@@ -38,15 +41,15 @@ export async function execute(client: Client): Promise<void> {
         await prisma.moduleEnabled.create({
           data: { guildId: guild.id },
         });
-        console.log(`[Bot] Guild créée: ${guild.name} (${guild.id})`);
+        logger.info(`Guild créée: ${guild.name} (${guild.id})`, { app: 'bot' });
       } else if (!existing.botPresent) {
         await prisma.guild.update({
           where: { id: guild.id },
           data: { botPresent: true, name: guild.name, icon: guild.icon, memberCount: guild.memberCount },
         });
       }
-    } catch (error) {
-      console.error(`[Bot] Erreur lors de la vérification de la guild ${guild.id}:`, error);
+    } catch (error: unknown) {
+      logger.error(`Erreur lors de la vérification de la guild ${guild.id}`, { error, app: 'bot' });
     }
   }
 
@@ -62,7 +65,9 @@ export async function execute(client: Client): Promise<void> {
             icon: guild.icon,
           },
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }, 10 * 60 * 1000);
 
@@ -76,5 +81,12 @@ export async function execute(client: Client): Promise<void> {
   // Initialisation des crons d'alertes d'inactivité de tickets
   await initializeInactivityAlertCrons(client, guildIds);
 
-  console.log('[Bot] Prêt !');
+  // Démarrage du cron de vérification des lives Twitch/YouTube
+  startStreamNotificationCron(client);
+
+  // Démarrage du cron de fermeture automatique des sondages
+  startPollCron(client);
+
+  logger.info('Prêt !', { app: 'bot' });
 }
+

@@ -5,6 +5,7 @@ import { registerCommands } from './utils/register';
 import { loadEvents } from './events/_loader';
 import { loadCommands } from './commands/_loader';
 import { startInternalBotApi } from './internal/bot-api';
+import { logger } from '@pinguin/shared';
 
 const config = getConfig();
 
@@ -28,7 +29,7 @@ client.commands = new Collection();
 async function start() {
   try {
     await prisma.$connect();
-    console.log('[Bot] Connecté à PostgreSQL');
+    logger.info('Connecté à PostgreSQL', { app: 'bot' });
 
     loadCommands(client);
     loadEvents(client);
@@ -36,12 +37,12 @@ async function start() {
     await registerCommands(client);
 
     await client.login(config.DISCORD_TOKEN);
-    console.log('[Bot] Connecté à Discord');
+    logger.info('Connecté à Discord', { app: 'bot' });
 
     startInternalBotApi(client);
-    console.log('[Bot] API interne démarrée');
-  } catch (error) {
-    console.error('[Bot] Erreur de démarrage:', error);
+    logger.info('API interne démarrée', { app: 'bot' });
+  } catch (error: unknown) {
+    logger.error('Erreur de démarrage', { error, app: 'bot' });
     process.exit(1);
   }
 }
@@ -49,16 +50,17 @@ async function start() {
 start();
 
 // Safety net: never let an unexpected async error crash the whole bot.
-process.on('unhandledRejection', (reason) => {
-  console.error('[Bot] Unhandled rejection:', reason);
+process.on('unhandledRejection', (reason: unknown) => {
+  logger.error('Unhandled rejection', { reason, app: 'bot' });
 });
-process.on('uncaughtException', (err) => {
-  console.error('[Bot] Uncaught exception:', err);
+process.on('uncaughtException', (err: unknown) => {
+  logger.error('Uncaught exception', { err, app: 'bot' });
 });
 
 process.on('SIGTERM', async () => {
-  console.log('[Bot] Arrêt...');
+  logger.info('Arrêt...', { app: 'bot' });
   client.destroy();
   await prisma.$disconnect();
   process.exit(0);
 });
+

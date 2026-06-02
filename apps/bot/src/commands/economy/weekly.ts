@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, CommandInteraction, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
-import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive } from '../../services/economy';
+import { getEconomySettings, getOrCreateWallet, formatCoins, isEconomyActive, getEconomyMultiplier } from '../../services/economy';
 import { successEmbed, errorEmbed } from '../../services/embed';
 import { updateQuestProgress } from '../../services/quests';
 
@@ -36,7 +36,8 @@ export async function execute(interaction: CommandInteraction, _client: Client):
     }
   }
 
-  const amount = settings.weeklyAmount;
+  const multiplier = await getEconomyMultiplier();
+  const amount = settings.weeklyAmount * multiplier;
   const newBalance = wallet.wallet + amount;
 
   await prisma.economyWallet.update({
@@ -59,7 +60,8 @@ export async function execute(interaction: CommandInteraction, _client: Client):
 
   await updateQuestProgress(interaction.guild.id, interaction.user.id, 'EARN_MONEY', amount);
 
+  const bonusNote = multiplier > 1 ? ` (x${multiplier} — événement actif !)` : '';
   await interaction.editReply({
-    embeds: [successEmbed('Récompense hebdomadaire', `+${formatCoins(amount, settings.currencySymbol, settings.currencyName)}\nSolde : ${formatCoins(newBalance, settings.currencySymbol, settings.currencyName)}`)],
+    embeds: [successEmbed('Récompense hebdomadaire', `+${formatCoins(amount, settings.currencySymbol, settings.currencyName)}${bonusNote}\nSolde : ${formatCoins(newBalance, settings.currencySymbol, settings.currencyName)}`)],
   });
 }
