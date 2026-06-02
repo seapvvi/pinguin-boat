@@ -125,7 +125,6 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   } catch {
     await interaction.editReply({
       embeds: [errorEmbed('Erreur', 'Impossible de récupérer le status du bot.')],
-      ephemeral: true,
     });
   }
 }

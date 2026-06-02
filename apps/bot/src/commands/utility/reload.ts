@@ -11,7 +11,7 @@ function normalizeModuleName(input: string): string {
 function listRequireCacheKeysContaining(token: string): string[] {
   const keys: string[] = [];
 
-  for (const raw of require.cache.keys()) {
+  for (const raw of Object.keys(require.cache ?? {})) {
     if (typeof raw === 'string' && raw.includes(token)) keys.push(raw);
   }
 

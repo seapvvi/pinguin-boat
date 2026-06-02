@@ -39,7 +39,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   }
 
   try {
-    await member.kick(`Expulsé par ${interaction.user.tag}: ${reason}`);
+    await member.kick(`Expulsé par ${interaction.user.username}: ${reason}`);
 
     await ensureUser(user.id, user.username, user.avatar);
     await prisma.moderationCase.create({
@@ -59,10 +59,10 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       await user.send({ embeds: [dmEmbed] });
     } catch {}
 
-    log({ level: 'info', message: `Kick: ${user.tag} par ${interaction.user.tag}`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Kick: ${user.username} par ${interaction.user.username}`, guildId: interaction.guild.id });
 
     await interaction.editReply({
-      embeds: [successEmbed('Utilisateur expulsé', `**${user.tag}** a été expulsé.\nRaison : ${reason}`)],
+      embeds: [successEmbed('Utilisateur expulsé', `**${user.username}** a été expulsé.\nRaison : ${reason}`)],
     });
   } catch (error) {
     console.error(error);

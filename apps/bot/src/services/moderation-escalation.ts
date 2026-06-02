@@ -97,7 +97,7 @@ async function applyMute(
       await user.send({ embeds: [dmEmbed] });
     } catch {}
 
-    log({ level: 'info', message: `Mute automatique: ${user.tag} (${durationMinutes}min)`, guildId: guild.id });
+    log({ level: 'info', message: `Mute automatique: ${user.username} (${durationMinutes}min)`, guildId: guild.id });
 
     return { escalated: true, action: 'MUTE', reason: `Mute appliqué pour ${durationMinutes} minutes` };
   } catch (error) {
@@ -147,7 +147,7 @@ async function applyBan(
       await user.send({ embeds: [dmEmbed] });
     } catch {}
 
-    log({ level: 'info', message: `Ban automatique: ${user.tag}`, guildId: guild.id });
+    log({ level: 'info', message: `Ban automatique: ${user.username}`, guildId: guild.id });
 
     return { escalated: true, action: 'BAN', reason: 'Ban appliqué' };
   } catch (error) {

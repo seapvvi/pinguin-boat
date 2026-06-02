@@ -77,7 +77,7 @@ export async function handleModalSubmit(interaction: any, client: Client): Promi
       return;
     }
 
-    await member.kick(`Expulsé par ${interaction.user.tag}: ${reason}`);
+    await member.kick(`Expulsé par ${interaction.user.username}: ${reason}`);
 
     await ensureUser(member.user.id, member.user.username, member.user.avatar);
     await prisma.moderationCase.create({
@@ -97,10 +97,10 @@ export async function handleModalSubmit(interaction: any, client: Client): Promi
       await member.user.send({ embeds: [dmEmbed] });
     } catch {}
 
-    log({ level: 'info', message: `Kick: ${member.user.tag} par ${interaction.user.tag}`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Kick: ${member.user.username} par ${interaction.user.username}`, guildId: interaction.guild.id });
 
     await interaction.reply({
-      embeds: [successEmbed('Utilisateur expulsé', `**${member.user.tag}** a été expulsé.\nRaison : ${reason}`)],
+      embeds: [successEmbed('Utilisateur expulsé', `**${member.user.username}** a été expulsé.\nRaison : ${reason}`)],
       ephemeral: true,
     });
   } catch (error) {

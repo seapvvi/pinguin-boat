@@ -23,7 +23,7 @@ export async function execute(interaction: CommandInteraction, client: Client): 
     .setThumbnail(guild.iconURL({ forceStatic: false }))
     .addFields(
       { name: 'ID', value: guild.id, inline: true },
-      { name: 'Propriétaire', value: owner.user.tag, inline: true },
+      { name: 'Propriétaire', value: owner.user.username, inline: true },
       { name: 'Membres', value: `${guild.memberCount}`, inline: true },
       { name: 'Salons', value: `📝 ${textChannels} textuels | 🔊 ${voiceChannels} vocaux | 📁 ${categories} catégories`, inline: false },
       { name: 'Rôles', value: `${roles}`, inline: true },

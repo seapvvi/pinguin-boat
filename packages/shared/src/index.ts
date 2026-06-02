@@ -7,6 +7,6 @@ export * from './levelFormula';
 export * from './parseDuration';
 export * from './economyInterests';
 export * from './cooldown';
-export { logger, getLogger } from './logger';
+export { logger, getLogger, type LoggerContext, type BotLogger } from './logger';
 
 

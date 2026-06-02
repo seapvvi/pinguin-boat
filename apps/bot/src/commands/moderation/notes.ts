@@ -43,7 +43,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         take: 20,
       });
       const embed = createEmbed('info')
-        .setTitle(`Notes staff - ${user.tag}`)
+        .setTitle(`Notes staff - ${user.username}`)
         .setDescription(notes.length === 0 ? 'Aucune note.' : `${notes.length} note(s)`)
         .setTimestamp();
       for (const n of notes) {
@@ -71,7 +71,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
           active: false,
         },
       });
-      await interaction.editReply({ embeds: [successEmbed('Note ajoutée', `Note ajoutée pour **${user.tag}**.`)] });
+      await interaction.editReply({ embeds: [successEmbed('Note ajoutée', `Note ajoutée pour **${user.username}**.`)] });
       break;
     }
     case 'remove': {

@@ -53,7 +53,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       }
     } catch {}
 
-    log({ level: 'info', message: `Unwarn: ${warnId} par ${interaction.user.tag}`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Unwarn: ${warnId} par ${interaction.user.username}`, guildId: interaction.guild.id });
 
     await interaction.editReply({
       embeds: [successEmbed('Avertissement retiré', `L'avertissement **${warnId}** a été retiré.\nRaison : ${reason}`)],

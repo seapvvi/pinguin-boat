@@ -14,17 +14,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "discord.js": "^14.17.3",
     "@discordjs/voice": "^0.19.2",
-    "@pinguin/shared": "workspace:*",
+    "@distube/ytdl-core": "^4.16.3",
+    "@napi-rs/canvas": "^1.0.0",
     "@pinguin/config": "workspace:*",
     "@pinguin/db": "workspace:*",
-    "zod": "^3.24.1",
-    "play-dl": "^1.9.7",
-    "@distube/ytdl-core": "^4.16.3",
+    "@pinguin/shared": "workspace:*",
+    "discord.js": "^14.17.3",
     "ffmpeg-static": "^5.2.0",
+    "opusscript": "^0.1.1",
+    "play-dl": "^1.9.7",
     "sodium-native": "^4.3.1",
-    "opusscript": "^0.1.1"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

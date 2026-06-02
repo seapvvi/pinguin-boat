@@ -35,8 +35,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         return;
       }
       await (channel as TextChannel).bulkDelete(filtered, true);
-      log({ level: 'info', message: `Purge: ${filtered.length} messages de ${targetUser.tag} dans #${(channel as TextChannel).name}`, guildId: interaction.guild.id });
-      await interaction.editReply({ embeds: [successEmbed('Messages supprimés', `${filtered.length} messages de ${targetUser.tag} ont été supprimés.`)] });
+      log({ level: 'info', message: `Purge: ${filtered.length} messages de ${targetUser.username} dans #${(channel as TextChannel).name}`, guildId: interaction.guild.id });
+      await interaction.editReply({ embeds: [successEmbed('Messages supprimés', `${filtered.length} messages de ${targetUser.username} ont été supprimés.`)] });
     } else {
       await (channel as TextChannel).bulkDelete(amount, true);
       log({ level: 'info', message: `Purge: ${amount} messages dans #${(channel as TextChannel).name}`, guildId: interaction.guild.id });

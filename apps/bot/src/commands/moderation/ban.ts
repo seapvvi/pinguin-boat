@@ -47,7 +47,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
   try {
     await interaction.guild.members.ban(user.id, {
-      reason: `Banni par ${interaction.user.tag}: ${reason}`,
+      reason: `Banni par ${interaction.user.username}: ${reason}`,
       deleteMessageSeconds: deleteDays * 86400,
     });
 
@@ -69,10 +69,10 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       await user.send({ embeds: [dmEmbed] });
     } catch {}
 
-    log({ level: 'info', message: `Ban: ${user.tag} par ${interaction.user.tag}`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Ban: ${user.username} par ${interaction.user.username}`, guildId: interaction.guild.id });
 
     await interaction.editReply({
-      embeds: [successEmbed('Utilisateur banni', `**${user.tag}** a été banni.\nRaison : ${reason}`)],
+      embeds: [successEmbed('Utilisateur banni', `**${user.username}** a été banni.\nRaison : ${reason}`)],
     });
   } catch (error) {
     console.error(error);

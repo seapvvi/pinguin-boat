@@ -67,7 +67,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       type: p.type,
     }));
 
-    await channel.delete(`Salon recréé par ${interaction.user.tag}`);
+    await channel.delete(`Salon recréé par ${interaction.user.username}`);
 
     const newChannel = await interaction.guild.channels.create({
       name: channel.name,
@@ -77,7 +77,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       rateLimitPerUser: rateLimit,
       parent: parentId ?? undefined,
       position,
-      reason: `Salon recréé par ${interaction.user.tag}`,
+      reason: `Salon recréé par ${interaction.user.username}`,
     });
 
     const overwriteData = permissionOverwrites.map((p) => ({
@@ -91,7 +91,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       await newChannel.permissionOverwrites.set(overwriteData);
     } catch {}
 
-    await newChannel.send({ embeds: [successEmbed('Salon recréé', `Ce salon a été recréé par ${interaction.user.tag}.`)] });
+    await newChannel.send({ embeds: [successEmbed('Salon recréé', `Ce salon a été recréé par ${interaction.user.username}.`)] });
 
     await collected.editReply({ embeds: [successEmbed('Salon recréé', `${newChannel} a été recréé avec succès.`)], components: [] });
   } catch (error) {

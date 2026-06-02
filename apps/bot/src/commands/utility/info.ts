@@ -17,7 +17,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     .setThumbnail(targetUser.displayAvatarURL({ forceStatic: false }))
     .addFields(
       { name: 'ID', value: targetUser.id, inline: true },
-      { name: 'Tag', value: targetUser.tag, inline: true },
+      { name: 'Tag', value: targetUser.username, inline: true },
       { name: 'Bot', value: targetUser.bot ? 'Oui' : 'Non', inline: true },
       { name: 'Compte créé', value: `<t:${Math.floor(targetUser.createdTimestamp / 1000)}:R>`, inline: true }
     )

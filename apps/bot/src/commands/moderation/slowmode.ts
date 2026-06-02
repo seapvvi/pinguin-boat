@@ -27,7 +27,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   }
 
   try {
-    await channel.setRateLimitPerUser(seconds, `Mode lent défini par ${interaction.user.tag}`);
+    await channel.setRateLimitPerUser(seconds, `Mode lent défini par ${interaction.user.username}`);
 
     if (seconds === 0) {
       await interaction.editReply({ embeds: [successEmbed('Mode lent désactivé', `Le mode lent a été désactivé dans ${channel}.`)] });

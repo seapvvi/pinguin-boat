@@ -56,14 +56,14 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       });
     } catch {}
 
-    log({ level: 'info', message: `Warn: ${user.tag} par ${interaction.user.tag}`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Warn: ${user.username} par ${interaction.user.username}`, guildId: interaction.guild.id });
 
     const escalationResult = await checkWarnEscalation(interaction.guild, user, interaction.user.id);
 
-    let replyEmbed = successEmbed('Utilisateur averti', `**${user.tag}** a été averti.\nRaison : ${reason}\nID de l'avertissement : ${warning.id}`);
+    let replyEmbed = successEmbed('Utilisateur averti', `**${user.username}** a été averti.\nRaison : ${reason}\nID de l'avertissement : ${warning.id}`);
 
     if (escalationResult.escalated) {
-      replyEmbed = infoEmbed('Avertissement + Escalade automatique', `**${user.tag}** a été averti et une sanction automatique a été appliquée.`)
+      replyEmbed = infoEmbed('Avertissement + Escalade automatique', `**${user.username}** a été averti et une sanction automatique a été appliquée.`)
         .addFields(
           { name: 'Raison du warn', value: reason },
           { name: 'Sanction appliquée', value: escalationResult.action === 'MUTE' ? '🔇 Mute' : '🔨 Ban' },

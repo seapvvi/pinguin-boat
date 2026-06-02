@@ -10,7 +10,7 @@ export async function execute(ban: GuildBan, client: Client): Promise<void> {
       title: '🔨 Membre banni',
       color: 0xff0000,
       fields: [
-        { name: 'Utilisateur', value: `${ban.user.tag} (\`${ban.user.id}\`)`, inline: true },
+        { name: 'Utilisateur', value: `${ban.user.username} (\`${ban.user.id}\`)`, inline: true },
         { name: 'Raison', value: ban.reason?.slice(0, 1024) || 'Aucune raison', inline: false },
       ],
       timestamp: new Date().toISOString(),

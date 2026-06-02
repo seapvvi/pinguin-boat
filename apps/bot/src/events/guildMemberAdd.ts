@@ -15,7 +15,7 @@ export async function execute(member: GuildMember, client: Client): Promise<void
     new EmbedBuilder({
       title: '👋 Membre rejoint',
       color: 0x00ff88,
-      description: `${member.user.tag} (\`${member.id}\`)`,
+      description: `${member.user.username} (\`${member.id}\`)`,
       thumbnail: { url: member.user.displayAvatarURL() },
       timestamp: new Date().toISOString(),
     })

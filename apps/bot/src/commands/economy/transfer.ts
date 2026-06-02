@@ -74,13 +74,13 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
           toUserId: targetUser.id,
           amount,
           type: 'TRANSFER',
-          description: `Transfert de ${interaction.user.tag} vers ${targetUser.tag}`,
+          description: `Transfert de ${interaction.user.username} vers ${targetUser.username}`,
         },
       }),
     ]);
 
     await interaction.editReply({
-      embeds: [successEmbed('Transfert effectué', `**${amount} 🪙** ont été transférés à **${targetUser.tag}**.`)],
+      embeds: [successEmbed('Transfert effectué', `**${amount} 🪙** ont été transférés à **${targetUser.username}**.`)],
     });
   } catch (error) {
     console.error(error);

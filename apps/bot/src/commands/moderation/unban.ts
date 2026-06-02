@@ -29,7 +29,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       return;
     }
 
-    await interaction.guild.members.unban(userId, `Débanni par ${interaction.user.tag}: ${reason}`);
+    await interaction.guild.members.unban(userId, `Débanni par ${interaction.user.username}: ${reason}`);
 
     const activeCase = await prisma.moderationCase.findFirst({
       where: { guildId: interaction.guild.id, userId, type: { in: ['BAN', 'TEMPBAN'] }, active: true },
@@ -54,7 +54,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       },
     });
 
-    log({ level: 'info', message: `Unban: ${userId} par ${interaction.user.tag}`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Unban: ${userId} par ${interaction.user.username}`, guildId: interaction.guild.id });
 
     await interaction.editReply({
       embeds: [successEmbed('Utilisateur débanni', `<@${userId}> a été débanni.\nRaison : ${reason}`)],

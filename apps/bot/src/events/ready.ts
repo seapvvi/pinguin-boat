@@ -14,7 +14,7 @@ export async function execute(client: Client): Promise<void> {
   const config = getConfig();
   const user = client.user!;
 
-  logger.info(`Connecté en tant que ${user.tag}`, { app: 'bot' });
+  logger.info(`Connecté en tant que ${user.username}`, { app: 'bot' });
   logger.info(`${client.guilds.cache.size} serveurs`, { app: 'bot' });
   logger.info(`${client.users.cache.size} utilisateurs`, { app: 'bot' });
 

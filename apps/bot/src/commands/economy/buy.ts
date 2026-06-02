@@ -56,7 +56,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
   if (item.type !== 'ROLE') {
     await addItemToInventory(interaction.guild.id, interaction.user.id, item.id, 1);
     await interaction.editReply({
-      embeds: [successEmbed('Achat effectué', `**${item.name}** ajouté à votre inventaire ! Utilisez `/inventory` pour voir vos items.`)],
+      embeds: [successEmbed('Achat effectué', `**${item.name}** ajouté à votre inventaire ! Utilisez \`/inventory\` pour voir vos items.`)],
     });
     return;
   }

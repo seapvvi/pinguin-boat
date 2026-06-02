@@ -88,10 +88,10 @@ export async function handleModalSubmit(interaction: any, client: Client): Promi
       });
     } catch {}
 
-    log({ level: 'info', message: `Warn: ${targetUser.user.tag} par ${interaction.user.tag}`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Warn: ${targetUser.user.username} par ${interaction.user.username}`, guildId: interaction.guild.id });
 
     await interaction.reply({
-      embeds: [successEmbed('Utilisateur averti', `**${targetUser.user.tag}** a été averti.\nRaison : ${reason}\nID de l'avertissement : ${warning.id}`)],
+      embeds: [successEmbed('Utilisateur averti', `**${targetUser.user.username}** a été averti.\nRaison : ${reason}\nID de l'avertissement : ${warning.id}`)],
       ephemeral: true,
     });
   } catch (error) {

@@ -34,7 +34,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   }
 
   try {
-    await member.timeout(null, `Démuté par ${interaction.user.tag}: ${reason}`);
+    await member.timeout(null, `Démuté par ${interaction.user.username}: ${reason}`);
 
     const activeCase = await prisma.moderationCase.findFirst({
       where: { guildId: interaction.guild.id, userId: user.id, type: 'MUTE', active: true },
@@ -59,10 +59,10 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       },
     });
 
-    log({ level: 'info', message: `Unmute: ${user.tag} par ${interaction.user.tag}`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Unmute: ${user.username} par ${interaction.user.username}`, guildId: interaction.guild.id });
 
     await interaction.editReply({
-      embeds: [successEmbed('Utilisateur démuté', `**${user.tag}** a été démuté.\nRaison : ${reason}`)],
+      embeds: [successEmbed('Utilisateur démuté', `**${user.username}** a été démuté.\nRaison : ${reason}`)],
     });
   } catch (error) {
     console.error(error);

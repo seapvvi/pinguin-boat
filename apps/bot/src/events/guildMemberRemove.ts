@@ -13,7 +13,7 @@ export async function execute(member: GuildMember | PartialGuildMember, client: 
     new EmbedBuilder({
       title: '👋 Membre parti',
       color: 0xff8800,
-      description: `${member.user?.tag ?? 'Inconnu'} (\`${member.id}\`)`,
+      description: `${member.user?.username ?? 'Inconnu'} (\`${member.id}\`)`,
       timestamp: new Date().toISOString(),
     })
   );

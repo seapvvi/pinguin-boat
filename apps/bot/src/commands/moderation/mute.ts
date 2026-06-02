@@ -53,7 +53,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
   try {
     const expiresAt = new Date(Date.now() + parsedDuration.milliseconds);
-    await member.timeout(parsedDuration.milliseconds, `Muté par ${interaction.user.tag}: ${reason}`);
+    await member.timeout(parsedDuration.milliseconds, `Muté par ${interaction.user.username}: ${reason}`);
 
     await ensureUser(user.id, user.username, user.avatar);
     await prisma.moderationCase.create({
@@ -78,10 +78,10 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       await user.send({ embeds: [dmEmbed] });
     } catch {}
 
-    log({ level: 'info', message: `Mute: ${user.tag} par ${interaction.user.tag} (${durationInput})`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Mute: ${user.username} par ${interaction.user.username} (${durationInput})`, guildId: interaction.guild.id });
 
     await interaction.editReply({
-      embeds: [successEmbed('Utilisateur rendu muet', `**${user.tag}** a été rendu muet pour **${formatDuration(parsedDuration.milliseconds)}**.\nRaison : ${reason}`)],
+      embeds: [successEmbed('Utilisateur rendu muet', `**${user.username}** a été rendu muet pour **${formatDuration(parsedDuration.milliseconds)}**.\nRaison : ${reason}`)],
     });
   } catch (error) {
     console.error(error);

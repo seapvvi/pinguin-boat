@@ -59,8 +59,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
           errorEmbed(
             'Historique vide',
             typeFilter
-              ? `Aucun cas de modération de type **${typeFilter}** pour **${user.tag}**.`
-              : `Aucun cas de modération pour **${user.tag}**.`
+              ? `Aucun cas de modération de type **${typeFilter}** pour **${user.username}**.`
+              : `Aucun cas de modération pour **${user.username}**.`
           ),
         ],
       });
@@ -77,7 +77,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       const pageCases = cases.slice(start, end);
 
       const embed = createEmbed('moderation')
-        .setTitle(`📋 Historique de modération - ${user.tag}`)
+        .setTitle(`📋 Historique de modération - ${user.username}`)
         .setDescription(
           `Total : **${cases.length}** cas${typeFilter ? ` (filtré : ${typeFilter})` : ''}\nPage ${page + 1}/${totalPages}`
         )

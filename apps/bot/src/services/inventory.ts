@@ -10,6 +10,12 @@ export interface UseItemResult {
   };
 }
 
+export async function getInventoryEntry(guildId: string, userId: string, itemId: string) {
+  return prisma.inventoryEntry.findUnique({
+    where: { guildId_userId_itemId: { guildId, userId, itemId } },
+  });
+}
+
 /**
  * Ajoute un item à l'inventaire d'un utilisateur
  */

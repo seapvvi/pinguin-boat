@@ -95,6 +95,7 @@ export async function updateGameSession(
     status?: string;
     gameState?: string;
     starCount?: number;
+    messageId?: string;
   }
 ) {
   return await prisma.minigameSession.update({

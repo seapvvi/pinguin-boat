@@ -212,8 +212,10 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       gameOver: false,
     };
 
+    const guildId = interaction.guild.id;
+
     const session = await createGameSession(
-      interaction.guild.id,
+      guildId,
       interaction.user.id,
       'hangman',
       bet,
@@ -287,7 +289,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
             let winnings = bet > 0 ? Math.floor(bet * 2) + settings.hangmanReward : settings.hangmanReward;
             
             await prisma.economyWallet.update({
-              where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
+              where: { guildId_userId: { guildId, userId: interaction.user.id } },
               data: { 
                 wallet: { increment: winnings },
                 totalEarned: { increment: winnings }
@@ -296,7 +298,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
             await prisma.economyTransaction.create({
               data: {
-                guildId: interaction.guild.id,
+                guildId,
                 toUserId: interaction.user.id,
                 amount: winnings,
                 type: 'GAMBLE',
@@ -394,7 +396,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         // Return bet on timeout
         if (bet > 0) {
           await prisma.economyWallet.update({
-            where: { guildId_userId: { guildId: interaction.guild.id, userId: interaction.user.id } },
+            where: { guildId_userId: { guildId, userId: interaction.user.id } },
             data: { wallet: { increment: bet } },
           });
         }

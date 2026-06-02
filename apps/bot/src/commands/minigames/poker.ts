@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, Client, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, Client, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ButtonInteraction, Collection, Message } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
@@ -19,6 +19,7 @@ type Player = {
   currentBet: number;
   folded: boolean;
   allIn: boolean;
+  wallet: number;
 };
 type PokerPhase = 'waiting' | 'preflop' | 'flop' | 'turn' | 'river' | 'showdown';
 
@@ -75,9 +76,9 @@ function evaluateHand(hand: Hand, communityCards: Hand): { rank: number; name: s
   let bestHand = { rank: 0, name: 'Hauteur', value: 0 };
   
   for (const combo of combinations) {
-    const eval = evaluateFiveCards(combo);
-    if (eval.rank > bestHand.rank || (eval.rank === bestHand.rank && eval.value > bestHand.value)) {
-      bestHand = eval;
+    const handEval = evaluateFiveCards(combo);
+    if (handEval.rank > bestHand.rank || (handEval.rank === bestHand.rank && handEval.value > bestHand.value)) {
+      bestHand = handEval;
     }
   }
   
@@ -275,6 +276,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         currentBet: bet,
         folded: false,
         allIn: false,
+        wallet: wallet.wallet,
       }],
       phase: 'waiting',
       pot: bet,
@@ -339,7 +341,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       time: 300000, // 5 minutes
     });
 
-    collector.on('collect', async (i) => {
+  collector.on('collect', async (i: ButtonInteraction) => {
       try {
         const currentSession = await prisma.minigameSession.findUnique({
           where: { id: session.id },
@@ -392,6 +394,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
             currentBet: bet,
             folded: false,
             allIn: false,
+            wallet: playerWallet.wallet,
           });
           currentGameState.pot += bet;
 
@@ -447,7 +450,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       }
     });
 
-    collector.on('end', async (collected, reason) => {
+  collector.on('end', async (collected: Collection<string, Message>, reason: string) => {
       if (reason === 'time') {
         const finalSession = await prisma.minigameSession.findUnique({
           where: { id: session.id },
@@ -554,7 +557,7 @@ async function runGamePhase(
     time: 120000, // 2 minutes per action
   });
 
-  collector.on('collect', async (i) => {
+  collector.on('collect', async (i: ButtonInteraction) => {
     try {
       if (i.user.id !== currentPlayer.userId) {
         await i.reply({ content: "Ce n'est pas votre tour !", ephemeral: true });
@@ -613,7 +616,7 @@ async function runGamePhase(
     }
   });
 
-  collector.on('end', async (collected, reason) => {
+  collector.on('end', async (collected: Collection<string, Message>, reason: string) => {
     if (reason === 'time') {
       // Auto-fold on timeout
       gameState.players[gameState.currentPlayerIndex].folded = true;
@@ -703,7 +706,7 @@ async function endGame(
 ): Promise<void> {
   gameState.gameOver = true;
 
-  let finalWinner: Player;
+  let finalWinner: Player | undefined;
   
   if (winner) {
     finalWinner = winner;
@@ -719,6 +722,11 @@ async function endGame(
         finalWinner = player;
       }
     }
+  }
+
+  if (!finalWinner) {
+    await endGameSession(session.id, 'draw', 0);
+    return;
   }
 
   // Award winnings

@@ -129,7 +129,7 @@ async function createTicketChannel(
     throw new Error('Serveur Discord introuvable.');
   }
 
-  const reason = `Ticket ouvert par ${interaction.user.tag}`;
+  const reason = `Ticket ouvert par ${interaction.user.username}`;
 
   const buildOpts = (withOverwrites: boolean, parent?: string) => {
     const opts: any = {

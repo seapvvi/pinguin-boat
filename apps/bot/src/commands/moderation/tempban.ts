@@ -52,7 +52,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
   try {
     await interaction.guild.members.ban(user.id, {
-      reason: `Tempbanni par ${interaction.user.tag}: ${reason}`,
+      reason: `Tempbanni par ${interaction.user.username}: ${reason}`,
     });
 
     await ensureUser(user.id, user.username, user.avatar);
@@ -78,10 +78,10 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       await user.send({ embeds: [dmEmbed] });
     } catch {}
 
-    log({ level: 'info', message: `Tempban: ${user.tag} par ${interaction.user.tag} (${durationInput})`, guildId: interaction.guild.id });
+    log({ level: 'info', message: `Tempban: ${user.username} par ${interaction.user.username} (${durationInput})`, guildId: interaction.guild.id });
 
     await interaction.editReply({
-      embeds: [successEmbed('Utilisateur banni temporairement', `**${user.tag}** a été banni pour **${formatDuration(parsedDuration.milliseconds)}**.\nRaison : ${reason}\nExpire le : ${expiresAt.toLocaleDateString('fr-FR')}`)],
+      embeds: [successEmbed('Utilisateur banni temporairement', `**${user.username}** a été banni pour **${formatDuration(parsedDuration.milliseconds)}**.\nRaison : ${reason}\nExpire le : ${expiresAt.toLocaleDateString('fr-FR')}`)],
     });
   } catch (error) {
     console.error(error);

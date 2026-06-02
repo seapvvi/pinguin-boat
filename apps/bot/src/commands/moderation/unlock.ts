@@ -25,7 +25,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   try {
     await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, {
       SendMessages: null,
-    }, { reason: `Salon déverrouillé par ${interaction.user.tag}` });
+    }, { reason: `Salon déverrouillé par ${interaction.user.username}` });
 
     await interaction.editReply({ embeds: [successEmbed('Salon déverrouillé', `${channel} a été déverrouillé.`)] });
   } catch (error) {

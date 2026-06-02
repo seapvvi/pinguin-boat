@@ -130,7 +130,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
                 { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                 { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
               ],
-              reason: `Ticket ouvert par ${interaction.user.tag} (catégorie invalide)`,
+              reason: `Ticket ouvert par ${interaction.user.username} (catégorie invalide)`,
             }) as TextChannel;
             usedFallback = true;
           } else {
@@ -145,7 +145,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
                   { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                   { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
                 ],
-                reason: `Ticket ouvert par ${interaction.user.tag}`,
+                reason: `Ticket ouvert par ${interaction.user.username}`,
               }) as TextChannel;
             } catch (error) {
               // Fallback to no category if permission error
@@ -157,7 +157,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
                   { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
                   { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
                 ],
-                reason: `Ticket ouvert par ${interaction.user.tag} (fallback sans catégorie)`,
+                reason: `Ticket ouvert par ${interaction.user.username} (fallback sans catégorie)`,
               }) as TextChannel;
               usedFallback = true;
             }
@@ -172,7 +172,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
               { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
               { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
             ],
-            reason: `Ticket ouvert par ${interaction.user.tag} (catégorie inaccessible)`,
+            reason: `Ticket ouvert par ${interaction.user.username} (catégorie inaccessible)`,
           }) as TextChannel;
           usedFallback = true;
         }
@@ -186,7 +186,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
             { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
             { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
           ],
-          reason: `Ticket ouvert par ${interaction.user.tag}`,
+          reason: `Ticket ouvert par ${interaction.user.username}`,
         }) as TextChannel;
         }
       } catch (error) {
