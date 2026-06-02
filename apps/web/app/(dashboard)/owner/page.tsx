@@ -545,7 +545,7 @@ export default function OwnerDashboardPage() {
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    label={({ source, percent }) => `${sourceLabels[source] || source} (${(percent * 100).toFixed(0)}%)`}
+                    label={({ payload, percent }: any) => `${sourceLabels[payload.source] || payload.source} (${(percent * 100).toFixed(0)}%)`}
                   >
                     {sourceData.breakdown.map((_: any, i: number) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
