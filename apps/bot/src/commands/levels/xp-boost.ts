@@ -29,14 +29,14 @@ export const data = new SlashCommandBuilder()
         subcommand
           .setName('add')
           .setDescription('Ajouter un rôle ou salon boosteur')
+          .addNumberOption((opt) =>
+            opt.setName('multiplier').setDescription('Multiplicateur d\'XP (ex: 1.5 pour +50%)').setRequired(true).setMinValue(0.1)
+          )
           .addRoleOption((opt) =>
             opt.setName('role').setDescription('Rôle boosteur')
           )
           .addChannelOption((opt) =>
             opt.setName('channel').setDescription('Salon boosteur')
-          )
-          .addNumberOption((opt) =>
-            opt.setName('multiplier').setDescription('Multiplicateur d\'XP (ex: 1.5 pour +50%)').setRequired(true).setMinValue(0.1)
           )
       )
       .addSubcommand((subcommand) =>

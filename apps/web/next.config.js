@@ -8,6 +8,7 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'motion'],
   },
+  serverExternalPackages: ['pino', 'pino-roll', 'thread-stream'],
   async rewrites() {
     return [
       {

@@ -18,7 +18,7 @@ export async function registerCommands(client: Client): Promise<void> {
         });
         console.log(`[Bot] Commandes enregistrées sur la guild dev ${guildId}`);
       } else {
-        console.warn('[Bot] DISCORD_DEV_GUILD_ID non défini, enregistrement global...');
+        console.warn('[WARN] DISCORD_DEV_GUILD_ID non défini — enregistrement global (peut prendre jusqu\'à 1h)');
         await rest.put(Routes.applicationCommands(config.DISCORD_CLIENT_ID), { body: commands });
       }
     } else {
