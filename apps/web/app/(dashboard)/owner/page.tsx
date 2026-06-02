@@ -553,9 +553,9 @@ export default function OwnerDashboardPage() {
                   </Pie>
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--bg-surface-alt)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}
-                    formatter={(value: number, name: string) => [value, sourceLabels[name] || name]}
+                    formatter={(value: any, name: string) => [value ?? 0, sourceLabels[name] || name]}
                   />
-                  <Legend formatter={(value: string) => <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{sourceLabels[value] || value}</span>} />
+                  <Legend formatter={(value: any) => <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{sourceLabels[value] || value}</span>} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
