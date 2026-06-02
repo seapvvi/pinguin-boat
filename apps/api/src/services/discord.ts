@@ -23,7 +23,7 @@ interface DiscordUser {
   verified: boolean;
 }
 
-interface DiscordGuild {
+export interface DiscordGuild {
   id: string;
   name: string;
   icon: string | null;
@@ -32,7 +32,7 @@ interface DiscordGuild {
   features: string[];
 }
 
-interface DiscordBotGuild {
+export interface DiscordBotGuild {
   id: string;
   name: string;
   icon: string | null;
