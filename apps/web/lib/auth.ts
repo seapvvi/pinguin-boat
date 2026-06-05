@@ -38,8 +38,8 @@ export function getLoginUrl(): string {
   return '/api/auth/login';
 }
 
-export async function handleCallback(code: string): Promise<AuthCallbackDTO> {
-  const data = await api.get<APIResponse<AuthCallbackDTO>>(`/api/auth/callback?code=${encodeURIComponent(code)}`);
+export async function handleCallback(code: string, state: string): Promise<AuthCallbackDTO> {
+  const data = await api.get<APIResponse<AuthCallbackDTO>>(`/api/auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
   if (!data.success || !data.data) {
     throw new Error(data.error || 'Échec de l\'authentification');
   }

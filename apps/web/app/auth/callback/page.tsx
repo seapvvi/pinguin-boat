@@ -11,13 +11,19 @@ function CallbackContent() {
 
   useEffect(() => {
     const code = searchParams.get('code');
+    const state = searchParams.get('state');
 
     if (!code) {
       setError('Code d\'autorisation manquant');
       return;
     }
 
-    handleCallback(code)
+    if (!state) {
+      setError('État de vérification manquant');
+      return;
+    }
+
+    handleCallback(code, state)
       .then((data) => {
         setSessionToken(data.token);
         router.replace('/');
