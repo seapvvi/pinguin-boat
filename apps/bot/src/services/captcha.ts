@@ -23,20 +23,20 @@ export async function sendCaptcha(member: GuildMember, timeoutMinutes = 5): Prom
   });
 
   const text = [
-    `**Vérification requise** sur **${member.guild.name}**`,
+    `**Verification requise** sur **${member.guild.name}**`,
     '',
-    `Répondez à ce message privé avec le code suivant dans les **${timeoutMinutes} minutes** :`,
+    `Repondez a ce message prive avec le code suivant dans les **${timeoutMinutes} minutes** :`,
     '',
     `\`\`\`${code}\`\`\``,
     '',
-    '_Vous ne pourrez pas écrire sur le serveur tant que la vérification n'est pas terminée._',
+    '_Vous ne pourrez pas ecrire sur le serveur tant que la verification n est pas terminee._',
   ].join('\n');
 
   const sent = await member.send(text).catch(() => null);
   if (!sent) {
     const ch = member.guild.systemChannel;
     if (ch?.isTextBased()) {
-      await ch.send(`${member}, vérifiez vos MP pour le code captcha.`).catch(() => {});
+      await ch.send(`${member}, verifiez vos MP pour le code captcha.`).catch(() => {});
     }
   }
 }
@@ -65,7 +65,7 @@ export async function handleCaptchaDM(message: Message): Promise<boolean> {
   }
 
   if (userCode !== verification.code) {
-    await message.reply('❌ Code incorrect. Réessayez.').catch(() => {});
+    await message.reply('❌ Code incorrect. Reessayez.').catch(() => {});
     return true;
   }
 
@@ -78,7 +78,7 @@ export async function handleCaptchaDM(message: Message): Promise<boolean> {
     if (settings?.verifiedRoleId) {
       await member.roles.add(settings.verifiedRoleId, 'Captcha validé').catch(() => {});
     }
-    await message.reply('✅ Vérification réussie ! Bienvenue sur le serveur.').catch(() => {});
+    await message.reply('✅ Verification reussie ! Bienvenue sur le serveur.').catch(() => {});
   }
   return true;
 }
