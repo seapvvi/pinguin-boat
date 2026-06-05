@@ -202,7 +202,8 @@ export async function guildRoutes(app: FastifyInstance) {
         },
         levels: guild.xpSettings ? {
           enabled: guild.xpSettings.enabled,
-          messageXp: guild.xpSettings.messageXp,
+          xpPerMessageMin: guild.xpSettings.xpPerMessageMin,
+          xpPerMessageMax: guild.xpSettings.xpPerMessageMax,
           voiceXp: guild.xpSettings.voiceXp,
           messageCooldown: guild.xpSettings.messageCooldown,
           voiceCooldown: guild.xpSettings.voiceCooldown,
@@ -360,7 +361,8 @@ export async function guildRoutes(app: FastifyInstance) {
           where: { guildId },
           update: {
             enabled: lv.enabled ?? undefined,
-            messageXp: lv.messageXp ?? undefined,
+            xpPerMessageMin: lv.xpPerMessageMin ?? undefined,
+            xpPerMessageMax: lv.xpPerMessageMax ?? undefined,
             voiceXp: lv.voiceXp ?? undefined,
             messageCooldown: lv.messageCooldown ?? undefined,
             voiceCooldown: lv.voiceCooldown ?? undefined,
@@ -374,7 +376,8 @@ export async function guildRoutes(app: FastifyInstance) {
           create: {
             guildId,
             enabled: lv.enabled ?? true,
-            messageXp: lv.messageXp ?? 15,
+            xpPerMessageMin: lv.xpPerMessageMin ?? 15,
+            xpPerMessageMax: lv.xpPerMessageMax ?? 25,
             voiceXp: lv.voiceXp ?? 10,
             messageCooldown: lv.messageCooldown ?? 60,
             voiceCooldown: lv.voiceCooldown ?? 120,
@@ -572,10 +575,15 @@ export async function guildRoutes(app: FastifyInstance) {
         },
         protection: guild.protectionSettings || { enabled: false, emergencyMode: false, antiRaid: false, raidThreshold: 10, raidInterval: 10, antiSpam: false, spamThreshold: 5, spamInterval: 5, antiMassMention: false, mentionThreshold: 5, antiLink: false, antiAlts: false, altAccountAge: 7, verificationLevel: 'NONE', captchaVerification: false, punishment: 'KICK' },
         levels: guild.xpSettings ? {
-          enabled: guild.xpSettings.enabled, messageXp: guild.xpSettings.messageXp,
-          voiceXp: guild.xpSettings.voiceXp, messageCooldown: guild.xpSettings.messageCooldown,
-          voiceCooldown: guild.xpSettings.voiceCooldown, levelFormula: guild.xpSettings.levelFormula,
-          maxLevel: guild.xpSettings.maxLevel, ignoredChannels: JSON.parse(guild.xpSettings.ignoredChannels),
+          enabled: guild.xpSettings.enabled,
+          xpPerMessageMin: guild.xpSettings.xpPerMessageMin,
+          xpPerMessageMax: guild.xpSettings.xpPerMessageMax,
+          voiceXp: guild.xpSettings.voiceXp,
+          messageCooldown: guild.xpSettings.messageCooldown,
+          voiceCooldown: guild.xpSettings.voiceCooldown,
+          levelFormula: guild.xpSettings.levelFormula,
+          maxLevel: guild.xpSettings.maxLevel,
+          ignoredChannels: JSON.parse(guild.xpSettings.ignoredChannels),
           ignoredRoles: JSON.parse(guild.xpSettings.ignoredRoles),
           announcementChannelId: guild.xpSettings.announcementChannelId,
           announcementMessage: guild.xpSettings.announcementMessage,
@@ -943,7 +951,7 @@ export async function guildRoutes(app: FastifyInstance) {
       await prisma.auditLog.create({
         data: {
           guildId,
-          action: 'MODERATION_CASE_REVOKED',
+          action: 'MODERATION_CASE_DELETED',
           userId: request.user!.id,
           details: JSON.stringify({ caseId, targetUserId: modCase.userId, caseType: modCase.type }),
         },
@@ -1216,7 +1224,8 @@ export async function guildRoutes(app: FastifyInstance) {
         where: { guildId },
         update: {
           enabled: body.enabled ?? undefined,
-          messageXp: body.messageXp ?? undefined,
+          xpPerMessageMin: body.xpPerMessageMin ?? undefined,
+          xpPerMessageMax: body.xpPerMessageMax ?? undefined,
           voiceXp: body.voiceXp ?? undefined,
           messageCooldown: body.messageCooldown ?? undefined,
           voiceCooldown: body.voiceCooldown ?? undefined,
