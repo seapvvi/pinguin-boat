@@ -3,10 +3,10 @@ import { prisma } from '@pinguin/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const guildId = params.id;
+    const { id: guildId } = await params;
 
     const leaderboard = await prisma.$queryRaw<Array<{
       inviter_id: string;

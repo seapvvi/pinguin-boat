@@ -3,10 +3,10 @@ import { prisma } from '@pinguin/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const guildId = params.id;
+    const { id: guildId } = await params;
 
     const notifications = await prisma.streamNotification.findMany({
       where: { guildId },
@@ -25,10 +25,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const guildId = params.id;
+    const { id: guildId } = await params;
     const body = await request.json();
 
     if (!body.platform || !body.channelName || !body.discordChannelId) {

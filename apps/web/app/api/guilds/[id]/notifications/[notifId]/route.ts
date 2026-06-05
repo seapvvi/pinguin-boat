@@ -3,11 +3,10 @@ import { prisma } from '@pinguin/db';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; notifId: string } },
+  { params }: { params: Promise<{ id: string; notifId: string }> },
 ) {
   try {
-    const guildId = params.id;
-    const id = params.notifId;
+    const { id: guildId, notifId: id } = await params;
 
     const existing = await prisma.streamNotification.findUnique({ where: { id } });
     if (!existing || existing.guildId !== guildId) {
@@ -45,11 +44,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; notifId: string } },
+  { params }: { params: Promise<{ id: string; notifId: string }> },
 ) {
   try {
-    const guildId = params.id;
-    const id = params.notifId;
+    const { id: guildId, notifId: id } = await params;
 
     const existing = await prisma.streamNotification.findUnique({ where: { id } });
     if (!existing || existing.guildId !== guildId) {
