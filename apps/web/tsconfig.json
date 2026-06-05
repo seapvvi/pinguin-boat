@@ -21,6 +21,12 @@
       "@/*": [
         "./*"
       ],
+      "@pinguin/db": [
+        "../../packages/db/src"
+      ],
+      "@pinguin/db/*": [
+        "../../packages/db/src/*"
+      ],
       "@pinguin/shared": [
         "../../packages/shared/src"
       ],

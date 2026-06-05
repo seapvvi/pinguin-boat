@@ -12,6 +12,7 @@
     "clean": "rm -rf .next dist .turbo"
   },
   "dependencies": {
+    "@pinguin/db": "workspace:*",
     "@pinguin/shared": "workspace:*",
     "@pinguin/ui": "workspace:*",
     "lucide-react": "^0.468.0",
