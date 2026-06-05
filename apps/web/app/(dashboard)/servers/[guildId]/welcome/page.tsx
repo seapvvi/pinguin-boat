@@ -10,7 +10,6 @@ import type { WelcomeSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
-import { useAutoSave } from '@/lib/hooks';
 
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -83,7 +82,6 @@ export default function WelcomePage() {
     });
   };
 
-  useAutoSave(local, saveWelcome, { enabled: !!local });
 
   const handleSave = async () => {
     if (!local) return;

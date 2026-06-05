@@ -33,13 +33,14 @@ export default function InvitesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<{ entries: InviteEntry[] } & { data: { entries: InviteEntry[] } } & { success?: boolean }>(
+      const res = await api.get<{ success: boolean; data: { leaderboard: InviteEntry[] } }>(
         `/api/guilds/${guildId}/invites/leaderboard`
       );
-      if ((res as any).success && (res as any).data) {
-        const entries = (res.data as any).entries ?? [];
-        setLeaderboard(entries);
-        setFilteredLeaderboard(entries);
+      if (res.success && res.data && Array.isArray(res.data.leaderboard)) {
+        setLeaderboard(res.data.leaderboard);
+        setFilteredLeaderboard(res.data.leaderboard);
+      } else {
+        setError('Format de réponse invalide');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');

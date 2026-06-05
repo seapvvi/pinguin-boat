@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discor
 import { prisma } from '@pinguin/db';
 import { errorEmbed, createEmbed } from '../../services/embed';
 import { logger } from '@pinguin/shared';
+import { requireDjRole } from '../../services/music';
 
 export const data = new SlashCommandBuilder()
   .setName('history')
@@ -11,6 +12,7 @@ export const module = 'music';
 
 export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
   if (!interaction.guild) return;
+  if (!(await requireDjRole(interaction))) return;
 
   try {
     const history = await prisma.musicHistoryEntry.findMany({

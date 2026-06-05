@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client, GuildMember, TextChannel } from 'discord.js';
 import { errorEmbed, successEmbed } from '../../services/embed';
-import { play, formatDuration } from '../../services/music';
+import { play, formatDuration, requireDjRole, getMusicSettings, getState } from '../../services/music';
 
 export const data = new SlashCommandBuilder()
   .setName('play')
@@ -10,23 +10,34 @@ export const data = new SlashCommandBuilder()
 export const module = 'music';
 
 export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
-  await interaction.deferReply();
+  if (!interaction.guild) return;
 
-  const query = interaction.options.get('query')?.value as string;
+  if (!(await requireDjRole(interaction))) return;
+
   const member = interaction.member as GuildMember;
   const voiceChannel = member.voice.channel;
 
   if (!voiceChannel) {
-    await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Tu dois être dans un salon vocal.')] });
+    await interaction.reply({ embeds: [errorEmbed('Erreur', 'Tu dois être dans un salon vocal.')], ephemeral: true });
     return;
   }
 
-  if (!interaction.guild) return;
   const botMember = interaction.guild.members.me!;
   if (!voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
-    await interaction.editReply({ embeds: [errorEmbed('Permission refusée', 'Je n\'ai pas la permission de rejoindre ce salon vocal.')] });
+    await interaction.reply({ embeds: [errorEmbed('Permission refusée', 'Je n\'ai pas la permission de rejoindre ce salon vocal.')], ephemeral: true });
     return;
   }
+
+  const settings = await getMusicSettings(interaction.guild.id);
+  const state = getState(interaction.guild.id);
+  if (state.queue.length >= settings.maxQueueLength) {
+    await interaction.reply({ embeds: [errorEmbed('File pleine', `La file d'attente est limitée à **${settings.maxQueueLength}** musiques.`)], ephemeral: true });
+    return;
+  }
+
+  await interaction.deferReply();
+
+  const query = interaction.options.get('query')?.value as string;
 
   try {
     const track = await play(interaction.guild.id, query, member, interaction.channel as TextChannel);

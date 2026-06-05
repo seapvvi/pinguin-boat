@@ -311,6 +311,7 @@ model Guild {
   autoModSettings  AutoModSettings?
   ticketSettings   TicketSettings?
   musicQueues     MusicQueue?
+  musicSettings   MusicSettings?
   blacklist       BlacklistGuild?
   premiumSubscription PremiumSubscription?
   minigameSettings MinigameSettings?
@@ -344,6 +345,27 @@ model Guild {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("guilds")
+}
+
+/// Configuration du module musical
+model MusicSettings {
+  id                    String   @id @default(cuid()) @map("id")
+  guildId               String   @unique @map("guild_id")
+  enabled               Boolean  @default(true) @map("enabled")
+  maxQueueLength        Int      @default(50) @map("max_queue_length")
+  maxPlaylistLength     Int      @default(50) @map("max_playlist_length")
+  defaultVolume         Int      @default(50) @map("default_volume")
+  allowDjRole           Boolean  @default(false) @map("allow_dj_role")
+  djRoleId              String?  @map("dj_role_id")
+  restrictToVoiceChannel Boolean @default(false) @map("restrict_to_voice_channel")
+  voiceChannelId        String?  @map("voice_channel_id")
+  announceTracks        Boolean  @default(true) @map("announce_tracks")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  guild     Guild      @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("music_settings")
 }
 
 /// Configuration générale d'un serveur
@@ -437,17 +459,24 @@ enum StreamPlatform {
 
 /// Notification de live Twitch/YouTube configurée sur un serveur
 model StreamNotification {
-  id               String         @id @default(cuid()) @map("id")
-  guildId          String         @map("guild_id")
-  platform         StreamPlatform @map("platform")
-  channelName      String         @map("channel_name")
-  channelId        String?        @map("channel_id")
-  discordChannelId String         @map("discord_channel_id")
-  lastLiveAt       DateTime?      @map("last_live_at")
-  isLive           Boolean        @default(false) @map("is_live")
-  lastVideoId      String?        @map("last_video_id")
-  createdAt        DateTime       @default(now()) @map("created_at")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
+  id                 String         @id @default(cuid()) @map("id")
+  guildId            String         @map("guild_id")
+  platform           StreamPlatform @map("platform")
+  channelName        String         @map("channel_name")
+  channelId          String?        @map("channel_id")
+  discordChannelId   String         @map("discord_channel_id")
+  lastLiveAt         DateTime?      @map("last_live_at")
+  isLive             Boolean        @default(false) @map("is_live")
+  lastVideoId        String?        @map("last_video_id")
+  lastLiveId         String?        @map("last_live_id")
+  customTitle        String?        @map("custom_title")
+  customDescription  String?        @map("custom_description")
+  customColor        String?        @map("custom_color")
+  customFooter       String?        @map("custom_footer")
+  mentionRoleId      String?        @map("mention_role_id")
+  pingEveryoneOnLive Boolean        @default(false) @map("ping_everyone_on_live")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
 
   guild Guild @relation(fields: [guildId], references: [id])
 
@@ -586,7 +615,8 @@ model XPSettings {
   id                  String   @id @default(cuid()) @map("id")
   guildId             String   @unique @map("guild_id")
   enabled             Boolean  @default(true) @map("enabled")
-  messageXp           Int      @default(15) @map("message_xp")
+  xpPerMessageMin     Int      @default(15) @map("xp_per_message_min")
+  xpPerMessageMax     Int      @default(25) @map("xp_per_message_max")
   voiceXp             Int      @default(10) @map("voice_xp")
   messageCooldown     Int      @default(60) @map("message_cooldown")
   voiceCooldown       Int      @default(120) @map("voice_cooldown")
@@ -922,7 +952,7 @@ model EconomySettings {
   enabled        Boolean  @default(false) @map("enabled")
   currencyName   String   @default("pièces") @map("currency_name")
   currencySymbol String   @default("🪙") @map("currency_symbol")
-  dailyAmount    Int      @default(200) @map("daily_amount")
+  dailyAmount    Int?     @map("daily_amount")
   weeklyAmount   Int      @default(1000) @map("weekly_amount")
   startupBalance Int      @default(100) @map("startup_balance")
   workMin        Int      @default(10) @map("work_min")
@@ -1038,6 +1068,20 @@ model ProtectionSettings {
   guild Guild @relation(fields: [guildId], references: [id])
 
   @@map("protection_settings")
+}
+
+/// Vérification captcha en attente
+model CaptchaVerification {
+  id        String   @id @default(cuid()) @map("id")
+  guildId   String   @map("guild_id")
+  userId    String   @map("user_id")
+  code      String   @map("code")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([guildId, userId])
+  @@index([expiresAt])
+  @@map("captcha_verifications")
 }
 
 /// Configuration des rôles automatiques
@@ -1369,6 +1413,7 @@ model TicketSettings {
   categoryId             String?  @map("category_id")
   logChannelId           String?  @map("log_channel_id")
   validationChannelId    String?  @map("validation_channel_id")
+  transcriptChannelId    String?  @map("transcript_channel_id")
   requireValidation      Boolean  @default(false) @map("require_validation")
   requireOpenReason      Boolean  @default(false) @map("require_open_reason")
   requireCloseReason     Boolean  @default(false) @map("require_close_reason")
@@ -1654,4 +1699,22 @@ model FormSubmission {
   @@index([guildId, status])
   @@index([templateId])
   @@map("form_submissions")
+}
+
+/// Suivi des invitations
+model InviteTrack {
+  id          String   @id @default(cuid()) @map("id")
+  guildId     String   @map("guild_id")
+  inviterId   String   @map("inviter_id")
+  inviteCode  String   @map("invite_code")
+  joinedId    String   @map("joined_id")
+  joinedAt    DateTime @default(now()) @map("joined_at")
+  isFake      Boolean  @default(false) @map("is_fake")
+  hasLeft     Boolean  @default(false) @map("has_left")
+  leftAt      DateTime? @map("left_at")
+
+  @@index([guildId, inviterId])
+  @@index([guildId, joinedId])
+  @@index([inviterId])
+  @@map("invite_tracks")
 }

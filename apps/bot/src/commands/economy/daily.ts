@@ -54,7 +54,7 @@ export async function execute(interaction: CommandInteraction, client: Client): 
     }
 
     const multiplier = await getEconomyMultiplier();
-    const dailyAmount = settings.dailyAmount * multiplier;
+    const dailyAmount = (settings.dailyAmount ?? 100) * multiplier;
     const newWallet = wallet.wallet + dailyAmount;
 
     await prisma.economyWallet.update({

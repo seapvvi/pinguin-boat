@@ -471,7 +471,14 @@ export async function createStreamNotification(guildId: string, data: {
 }
 
 export async function updateStreamNotification(guildId: string, notificationId: string, data: {
-  enabled?: boolean;
+  discordChannelId?: string;
+  channelId?: string;
+  customTitle?: string | null;
+  customDescription?: string | null;
+  customColor?: string | null;
+  customFooter?: string | null;
+  mentionRoleId?: string | null;
+  pingEveryoneOnLive?: boolean;
 }): Promise<APIResponse<{ notification: StreamNotification }>> {
   return api.patch<APIResponse<{ notification: StreamNotification }>>(`/api/guilds/${guildId}/notifications/${notificationId}`, data);
 }

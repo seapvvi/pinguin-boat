@@ -2,10 +2,110 @@ import { Client, EmbedBuilder } from 'discord.js';
 import { prisma, type StreamPlatform } from '@pinguin/db';
 import { isModuleEnabled } from '../guards/module';
 import { fetchStream } from './twitch';
-import { fetchLiveStream, searchChannel } from './youtube';
+import { fetchLatestVideo, fetchLiveStream, searchChannel } from './youtube';
 import { logger } from '@pinguin/shared';
 
+type NotifRow = Awaited<ReturnType<typeof prisma.streamNotification.findMany>>[number];
+
 let cronInterval: NodeJS.Timeout | null = null;
+
+function buildLiveEmbed(
+  notif: NotifRow,
+  overrides: {
+    defaultColor: number;
+    title: string;
+    url: string;
+    description: string;
+    thumbnailUrl?: string | null;
+    profileImageUrl?: string | null;
+    gameName?: string;
+    streamerName: string;
+  },
+): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setColor(notif.customColor ? parseInt(notif.customColor.replace('#', ''), 16) : overrides.defaultColor)
+    .setURL(overrides.url)
+    .setImage(overrides.thumbnailUrl ?? null)
+    .setTimestamp();
+
+  if (notif.customTitle) {
+    const resolved = notif.customTitle
+      .replace(/{streamer}/g, overrides.streamerName)
+      .replace(/{game}/g, overrides.gameName ?? '')
+      .replace(/{title}/g, overrides.description);
+    embed.setTitle(resolved);
+  } else {
+    embed.setTitle(overrides.title);
+  }
+
+  if (notif.customDescription) {
+    const resolved = notif.customDescription
+      .replace(/{streamer}/g, overrides.streamerName)
+      .replace(/{game}/g, overrides.gameName ?? '')
+      .replace(/{title}/g, overrides.description);
+    embed.setDescription(resolved);
+  } else {
+    embed.setDescription(overrides.description);
+  }
+
+  if (notif.customFooter) {
+    embed.setFooter({ text: notif.customFooter });
+  }
+
+  if (overrides.profileImageUrl) {
+    embed.setThumbnail(overrides.profileImageUrl);
+  }
+
+  if (overrides.gameName && !notif.customTitle && !notif.customDescription) {
+    embed.addFields({ name: 'Jeu', value: overrides.gameName, inline: true });
+  }
+
+  return embed;
+}
+
+function buildVideoEmbed(
+  notif: NotifRow,
+  overrides: {
+    defaultColor: number;
+    title: string;
+    url: string;
+    description?: string;
+    thumbnail: string;
+    streamerName: string;
+  },
+): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setColor(notif.customColor ? parseInt(notif.customColor.replace('#', ''), 16) : overrides.defaultColor)
+    .setURL(overrides.url)
+    .setImage(overrides.thumbnail)
+    .setTimestamp();
+
+  if (notif.customTitle) {
+    const resolved = notif.customTitle
+      .replace(/{streamer}/g, overrides.streamerName)
+      .replace(/{game}/g, '')
+      .replace(/{title}/g, overrides.description ?? overrides.title);
+    embed.setTitle(resolved);
+  } else {
+    embed.setTitle(overrides.title);
+  }
+
+  if (notif.customDescription) {
+    const resolved = notif.customDescription
+      .replace(/{streamer}/g, overrides.streamerName)
+      .replace(/{game}/g, '')
+      .replace(/{title}/g, overrides.description ?? overrides.title);
+    embed.setDescription(resolved);
+  } else if (overrides.description) {
+    embed.setDescription(overrides.description);
+  }
+
+  if (notif.customFooter) {
+    embed.setFooter({ text: notif.customFooter });
+  }
+
+  return embed;
+}
 
 export async function checkNotifications(client: Client): Promise<void> {
   try {
@@ -31,7 +131,7 @@ export async function checkNotifications(client: Client): Promise<void> {
 
 async function checkTwitchNotification(
   client: Client,
-  notif: { id: string; guildId: string; channelName: string; channelId: string | null; discordChannelId: string; lastLiveAt: Date | null; isLive: boolean }
+  notif: NotifRow,
 ): Promise<void> {
   const stream = await fetchStream(notif.channelName);
   const isLiveNow = stream !== null;
@@ -43,20 +143,20 @@ async function checkTwitchNotification(
     const channel = guild.channels.cache.get(notif.discordChannelId);
     if (!channel || !channel.isTextBased()) return;
 
-    const embed = new EmbedBuilder()
-      .setColor(0x9146ff)
-      .setTitle(`🔴 ${stream!.userName} est en live sur Twitch !`)
-      .setURL(stream!.streamUrl)
-      .setDescription(stream!.title)
-      .addFields({ name: 'Jeu', value: stream!.gameName, inline: true })
-      .setImage(stream!.thumbnailUrl)
-      .setTimestamp();
+    const embed = buildLiveEmbed(notif, {
+      defaultColor: 0x9146ff,
+      title: `🔴 ${stream!.userName} est en live sur Twitch !`,
+      url: stream!.streamUrl,
+      description: stream!.title,
+      thumbnailUrl: stream!.thumbnailUrl,
+      profileImageUrl: stream!.profileImageUrl,
+      gameName: stream!.gameName,
+      streamerName: stream!.userName,
+    });
 
-    if (stream!.profileImageUrl) {
-      embed.setThumbnail(stream!.profileImageUrl);
-    }
+    const content = notif.pingEveryoneOnLive ? '@everyone' : undefined;
 
-    await channel.send({ embeds: [embed] });
+    await channel.send({ content, embeds: [embed] });
 
     await prisma.streamNotification.update({
       where: { id: notif.id },
@@ -76,7 +176,7 @@ async function checkTwitchNotification(
 
 async function checkYoutubeNotification(
   client: Client,
-  notif: { id: string; guildId: string; channelName: string; channelId: string | null; discordChannelId: string; lastLiveAt: Date | null; isLive: boolean; lastVideoId: string | null }
+  notif: NotifRow,
 ): Promise<void> {
   let channelId = notif.channelId;
 
@@ -91,42 +191,72 @@ async function checkYoutubeNotification(
     });
   }
 
+  // ─── Détection live ───
   const stream = await fetchLiveStream(channelId);
   const isLiveNow = stream !== null;
 
-  if (isLiveNow && stream!.videoId !== notif.lastVideoId) {
+  if (isLiveNow && stream!.videoId !== notif.lastLiveId) {
     const guild = client.guilds.cache.get(notif.guildId);
     if (!guild) return;
 
     const channel = guild.channels.cache.get(notif.discordChannelId);
     if (!channel || !channel.isTextBased()) return;
 
-    const embed = new EmbedBuilder()
-      .setColor(0xff0000)
-      .setTitle(`🔴 ${stream!.channelName} est en live sur YouTube !`)
-      .setURL(stream!.streamUrl)
-      .setDescription(stream!.videoTitle)
-      .setImage(stream!.thumbnailUrl)
-      .setTimestamp();
+    const embed = buildLiveEmbed(notif, {
+      defaultColor: 0xff0000,
+      title: `🔴 ${stream!.channelName} est en live sur YouTube !`,
+      url: stream!.streamUrl,
+      description: stream!.videoTitle,
+      thumbnailUrl: stream!.thumbnailUrl,
+      profileImageUrl: stream!.channelAvatarUrl,
+      streamerName: stream!.channelName,
+    });
 
-    if (stream!.channelAvatarUrl) {
-      embed.setThumbnail(stream!.channelAvatarUrl);
-    }
+    const content = notif.pingEveryoneOnLive ? '@everyone' : undefined;
 
-    await channel.send({ embeds: [embed] });
+    await channel.send({ content, embeds: [embed] });
 
     await prisma.streamNotification.update({
       where: { id: notif.id },
       data: {
         isLive: true,
         lastLiveAt: new Date(),
-        lastVideoId: stream!.videoId,
+        lastLiveId: stream!.videoId,
       },
     });
   } else if (!isLiveNow && notif.isLive) {
     await prisma.streamNotification.update({
       where: { id: notif.id },
       data: { isLive: false },
+    });
+  }
+
+  // ─── Détection nouvelle vidéo ───
+  const video = await fetchLatestVideo(channelId);
+
+  if (video && video.videoId !== notif.lastVideoId) {
+    const guild = client.guilds.cache.get(notif.guildId);
+    if (!guild) return;
+
+    const channel = guild.channels.cache.get(notif.discordChannelId);
+    if (!channel || !channel.isTextBased()) return;
+
+    const embed = buildVideoEmbed(notif, {
+      defaultColor: 0xff0000,
+      title: `📹 Nouvelle vidéo YouTube : ${video.title}`,
+      url: video.url,
+      description: video.title,
+      thumbnail: video.thumbnail,
+      streamerName: notif.channelName,
+    });
+
+    const content = notif.pingEveryoneOnLive ? '@everyone' : undefined;
+
+    await channel.send({ content, embeds: [embed] });
+
+    await prisma.streamNotification.update({
+      where: { id: notif.id },
+      data: { lastVideoId: video.videoId },
     });
   }
 }

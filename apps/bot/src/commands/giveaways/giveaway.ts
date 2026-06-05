@@ -113,13 +113,57 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         include: { user: { select: { discordId: true } } },
       });
       const discordIds = entries.map((e) => e.user.discordId);
-      const shuffled = [...discordIds];
+
+      // Filter participants still in guild
+      const validMembers: string[] = [];
+      for (const userId of discordIds) {
+        const member = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (member) {
+          // Check required role if set
+          if (giveaway.requiredRoleId) {
+            if (member.roles.cache.has(giveaway.requiredRoleId)) {
+              validMembers.push(userId);
+            }
+          } else {
+            validMembers.push(userId);
+          }
+        }
+      }
+
+      if (validMembers.length === 0) {
+        try {
+          const channel = await interaction.guild.channels.fetch(giveaway.channelId);
+          if (channel?.isTextBased()) {
+            const msg = await channel.messages.fetch(messageId).catch(() => null);
+            if (msg) {
+              await msg.edit({
+                embeds: [{
+                  title: '🎉 Giveaway terminé',
+                  description: `**${giveaway.prize}**\n\n**Pas de gagnants valides**`,
+                  color: 0xFF0000,
+                }],
+                components: [],
+              });
+            }
+          }
+        } catch {}
+
+        await prisma.giveaway.update({
+          where: { id: giveaway.id },
+          data: { status: 'ENDED', endsAt: new Date(), winners: JSON.stringify([]) },
+        });
+
+        await interaction.editReply({ embeds: [successEmbed('Giveaway terminé', 'Pas de gagnants valides.')] });
+        break;
+      }
+
+      const shuffled = [...validMembers];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
       const winners = shuffled.slice(0, giveaway.winnerCount);
-      const winnersStr = winners.length > 0 ? winners.map((w) => `<@${w}>`).join(', ') : 'Aucun participant';
+      const winnersStr = winners.map((w) => `<@${w}>`).join(', ');
 
       try {
         const channel = await interaction.guild.channels.fetch(giveaway.channelId);
@@ -134,9 +178,7 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
               }],
               components: [],
             });
-            if (winners.length > 0) {
-              await channel.send(`Félicitations ${winnersStr}! Vous avez gagné **${giveaway.prize}**!`);
-            }
+            await channel.send(`Félicitations ${winnersStr}! Vous avez gagné **${giveaway.prize}**!`);
           }
         }
       } catch {}
@@ -173,13 +215,35 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         return;
       }
 
-      const shuffled = [...entries];
+      const discordIds = entries.map((e) => e.user.discordId);
+
+      // Filter participants still in guild
+      const validMembers: string[] = [];
+      for (const userId of discordIds) {
+        const member = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (member) {
+          // Check required role if set
+          if (giveaway.requiredRoleId) {
+            if (member.roles.cache.has(giveaway.requiredRoleId)) {
+              validMembers.push(userId);
+            }
+          } else {
+            validMembers.push(userId);
+          }
+        }
+      }
+
+      if (validMembers.length === 0) {
+        await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Pas de gagnants valides.')] });
+        break;
+      }
+
+      const shuffled = [...validMembers];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      const winnerEntries = shuffled.slice(0, giveaway.winnerCount);
-      const winners = winnerEntries.map((e) => e.user.discordId);
+      const winners = shuffled.slice(0, giveaway.winnerCount);
 
       await interaction.editReply({
         embeds: [successEmbed('Giveaway re-tiré', `Nouveau(x) gagnant(s) : ${winners.map((w) => `<@${w}>`).join(', ')}`)],

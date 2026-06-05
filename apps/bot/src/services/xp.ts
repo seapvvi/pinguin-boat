@@ -5,9 +5,7 @@ import { isEconomyActive } from './economy';
 import { isEventActive } from './events';
 import { trackWarXp } from './clans';
 
-export const XP_PER_MESSAGE = 10;
 export const XP_PER_VOCAL_MINUTE = 15;
-export const MESSAGE_COOLDOWN_MS = 60_000;
 export const DEFAULT_LEVEL_FORMULA = '100 * level * 1.5';
 
 function evaluateFormula(formula: string, level: number): number {
@@ -95,22 +93,17 @@ export async function addMessageXp(
     });
   }
 
+  const messageCooldown = (settings?.messageCooldown ?? 60) * 1000;
   if (profile.lastMessageAt) {
     const msSince = now.getTime() - profile.lastMessageAt.getTime();
-    if (msSince < MESSAGE_COOLDOWN_MS) {
+    if (msSince < messageCooldown) {
       return { xp: profile.xp, level: profile.level, leveledUp: false };
     }
   }
 
-  // Check settings-based message cooldown
-  if (settings?.messageCooldown && profile.lastMessageAt) {
-    const msSince = now.getTime() - profile.lastMessageAt.getTime();
-    if (msSince < settings.messageCooldown * 1000) {
-      return { xp: profile.xp, level: profile.level, leveledUp: false };
-    }
-  }
-
-  let xpGain = XP_PER_MESSAGE;
+  const xpMin = settings?.xpPerMessageMin ?? 15;
+  const xpMax = settings?.xpPerMessageMax ?? 25;
+  let xpGain = Math.floor(Math.random() * (xpMax - xpMin + 1)) + xpMin;
   if (settings?.doubleXpLongMessages && (options?.contentLength ?? 0) > 250) {
     xpGain *= 2;
   }

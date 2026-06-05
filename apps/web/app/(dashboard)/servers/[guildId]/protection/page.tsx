@@ -10,7 +10,6 @@ import type { GuildConfig, ProtectionSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
-import { useAutoSave } from '@/lib/hooks';
 
 export default function ProtectionPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -55,7 +54,6 @@ export default function ProtectionPage() {
     await api.put(`/api/guilds/${guildId}/protection`, { ...data, enabled });
   };
 
-  useAutoSave(local, saveProtection, { enabled: !!local });
 
   const update = (key: keyof ProtectionSettings, value: unknown) => {
     if (!local) return;
@@ -225,8 +223,8 @@ export default function ProtectionPage() {
                 type="role"
                 guildId={guildId}
                 label="Rôle après vérification captcha"
-                value={(local as any).verifiedRoleId ?? ''}
-                onChange={(id) => update('verifiedRoleId' as any, id || null)}
+                value={local.verifiedRoleId ?? ''}
+                onChange={(id) => update('verifiedRoleId', id || null)}
               />
             </div>
           )}

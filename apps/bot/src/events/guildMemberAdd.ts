@@ -53,7 +53,7 @@ export async function execute(member: GuildMember, client: Client): Promise<void
 
         // 4. Mettre à jour le cache avec les nouvelles valeurs
         setGuildInvites(guildId, currentInvitesMap);
-        
+
         if (usedInvite) {
           inviterId = usedInvite.inviterId;
           if (inviterId) {
@@ -61,6 +61,16 @@ export async function execute(member: GuildMember, client: Client): Promise<void
             if (inviter) {
               inviterName = inviter.user.username;
             }
+            // Persister l'invitation dans la base de données
+            await prisma.inviteTrack.create({
+              data: {
+                guildId,
+                inviterId,
+                inviteCode: usedInvite.code,
+                joinedId: member.id,
+                joinedAt: new Date(),
+              },
+            }).catch((err) => logger.warn(`[guildMemberAdd] Échec création InviteTrack pour ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
           }
         } else {
           // Cas edge: vanity URL
@@ -77,6 +87,18 @@ export async function execute(member: GuildMember, client: Client): Promise<void
           if (entry?.executor && !entry.executor.bot) {
             inviterName = entry.executor.username ?? "quelqu'un";
             inviterId = entry.executor.id;
+            // Persister l'invitation depuis les audit logs
+            if (inviterId) {
+              await prisma.inviteTrack.create({
+                data: {
+                  guildId,
+                  inviterId,
+                  inviteCode: 'audit_log',
+                  joinedId: member.id,
+                  joinedAt: new Date(),
+                },
+              }).catch((err) => logger.warn(`[guildMemberAdd] Échec création InviteTrack (audit) pour ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
+            }
           }
         } catch {
           /* audit log indisponible */

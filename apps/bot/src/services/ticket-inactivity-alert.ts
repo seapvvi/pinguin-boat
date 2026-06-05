@@ -53,8 +53,11 @@ async function checkInactiveTickets(client: Client, guildId: string): Promise<vo
 
   for (const ticket of inactiveTickets) {
     try {
-      const channel = await client.channels.fetch(ticket.channelId) as TextChannel;
-      if (!channel) continue;
+      const channel = await client.channels.fetch(ticket.channelId).catch(() => null) as TextChannel | null;
+      if (!channel) {
+        logger.warn(`[TicketInactivity] Canal introuvable pour le ticket ${ticket.id}`, { channelId: ticket.channelId });
+        continue;
+      }
 
       const lastMessage = await channel.messages
         .fetch({ limit: 1 })

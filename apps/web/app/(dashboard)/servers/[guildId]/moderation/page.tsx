@@ -6,14 +6,14 @@ import {
   Shield, AlertTriangle, Ban, MicOff, UserX,
   Search, Plus, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState, Avatar } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchModCases, fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { ModCase } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModerationCaseType } from '@pinguin/shared';
-import { Trash2, Info } from 'lucide-react';
+import { Trash2, Info, RotateCcw } from 'lucide-react';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 
@@ -47,6 +47,7 @@ export default function ModerationPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ userId: '', type: ModerationCaseType.WARN, reason: '', duration: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -55,7 +56,10 @@ export default function ModerationPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [detailCase, setDetailCase] = useState<ModCase | null>(null);
-  const [detailUsers, setDetailUsers] = useState<{ user?: { id: string; username: string }; moderator?: { id: string; username: string } }>({});
+  const [detailUsers, setDetailUsers] = useState<{ user?: { id: string; username: string; avatar?: string | null }; moderator?: { id: string; username: string; avatar?: string | null } }>({});
+  const [userCache, setUserCache] = useState<Map<string, { username: string; avatar?: string | null }>>(new Map());
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const [revokeError, setRevokeError] = useState<string | null>(null);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -76,7 +80,10 @@ export default function ModerationPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchModCases(guildId, { page: String(p), limit: '15' });
+      const params: Record<string, string> = { page: String(p), limit: '15' };
+      if (search) params.search = search;
+      if (filterType) params.type = filterType;
+      const res = await fetchModCases(guildId, params);
       if (res.success && res.data) {
         setCases(res.data.cases);
         setTotalPages(res.data.pagination.totalPages);
@@ -88,7 +95,7 @@ export default function ModerationPage() {
     }
   };
 
-  useEffect(() => { load(page); }, [guildId, page]);
+  useEffect(() => { load(page); }, [guildId, page, search, filterType]);
 
   const handleCreate = async () => {
     const errs: Record<string, string> = {};
@@ -129,26 +136,86 @@ export default function ModerationPage() {
     }
   };
 
+  const fetchUser = async (userId: string): Promise<{ username: string; avatar?: string | null } | undefined> => {
+    if (userCache.has(userId)) {
+      return userCache.get(userId);
+    }
+    try {
+      const res = await api.get<{ data: { id: string; username: string; avatar?: string | null } }>(`/api/guilds/${guildId}/resolve-user/${userId}`);
+      const userData = (res as any)?.data as { id: string; username: string; avatar?: string | null };
+      if (userData) {
+        setUserCache(prev => new Map(prev).set(userId, userData));
+        return userData;
+      }
+    } catch {
+      // Ignore errors, return undefined
+    }
+    return undefined;
+  };
+
+  const handleRevoke = async (caseId: string) => {
+    setRevoking(caseId);
+    setRevokeError(null);
+    try {
+      await api.post(`/api/guilds/${guildId}/moderation/${caseId}/revoke`);
+      load(page);
+    } catch (e: any) {
+      setRevokeError(e?.message || 'Erreur lors de la révocation');
+    } finally {
+      setRevoking(null);
+    }
+  };
+
+  const UserAvatar = ({ userId }: { userId: string }) => {
+    const [user, setUser] = useState<{ username: string; avatar?: string | null } | undefined>(userCache.get(userId));
+
+    useEffect(() => {
+      if (!user) {
+        fetchUser(userId).then(setUser);
+      }
+    }, [userId, user]);
+
+    const avatarUrl = user?.avatar ? `https://cdn.discordapp.com/avatars/${userId}/${user.avatar}.png` : undefined;
+
+    return (
+      <div className="flex items-center gap-2" title={user?.username || userId}>
+        <Avatar src={avatarUrl} name={user?.username || userId} size={24} className="rounded-full" />
+        <span className="text-xs font-medium text-[var(--text-primary)]">{user?.username || userId.slice(0, 8)}…</span>
+      </div>
+    );
+  };
+
   const columns: Column<ModCase>[] = [
-    { key: 'userId', label: 'Utilisateur', sortable: true, render: (c) => <span className="font-mono text-xs">{c.userId.slice(0, 8)}…</span> },
+    { key: 'userId', label: 'Utilisateur', sortable: true, render: (c) => <UserAvatar userId={c.userId} /> },
     { key: 'type', label: 'Type', sortable: true, render: (c) => <Badge variant={caseTypeVariants[c.type] ?? 'warning'}>{caseTypeLabels[c.type] ?? c.type}</Badge> },
-    { key: 'moderatorId', label: 'Modérateur', render: (c) => <span className="font-mono text-xs">{c.moderatorId.slice(0, 8)}…</span> },
+    { key: 'moderatorId', label: 'Modérateur', render: (c) => <UserAvatar userId={c.moderatorId} /> },
     { key: 'reason', label: 'Raison', render: (c) => <span className="text-xs truncate max-w-[200px] block">{c.reason}</span> },
     { key: 'createdAt', label: 'Date', sortable: true, render: (c) => <span className="text-xs text-[var(--text-secondary)]">{formatDate(c.createdAt)}</span> },
     { key: 'duration', label: 'Durée', render: (c) => <span className="text-xs">{c.duration ? `${c.duration}m` : '—'}</span> },
     { key: 'actions', label: '', render: (c) => (
       <div className="flex gap-1">
+        {(c.type === 'BAN' || c.type === 'TEMPBAN' || c.type === 'TIMEOUT') && (
+          <button
+            type="button"
+            onClick={() => handleRevoke(c.id)}
+            disabled={revoking === c.id}
+            className="text-[var(--text-secondary)] hover:text-[var(--accent)] disabled:opacity-50"
+            title={c.type === 'BAN' || c.type === 'TEMPBAN' ? 'Unban' : 'Untimeout'}
+          >
+            <RotateCcw size={14} />
+          </button>
+        )}
         <button
           type="button"
           onClick={async () => {
             setDetailCase(c);
             const [userRes, modRes] = await Promise.all([
-              api.get<{ data: { id: string; username: string } }>(`/api/guilds/${guildId}/resolve-user/${c.userId}`),
-              api.get<{ data: { id: string; username: string } }>(`/api/guilds/${guildId}/resolve-user/${c.moderatorId}`),
+              api.get<{ data: { id: string; username: string; avatar?: string | null } }>(`/api/guilds/${guildId}/resolve-user/${c.userId}`),
+              api.get<{ data: { id: string; username: string; avatar?: string | null } }>(`/api/guilds/${guildId}/resolve-user/${c.moderatorId}`),
             ]);
             setDetailUsers({
-              user: (userRes as any)?.data as { id: string; username: string } | undefined,
-              moderator: (modRes as any)?.data as { id: string; username: string } | undefined,
+              user: (userRes as any)?.data as { id: string; username: string; avatar?: string | null } | undefined,
+              moderator: (modRes as any)?.data as { id: string; username: string; avatar?: string | null } | undefined,
             });
           }}
           className="text-[var(--text-secondary)] hover:text-[var(--accent)]"
@@ -190,6 +257,26 @@ export default function ModerationPage() {
       <PermissionGate permission="manageMessages">
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="moderation" label="Modération" />
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <Input
+          placeholder="Rechercher par ID ou raison..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1"
+          leftIcon={<Search size={16} />}
+        />
+        <Select
+          placeholder="Filtrer par type"
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          options={[
+            { value: '', label: 'Tous' },
+            ...Object.entries(caseTypeLabels).map(([v, l]) => ({ value: v, label: l }))
+          ]}
+          className="sm:w-48"
+        />
       </div>
 
       <Card padding={false}>
@@ -240,18 +327,44 @@ export default function ModerationPage() {
           <div className="space-y-3 text-sm">
             <div>
               <p className="text-[var(--text-secondary)] text-xs uppercase mb-1">Utilisateur sanctionné</p>
-              <p className="font-medium text-[var(--text-primary)]">{detailUsers.user?.username ?? '—'}</p>
+              <div className="flex items-center gap-2">
+                {detailUsers.user?.avatar && (
+                  <Avatar
+                    src={`https://cdn.discordapp.com/avatars/${detailCase.userId}/${detailUsers.user.avatar}.png`}
+                    name={detailUsers.user.username}
+                    size={32}
+                    className="rounded-full"
+                  />
+                )}
+                <p className="font-medium text-[var(--text-primary)]">{detailUsers.user?.username ?? '—'}</p>
+              </div>
               <code className="text-xs block mt-1 p-2 bg-[var(--bg-surface-alt)] rounded select-all">{detailCase.userId}</code>
             </div>
             <div>
               <p className="text-[var(--text-secondary)] text-xs uppercase mb-1">Modérateur</p>
-              <p className="font-medium text-[var(--text-primary)]">{detailUsers.moderator?.username ?? '—'}</p>
+              <div className="flex items-center gap-2">
+                {detailUsers.moderator?.avatar && (
+                  <Avatar
+                    src={`https://cdn.discordapp.com/avatars/${detailCase.moderatorId}/${detailUsers.moderator.avatar}.png`}
+                    name={detailUsers.moderator.username}
+                    size={32}
+                    className="rounded-full"
+                  />
+                )}
+                <p className="font-medium text-[var(--text-primary)]">{detailUsers.moderator?.username ?? '—'}</p>
+              </div>
               <code className="text-xs block mt-1 p-2 bg-[var(--bg-surface-alt)] rounded select-all">{detailCase.moderatorId}</code>
             </div>
             <div>
               <p className="text-[var(--text-secondary)] text-xs uppercase mb-1">Type / Raison</p>
               <p>{caseTypeLabels[detailCase.type]} — {detailCase.reason}</p>
             </div>
+            {detailCase.type === 'TIMEOUT' && detailCase.duration && (
+              <div>
+                <p className="text-[var(--text-secondary)] text-xs uppercase mb-1">Expiration</p>
+                <p className="text-[var(--text-primary)]">Expire le {formatDate(new Date(new Date(detailCase.createdAt).getTime() + detailCase.duration * 60000))}</p>
+              </div>
+            )}
           </div>
         )}
       </Modal>
@@ -269,6 +382,12 @@ export default function ModerationPage() {
           <Button variant="danger" size="sm" loading={deleting} onClick={handleDelete}>Supprimer</Button>
         </div>
       </Modal>
+      {revokeError && (
+        <div className="fixed bottom-4 right-4 p-3 bg-[var(--error-bg)] text-[var(--error)] rounded-lg shadow-lg text-sm z-50">
+          {revokeError}
+          <button onClick={() => setRevokeError(null)} className="ml-2 hover:underline">Fermer</button>
+        </div>
+      )}
       </PermissionGate>
     </motion.div>
   );

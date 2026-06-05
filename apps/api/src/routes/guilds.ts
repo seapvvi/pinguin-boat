@@ -791,6 +791,15 @@ export async function guildRoutes(app: FastifyInstance) {
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
       const where = { guildId, deletedAt: null } as any;
+      if (q.search) {
+        where.OR = [
+          { userId: { contains: q.search } },
+          { reason: { contains: q.search, mode: 'insensitive' } },
+        ];
+      }
+      if (q.type) {
+        where.type = q.type;
+      }
       const [modCases, total] = await Promise.all([
         prisma.moderationCase.findMany({
           where, orderBy: { createdAt: 'desc' },
@@ -909,6 +918,38 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(modCase, 'Action exécutée sur Discord'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.post('/:guildId/moderation/:caseId/revoke', { preHandler: [authenticate, validateParams(z.object({ guildId: z.string(), caseId: z.string() }))] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, caseId } = request.params as any;
+      const modCase = await prisma.moderationCase.findFirst({ where: { id: caseId, guildId } });
+      if (!modCase) return reply.status(404).send(error('Cas introuvable'));
+
+      if (modCase.type === 'BAN' || modCase.type === 'TEMPBAN') {
+        await unbanMember(guildId, modCase.userId, 'Révoqué via dashboard');
+      } else if (modCase.type === 'TIMEOUT') {
+        await timeoutMember(guildId, modCase.userId, null);
+      } else {
+        return reply.status(400).send(error('Ce type de sanction ne peut pas être révoqué'));
+      }
+
+      await prisma.moderationCase.update({
+        where: { id: caseId },
+        data: { active: false },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          guildId,
+          action: 'MODERATION_CASE_REVOKED',
+          userId: request.user!.id,
+          details: JSON.stringify({ caseId, targetUserId: modCase.userId, caseType: modCase.type }),
+        },
+      }).catch(() => {});
+
+      reply.send(success(null, 'Sanction révoquée'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 

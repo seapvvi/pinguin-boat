@@ -30,7 +30,6 @@ import {
   X,
   Snowflake,
   LogOut,
-  BookOpen,
   Lock,
   Users,
   Radio,
@@ -86,13 +85,12 @@ const categoryDefs: CategoryDef[] = [
     items: [
       { label: 'Vue d\'ensemble', icon: <LayoutDashboard size={18} />, href: '/' },
       { label: 'Sélecteur de serveur', icon: <Server size={18} />, href: '/servers' },
-      { label: 'Commandes', icon: <Terminal size={18} />, href: '/commands', guildPage: true },
     ],
   },
   {
     label: 'Ressources',
     items: [
-      { label: 'Documentation', icon: <BookOpen size={18} />, href: '/docs' },
+      { label: 'Commandes', icon: <Terminal size={18} />, href: '/commands', guildPage: true },
     ],
   },
   {

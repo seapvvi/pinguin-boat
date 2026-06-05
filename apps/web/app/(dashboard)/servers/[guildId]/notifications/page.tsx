@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Trash2, Plus, Video, Radio } from 'lucide-react';
+import { Trash2, Plus, Video, Radio, Palette, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, Button, Badge, Skeleton, Select, Input, Toggle } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchStreamNotifications, createStreamNotification, updateStreamNotification, deleteStreamNotification } from '@/lib/api';
@@ -19,13 +19,16 @@ export default function NotificationsPage() {
   const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<Record<string, Partial<StreamNotification>>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const [newPlatform, setNewPlatform] = useState<'TWITCH' | 'YOUTUBE'>('TWITCH');
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelId, setNewChannelId] = useState('');
   const [newDiscordChannelId, setNewDiscordChannelId] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -38,9 +41,9 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [guildId]);
 
-  useEffect(() => { load(); }, [guildId]);
+  useEffect(() => { load(); }, [load]);
 
   const handleAdd = async () => {
     if (!newChannelName || !newDiscordChannelId) {
@@ -78,6 +81,55 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleExpand = (id: string) => {
+    if (expandedId === id) {
+      setExpandedId(null);
+    } else {
+      setExpandedId(id);
+      const notif = notifications.find(n => n.id === id);
+      if (notif) {
+        setEditValues(prev => ({
+          ...prev,
+          [id]: {
+            customTitle: notif.customTitle ?? '',
+            customDescription: notif.customDescription ?? '',
+            customColor: notif.customColor ?? '#9146ff',
+            customFooter: notif.customFooter ?? '',
+            mentionRoleId: notif.mentionRoleId ?? '',
+            pingEveryoneOnLive: notif.pingEveryoneOnLive,
+          },
+        }));
+      }
+    }
+  };
+
+  const handleEditChange = (id: string, field: string, value: any) => {
+    setEditValues(prev => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value },
+    }));
+  };
+
+  const handleSaveCustomization = async (id: string) => {
+    setSavingId(id);
+    try {
+      const vals = editValues[id];
+      await updateStreamNotification(guildId, id, {
+        customTitle: vals.customTitle || null,
+        customDescription: vals.customDescription || null,
+        customColor: vals.customColor || null,
+        customFooter: vals.customFooter || null,
+        mentionRoleId: vals.mentionRoleId || null,
+        pingEveryoneOnLive: vals.pingEveryoneOnLive ?? false,
+      });
+      setExpandedId(null);
+      await load();
+    } catch (e: any) {
+      setError(e?.message || 'Erreur lors de la sauvegarde');
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const getPlatformIcon = (platform: string) => {
     return platform === 'TWITCH' ? <Radio size={16} className="text-purple-500" /> : <Video size={16} className="text-red-500" />;
@@ -201,39 +253,134 @@ export default function NotificationsPage() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {notifications.map((notification) => (
-              <Card key={notification.id}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-[var(--bg-surface-alt)]">
-                      {getPlatformIcon(notification.platform)}
+            {notifications.map((notification) => {
+              const isExpanded = expandedId === notification.id;
+              const vals = editValues[notification.id];
+              return (
+                <Card key={notification.id}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-[var(--bg-surface-alt)]">
+                        {getPlatformIcon(notification.platform)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-[var(--text-primary)]">{notification.channelName}</span>
+                          <Badge variant="info">{getPlatformLabel(notification.platform)}</Badge>
+                          {notification.isLive && (
+                            <Badge variant="success">En live</Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-[var(--text-secondary)]">
+                          Notifications vers #{notification.discordChannelId}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-[var(--text-primary)]">{notification.channelName}</span>
-                        <Badge variant="info">{getPlatformLabel(notification.platform)}</Badge>
-                        {notification.isLive && (
-                          <Badge variant="success">En live</Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-[var(--text-secondary)]">
-                        Notifications vers #{notification.discordChannelId}
-                      </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleExpand(notification.id)}
+                      >
+                        <Palette size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(notification.id)}
+                      >
+                        <Trash2 size={16} className="text-[var(--error)]" />
+                      </Button>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(notification.id)}
+                  {isExpanded && vals && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-4 pt-4 border-t border-[var(--border-color)] space-y-4"
                     >
-                      <Trash2 size={16} className="text-[var(--error)]" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                      <div className="flex items-center gap-2 mb-2">
+                        <Palette size={14} className="text-[var(--text-secondary)]" />
+                        <span className="text-sm font-medium text-[var(--text-primary)]">Personnaliser l'embed</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          label="Titre personnalisé"
+                          value={vals.customTitle ?? ''}
+                          onChange={(e) => handleEditChange(notification.id, 'customTitle', e.target.value)}
+                          placeholder="{streamer} est en live !"
+                          helperText="Disponible : {streamer}, {game}, {title}"
+                        />
+
+                        <Input
+                          label="Couleur"
+                          type="color"
+                          value={vals.customColor ?? '#9146ff'}
+                          onChange={(e) => handleEditChange(notification.id, 'customColor', e.target.value)}
+                          className="h-10 p-1"
+                        />
+                      </div>
+
+                      <div>
+                        <Input
+                          label="Description personnalisée"
+                          value={vals.customDescription ?? ''}
+                          onChange={(e) => handleEditChange(notification.id, 'customDescription', e.target.value)}
+                          placeholder="{streamer} joue à {game} — {title}"
+                          helperText="Disponible : {streamer}, {game}, {title}"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          label="Footer personnalisé"
+                          value={vals.customFooter ?? ''}
+                          onChange={(e) => handleEditChange(notification.id, 'customFooter', e.target.value)}
+                          placeholder="Propulsé par Pinguin"
+                        />
+
+                        <DiscordSelect
+                          type="role"
+                          guildId={guildId}
+                          label="Rôle à mentionner"
+                          value={vals.mentionRoleId ?? ''}
+                          onChange={(id) => handleEditChange(notification.id, 'mentionRoleId', id)}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <Toggle
+                          checked={vals.pingEveryoneOnLive ?? false}
+                          onChange={(checked) => handleEditChange(notification.id, 'pingEveryoneOnLive', checked)}
+                          label="Ping @everyone en live"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setExpandedId(null)}
+                        >
+                          Annuler
+                        </Button>
+                        <Button
+                          size="sm"
+                          loading={savingId === notification.id}
+                          onClick={() => handleSaveCustomization(notification.id)}
+                        >
+                          Sauvegarder
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         )}
       </PermissionGate>

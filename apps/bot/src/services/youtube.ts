@@ -20,6 +20,38 @@ function getApiKey(): string {
   return config.YOUTUBE_API_KEY;
 }
 
+export async function fetchLatestVideo(channelId: string): Promise<{ videoId: string; title: string; url: string; thumbnail: string } | null> {
+  const apiKey = getApiKey();
+
+  const res = await fetch(
+    `${YOUTUBE_API_BASE}/search?part=snippet&channelId=${channelId}&type=video&order=date&key=${apiKey}&maxResults=1`
+  );
+
+  if (!res.ok) {
+    throw new Error(`Erreur API YouTube: ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json() as {
+    items?: Array<{
+      id: { videoId: string };
+      snippet: {
+        title: string;
+        thumbnails: { high?: { url: string }; medium?: { url: string }; default?: { url: string } };
+      };
+    }>;
+  };
+
+  if (!data.items || data.items.length === 0) return null;
+
+  const item = data.items[0];
+  return {
+    videoId: item.id.videoId,
+    title: item.snippet.title,
+    url: `https://youtube.com/watch?v=${item.id.videoId}`,
+    thumbnail: item.snippet.thumbnails?.high?.url ?? item.snippet.thumbnails?.medium?.url ?? item.snippet.thumbnails?.default?.url ?? '',
+  };
+}
+
 export async function searchChannel(channelName: string): Promise<{ channelId: string; channelTitle: string; avatarUrl?: string } | null> {
   const apiKey = getApiKey();
 

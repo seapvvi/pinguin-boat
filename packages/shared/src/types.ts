@@ -62,6 +62,7 @@ export interface ProtectionSettings {
   altAccountAge: number;
   verificationLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
   captchaVerification: boolean;
+  verifiedRoleId: string | null;
 }
 
 export interface TicketSettings {
@@ -473,6 +474,13 @@ export interface StreamNotification {
   lastLiveAt: string | null;
   isLive: boolean;
   lastVideoId: string | null;
+  lastLiveId: string | null;
+  customTitle: string | null;
+  customDescription: string | null;
+  customColor: string | null;
+  customFooter: string | null;
+  mentionRoleId: string | null;
+  pingEveryoneOnLive: boolean;
   createdAt: string;
   updatedAt: string;
 }

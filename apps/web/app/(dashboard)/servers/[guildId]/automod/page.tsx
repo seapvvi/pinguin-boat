@@ -9,7 +9,7 @@ import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { PermissionGate } from '@/components/PermissionGate';
-import { useAutoSave } from '@/lib/hooks';
+import { ModuleToggle } from '@/components/ModuleToggle';
 
 type AutoModSettings = Record<string, unknown>;
 
@@ -34,6 +34,8 @@ export default function AutoModPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [bannedWordsText, setBannedWordsText] = useState('');
+  const [forbiddenPingRolesText, setForbiddenPingRolesText] = useState('');
+  const [forbiddenMarkdownListText, setForbiddenMarkdownListText] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -43,6 +45,8 @@ export default function AutoModPage() {
       if (res?.data) {
         setSettings(res.data);
         setBannedWordsText(parseList(res.data.bannedWordsList).join(', '));
+        setForbiddenPingRolesText(parseList(res.data.forbiddenPingRoles).join(', '));
+        setForbiddenMarkdownListText(parseList(res.data.forbiddenMarkdownList).join(', '));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
@@ -65,7 +69,6 @@ export default function AutoModPage() {
     await api.patch(`/api/guilds/${guildId}/automod`, payload);
   };
 
-  useAutoSave(settings, saveAutomod, { enabled: !!settings });
 
   const update = (key: string, value: unknown) => {
     if (!settings) return;
@@ -82,8 +85,8 @@ export default function AutoModPage() {
         bannedWordsList: bannedWordsText.split(',').map((s) => s.trim()).filter(Boolean),
         whitelistRoles: parseList(settings.whitelistRoles),
         whitelistChannels: parseList(settings.whitelistChannels),
-        forbiddenPingRoles: parseList(settings.forbiddenPingRoles),
-        forbiddenMarkdownList: parseList(settings.forbiddenMarkdownList),
+        forbiddenPingRoles: forbiddenPingRolesText.split(',').map((s) => s.trim()).filter(Boolean),
+        forbiddenMarkdownList: forbiddenMarkdownListText.split(',').map((s) => s.trim()).filter(Boolean),
       };
       await api.patch(`/api/guilds/${guildId}/automod`, payload);
       setSaved(true);
@@ -119,6 +122,10 @@ export default function AutoModPage() {
   return (
     <PermissionGate permission="manageMessages">
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-3xl">
+      <div className="mb-4">
+        <ModuleToggle guildId={guildId} moduleKey="automod" label="Auto-Modération" />
+      </div>
+
       <div>
         <h1 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
           <Shield size={22} /> Auto-Modération
@@ -180,6 +187,29 @@ export default function AutoModPage() {
               onChange={(e) => update('spamInterval', parseInt(e.target.value) || 5)}
             />
           </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-sm">Pings de rôles interdits</span>
+          <Toggle checked={bool('forbiddenPings')} onChange={(v) => update('forbiddenPings', v)} />
+        </div>
+        {bool('forbiddenPings') && (
+          <Input
+            label="Liste des rôles (IDs, séparés par des virgules)"
+            value={forbiddenPingRolesText}
+            onChange={(e) => setForbiddenPingRolesText(e.target.value)}
+          />
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-sm">Markdown interdit</span>
+          <Toggle checked={bool('forbiddenMarkdown')} onChange={(v) => update('forbiddenMarkdown', v)} />
+        </div>
+        {bool('forbiddenMarkdown') && (
+          <Input
+            label="Liste des patterns (séparés par des virgules)"
+            value={forbiddenMarkdownListText}
+            onChange={(e) => setForbiddenMarkdownListText(e.target.value)}
+            placeholder="||spoiler||, ```"
+          />
         )}
       </Card>
 

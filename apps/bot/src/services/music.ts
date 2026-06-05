@@ -1,4 +1,4 @@
-import { GuildMember, VoiceChannel, TextChannel } from 'discord.js';
+import { GuildMember, VoiceChannel, TextChannel, CommandInteraction, ChatInputCommandInteraction } from 'discord.js';
 import {
   joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus,
   VoiceConnectionStatus, entersState, NoSubscriberBehavior,
@@ -7,6 +7,7 @@ import {
 import type { TrackInfo } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
 import { getLogger } from '@pinguin/shared';
+import { errorEmbed } from './embed';
 
 const musicLogger = getLogger({ component: 'music' });
 
@@ -470,6 +471,48 @@ export function getQueueState(guildId: string) {
     playing: state.player?.state.status === AudioPlayerStatus.Playing,
     paused: state.player?.state.status === AudioPlayerStatus.Paused,
   };
+}
+
+const musicSettingsCache = new Map<string, { data: any; at: number }>();
+const MUSIC_SETTINGS_CACHE_MS = 30_000;
+
+export async function getMusicSettings(guildId: string) {
+  const c = musicSettingsCache.get(guildId);
+  if (c && Date.now() - c.at < MUSIC_SETTINGS_CACHE_MS) return c.data;
+  let settings = await prisma.musicSettings.findUnique({
+    where: { guildId },
+  });
+  if (!settings) {
+    settings = await prisma.musicSettings.create({
+      data: { guildId },
+    });
+  }
+  musicSettingsCache.set(guildId, { data: settings, at: Date.now() });
+  return settings;
+}
+
+export function invalidateMusicSettingsCache(guildId: string): void {
+  musicSettingsCache.delete(guildId);
+}
+
+export async function requireDjRole(interaction: CommandInteraction | ChatInputCommandInteraction): Promise<boolean> {
+  if (!interaction.guild || !interaction.member) return true;
+
+  const settings = await getMusicSettings(interaction.guild.id);
+  if (!settings.djRoleId) return true;
+
+  const member = interaction.member as GuildMember;
+  if (member.permissions.has('Administrator')) return true;
+
+  if (!member.roles.cache.has(settings.djRoleId)) {
+    await interaction.reply({
+      embeds: [errorEmbed('Permission refusée', 'Vous devez avoir le rôle DJ pour utiliser cette commande.')],
+      ephemeral: true,
+    });
+    return false;
+  }
+
+  return true;
 }
 
 export function formatDuration(seconds: number): string {

@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client, GuildMember } from 'discord.js';
 import { errorEmbed, successEmbed } from '../../services/embed';
-import { setLoop, saveQueueToDb, LoopMode } from '../../services/music';
+import { setLoop, saveQueueToDb, LoopMode, requireDjRole } from '../../services/music';
 
 export const data = new SlashCommandBuilder()
   .setName('loop')
@@ -19,6 +19,9 @@ export const data = new SlashCommandBuilder()
 export const module = 'music';
 
 export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
+  if (!interaction.guild) return;
+  if (!(await requireDjRole(interaction))) return;
+
   const member = interaction.member as GuildMember;
   if (!member.voice.channel) {
     await interaction.reply({ embeds: [errorEmbed('Erreur', 'Vous devez être dans un salon vocal.')], ephemeral: true });
@@ -26,8 +29,6 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
   }
 
   const mode = interaction.options.get('mode')?.value as string;
-
-  if (!interaction.guild) return;
 
   const modeMap: Record<string, LoopMode> = {
     none: LoopMode.NONE,

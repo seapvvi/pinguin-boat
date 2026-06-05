@@ -114,8 +114,8 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
     settings.excessiveEmojis ||
     settings.excessiveMentions ||
     settings.messageSpam ||
-    settings.forbiddenPings ||
-    settings.forbiddenMarkdown;
+    (settings.forbiddenPings && settings.forbiddenPingRoles) ||
+    (settings.forbiddenMarkdown && settings.forbiddenMarkdownList);
   if (!hasAnyRule) return false;
 
   const whitelistRoles = parseList(settings.whitelistRoles);
@@ -186,6 +186,32 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
     if (recent.length >= settings.spamThreshold) {
       violation = true;
       reason = 'Spam';
+    }
+  }
+
+  if (!violation && settings.forbiddenPings) {
+    const forbiddenRoles = parseList(settings.forbiddenPingRoles);
+    if (forbiddenRoles.length > 0 && message.mentions.roles.size > 0) {
+      const hasForbiddenPing = message.mentions.roles.some((role) => forbiddenRoles.includes(role.id));
+      if (hasForbiddenPing) {
+        violation = true;
+        reason = 'Ping interdit';
+      }
+    }
+  }
+
+  if (!violation && settings.forbiddenMarkdown) {
+    const forbiddenPatterns = parseList(settings.forbiddenMarkdownList);
+    if (forbiddenPatterns.length > 0) {
+      const hasForbiddenMarkdown = forbiddenPatterns.some((pattern) => {
+        const escaped = escapeRegex(pattern);
+        const regex = new RegExp(escaped, 'i');
+        return regex.test(content);
+      });
+      if (hasForbiddenMarkdown) {
+        violation = true;
+        reason = 'Markdown interdit';
+      }
     }
   }
 

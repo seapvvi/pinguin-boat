@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, CommandInteraction, Client, GuildMember } from 'discord.js';
 import { infoEmbed, errorEmbed, createEmbed } from '../../services/embed';
-import { getState, formatDuration } from '../../services/music';
+import { getState, formatDuration, requireDjRole } from '../../services/music';
 
 export const data = new SlashCommandBuilder()
   .setName('queue')
@@ -10,6 +10,7 @@ export const module = 'music';
 
 export async function execute(interaction: CommandInteraction, client: Client): Promise<void> {
   if (!interaction.guild) return;
+  if (!(await requireDjRole(interaction))) return;
   const state = getState(interaction.guild.id);
 
   if (state.queue.length === 0 && !state.currentTrack) {

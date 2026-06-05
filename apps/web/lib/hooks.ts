@@ -40,6 +40,7 @@ export function useAutoSave<T>(
   const { intervalMs = 10000, enabled = true } = options ?? {};
   const dataRef = useRef(data);
   const saveRef = useRef(save);
+  const dirtyRef = useRef(false);
   dataRef.current = data;
   saveRef.current = save;
 
@@ -47,10 +48,19 @@ export function useAutoSave<T>(
     if (!enabled || dataRef.current == null) return;
     try {
       await saveRef.current(dataRef.current);
+      dirtyRef.current = false;
     } catch {
       /* silencieux — bouton Enregistrer pour erreurs explicites */
     }
   }, [enabled]);
+
+  const markClean = useCallback(() => {
+    dirtyRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    dirtyRef.current = true;
+  }, [data]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -63,4 +73,6 @@ export function useAutoSave<T>(
       void runSave();
     };
   }, [runSave]);
+
+  return { markClean };
 }

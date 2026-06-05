@@ -45,12 +45,12 @@ export async function handleMemberJoin(member: GuildMember): Promise<void> {
   const key = member.guild.id;
   const timestamps = joinTimestamps.get(key) ?? [];
   timestamps.push(now);
-  const windowMs = Math.max(settings.raidInterval, 1) * 1000;
+  const windowMs = Math.max(settings.raidInterval ?? 10, 1) * 1000;
   const recent = timestamps.filter((t) => now - t < windowMs);
   joinTimestamps.set(key, recent);
 
-  if (settings.emergencyMode || (settings.antiRaid && recent.length >= settings.raidThreshold)) {
-    if (settings.antiRaid && recent.length >= settings.raidThreshold) {
+  if (settings.emergencyMode || (settings.antiRaid && recent.length >= (settings.raidThreshold ?? 10))) {
+    if (settings.antiRaid && recent.length >= (settings.raidThreshold ?? 10)) {
       const everyone = member.guild.roles.everyone;
       for (const ch of member.guild.channels.cache.values()) {
         if (ch.isTextBased() && 'permissionOverwrites' in ch) {
@@ -81,7 +81,7 @@ export async function handleMemberJoin(member: GuildMember): Promise<void> {
 export async function handleMessage(message: Message): Promise<boolean> {
   if (!message.guild || message.author.bot || !message.member) return false;
 
-  if (hasPendingCaptcha(message.guild.id, message.author.id)) {
+  if (await hasPendingCaptcha(message.guild.id, message.author.id)) {
     if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
       await message.delete().catch(() => {});
       return true;

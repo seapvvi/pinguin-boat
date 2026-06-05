@@ -19,6 +19,12 @@ const createNotificationSchema = z.object({
 const updateNotificationSchema = z.object({
   discordChannelId: z.string().min(1).optional(),
   channelId: z.string().optional(),
+  customTitle: z.string().nullable().optional(),
+  customDescription: z.string().nullable().optional(),
+  customColor: z.string().nullable().optional(),
+  customFooter: z.string().nullable().optional(),
+  mentionRoleId: z.string().nullable().optional(),
+  pingEveryoneOnLive: z.boolean().optional(),
 });
 
 const guildAdminGuard = { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] };
@@ -88,6 +94,12 @@ export async function notificationRoutes(app: FastifyInstance) {
         data: {
           ...(body.discordChannelId && { discordChannelId: body.discordChannelId }),
           ...(body.channelId !== undefined && { channelId: body.channelId || null }),
+          ...(body.customTitle !== undefined && { customTitle: body.customTitle }),
+          ...(body.customDescription !== undefined && { customDescription: body.customDescription }),
+          ...(body.customColor !== undefined && { customColor: body.customColor }),
+          ...(body.customFooter !== undefined && { customFooter: body.customFooter }),
+          ...(body.mentionRoleId !== undefined && { mentionRoleId: body.mentionRoleId }),
+          ...(body.pingEveryoneOnLive !== undefined && { pingEveryoneOnLive: body.pingEveryoneOnLive }),
         },
       });
 
