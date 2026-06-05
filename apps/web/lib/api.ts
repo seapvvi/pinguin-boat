@@ -1,8 +1,6 @@
 import type {
   APIResponse,
-  SystemMetrics,
   BotStats,
-  AuthCallbackDTO,
   GuildListDTO,
   GuildSettingsDTO,
   ModCaseListDTO,
