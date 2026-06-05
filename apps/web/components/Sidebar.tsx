@@ -37,6 +37,11 @@ import {
   Star,
   ClipboardList,
   Gamepad2,
+  Bell,
+  Ban,
+  History,
+  Mail,
+  Terminal,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -81,6 +86,7 @@ const categoryDefs: CategoryDef[] = [
     items: [
       { label: 'Vue d\'ensemble', icon: <LayoutDashboard size={18} />, href: '/' },
       { label: 'Sélecteur de serveur', icon: <Server size={18} />, href: '/servers' },
+      { label: 'Commandes', icon: <Terminal size={18} />, href: '/commands', guildPage: true },
     ],
   },
   {
@@ -103,6 +109,9 @@ const categoryDefs: CategoryDef[] = [
       { label: 'Protection', icon: <Swords size={18} />, href: '/protection', guildPage: true },
       { label: 'Tickets', icon: <Ticket size={18} />, href: '/tickets', guildPage: true },
       { label: 'Logs', icon: <ScrollText size={18} />, href: '/logs', guildPage: true },
+      { label: 'Blacklist', icon: <Ban size={18} />, href: '/blacklist', guildPage: true },
+      { label: 'Historique sanctions', icon: <History size={18} />, href: '/moderation/cases', guildPage: true },
+      { label: 'Notifications', icon: <Bell size={18} />, href: '/notifications', guildPage: true },
     ],
   },
   {
@@ -117,6 +126,7 @@ const categoryDefs: CategoryDef[] = [
       { label: 'Formulaires', icon: <ClipboardList size={18} />, href: '/forms', guildPage: true },
       { label: 'Minijeux', icon: <Gamepad2 size={18} />, href: '/minigames', guildPage: true },
       { label: 'Clans', icon: <Users size={18} />, href: '/clans', guildPage: true },
+      { label: 'Invitations', icon: <Mail size={18} />, href: '/invites', guildPage: true },
     ],
   },
   {

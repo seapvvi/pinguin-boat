@@ -15,7 +15,9 @@ import type {
   DeploymentListDTO,
   ChangelogListDTO,
   BlacklistListDTO,
+  GuildBlacklistListDTO,
   SystemMetricsDTO,
+  StreamNotification,
 } from '@pinguin/shared';
 
 interface FetchOptions extends RequestInit {
@@ -205,6 +207,13 @@ export async function fetchChangelogs(params?: Record<string, string>): Promise<
 
 export async function fetchBlacklist(params?: Record<string, string>): Promise<APIResponse<BlacklistListDTO>> {
   return api.get<APIResponse<BlacklistListDTO>>('/api/owner/blacklist', params);
+}
+
+export async function fetchGuildBlacklist(
+  guildId: string,
+  params?: Record<string, string>
+): Promise<APIResponse<GuildBlacklistListDTO>> {
+  return api.get<APIResponse<GuildBlacklistListDTO>>(`/api/guilds/${guildId}/blacklist`, params);
 }
 
 // --- Owner-specific API functions ---
@@ -444,4 +453,29 @@ export interface SystemMetricsSnapshot {
   activeChannels: number;
   onlineMembers: number;
   timestamp: string;
+}
+
+// ─── Stream Notifications ───
+
+export async function fetchStreamNotifications(guildId: string): Promise<APIResponse<{ notifications: StreamNotification[] }>> {
+  return api.get<APIResponse<{ notifications: StreamNotification[] }>>(`/api/guilds/${guildId}/notifications`);
+}
+
+export async function createStreamNotification(guildId: string, data: {
+  platform: 'TWITCH' | 'YOUTUBE';
+  channelName: string;
+  channelId?: string;
+  discordChannelId: string;
+}): Promise<APIResponse<{ notification: StreamNotification }>> {
+  return api.post<APIResponse<{ notification: StreamNotification }>>(`/api/guilds/${guildId}/notifications`, data);
+}
+
+export async function updateStreamNotification(guildId: string, notificationId: string, data: {
+  enabled?: boolean;
+}): Promise<APIResponse<{ notification: StreamNotification }>> {
+  return api.patch<APIResponse<{ notification: StreamNotification }>>(`/api/guilds/${guildId}/notifications/${notificationId}`, data);
+}
+
+export async function deleteStreamNotification(guildId: string, notificationId: string): Promise<APIResponse<{ success: boolean }>> {
+  return api.delete<APIResponse<{ success: boolean }>>(`/api/guilds/${guildId}/notifications/${notificationId}`);
 }

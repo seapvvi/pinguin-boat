@@ -338,6 +338,7 @@ model Guild {
   clanMembers      ClanMember[]
   clanWars         ClanWar[]
   streamNotifications StreamNotification[]
+  guildBlacklistUsers GuildBlacklistUser[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1176,6 +1177,23 @@ model BlacklistGuild {
 
   @@index([guildId])
   @@map("blacklist_guilds")
+}
+
+/// Utilisateur blacklisté au niveau d'un serveur
+model GuildBlacklistUser {
+  id          String   @id @default(cuid()) @map("id")
+  guildId     String   @map("guild_id")
+  userId      String   @map("user_id")
+  reason      String   @map("reason")
+  moderatorId String   @map("moderator_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+  @@index([userId])
+  @@map("guild_blacklist_users")
 }
 
 /// Journal des modifications (changelog)

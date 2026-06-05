@@ -912,6 +912,89 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
+  app.get('/:guildId/blacklist', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const q = request.query as any;
+      const page = Math.max(1, parseInt(q.page) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
+      const where = { guildId } as any;
+      if (q.search) {
+        where.userId = { contains: q.search };
+      }
+      const [entries, total] = await Promise.all([
+        prisma.guildBlacklistUser.findMany({
+          where, orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit, take: limit,
+        }),
+        prisma.guildBlacklistUser.count({ where }),
+      ]);
+      reply.send(success({
+        entries,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      }));
+    } catch (err: any) {
+      reply.status(500).send(error(sanitizeError(err)));
+    }
+  });
+
+  app.post('/:guildId/blacklist', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      if (!body.userId || !body.reason) {
+        return reply.status(400).send(error('ID utilisateur et raison requis'));
+      }
+      const existing = await prisma.guildBlacklistUser.findUnique({
+        where: { guildId_userId: { guildId, userId: body.userId } },
+      });
+      if (existing) {
+        return reply.status(400).send(error('Utilisateur déjà blacklisté'));
+      }
+      const entry = await prisma.guildBlacklistUser.create({
+        data: {
+          guildId,
+          userId: body.userId,
+          reason: body.reason,
+          moderatorId: request.user!.discordId,
+        },
+      });
+      await prisma.auditLog.create({
+        data: {
+          guildId,
+          action: 'BLACKLIST_ADD',
+          userId: request.user!.id,
+          details: JSON.stringify({ targetUserId: body.userId, reason: body.reason }),
+        },
+      }).catch(() => {});
+      reply.status(201).send(success(entry, 'Utilisateur ajouté à la blacklist'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.delete('/:guildId/blacklist/:userId', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, userId } = request.params as any;
+      const entry = await prisma.guildBlacklistUser.findUnique({
+        where: { guildId_userId: { guildId, userId } },
+      });
+      if (!entry) {
+        return reply.status(404).send(error('Entrée blacklist introuvable'));
+      }
+      await prisma.guildBlacklistUser.delete({
+        where: { guildId_userId: { guildId, userId } },
+      });
+      await prisma.auditLog.create({
+        data: {
+          guildId,
+          action: 'BLACKLIST_REMOVE',
+          userId: request.user!.id,
+          details: JSON.stringify({ targetUserId: userId }),
+        },
+      }).catch(() => {});
+      reply.send(success(null, 'Utilisateur retiré de la blacklist'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
   app.get('/:guildId/tickets', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;

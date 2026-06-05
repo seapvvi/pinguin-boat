@@ -358,6 +358,15 @@ export interface BlacklistEntry {
   createdAt: string;
 }
 
+export interface GuildBlacklistUser {
+  id: string;
+  guildId: string;
+  userId: string;
+  reason: string;
+  moderatorId: string;
+  createdAt: string;
+}
+
 export interface APIResponse<T> {
   success: boolean;
   data?: T;
@@ -450,6 +459,22 @@ export interface DiscordBotGuild {
   owner: boolean;
   permissions: string;
   features: string[];
+}
+
+export type StreamPlatform = 'TWITCH' | 'YOUTUBE';
+
+export interface StreamNotification {
+  id: string;
+  guildId: string;
+  platform: StreamPlatform;
+  channelName: string;
+  channelId: string | null;
+  discordChannelId: string;
+  lastLiveAt: string | null;
+  isLive: boolean;
+  lastVideoId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function toErrorMessage(err: unknown): string {

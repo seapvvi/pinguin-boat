@@ -14,6 +14,7 @@ import type {
   Deployment,
   Changelog,
   BlacklistEntry,
+  GuildBlacklistUser,
   SystemMetrics,
   APIResponse,
   PaginationParams,
@@ -188,6 +189,11 @@ export interface BlacklistTargetDTO {
 
 export interface BlacklistListDTO {
   entries: BlacklistEntry[];
+  pagination: PaginationParams & { total: number; totalPages: number };
+}
+
+export interface GuildBlacklistListDTO {
+  entries: GuildBlacklistUser[];
   pagination: PaginationParams & { total: number; totalPages: number };
 }
 
