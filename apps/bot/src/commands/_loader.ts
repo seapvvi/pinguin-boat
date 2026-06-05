@@ -18,19 +18,23 @@ export function loadCommands(client: Client): void {
     );
 
     for (const file of commandFiles) {
-      const commandModule = require(join(categoryPath, file));
-      const command = commandModule.default || commandModule;
+      try {
+        const commandModule = require(join(categoryPath, file));
+        const command = commandModule.default || commandModule;
 
-      if (!command.data || !command.execute) {
-        logger.warn(`Commande ignorée (data/execute manquant): ${category}/${file}`);
-        continue;
-      }
+        if (!command.data || !command.execute) {
+          logger.warn(`Commande ignorée (data/execute manquant): ${category}/${file}`);
+          continue;
+        }
 
-      if (client.commands.has(command.data.name)) {
-        logger.warn(`DOUBLON détecté : ${command.data.name} dans ${category}/${file}`);
+        if (client.commands.has(command.data.name)) {
+          throw new Error(`Commande dupliquée détectée : "${command.data.name}" déjà chargée depuis une autre catégorie/fichier, seconde occurrence dans ${category}/${file}`);
+        }
+        client.commands.set(command.data.name, command);
+        logger.info(`Commande chargée: ${command.data.name}`);
+      } catch (error) {
+        logger.warn(`Erreur chargement commande ${category}/${file}: ${error}`);
       }
-      client.commands.set(command.data.name, command);
-      logger.info(`Commande chargée: ${command.data.name}`);
     }
   }
 }

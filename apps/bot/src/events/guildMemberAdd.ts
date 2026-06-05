@@ -1,5 +1,6 @@
 import { GuildMember, Client, EmbedBuilder } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { logger } from '@pinguin/shared';
 import { handleMemberJoin } from '../services/protection';
 import { isModuleEnabled } from '../guards/module';
 import { sendGuildLog } from '../services/logs';
@@ -103,12 +104,12 @@ export async function execute(member: GuildMember, client: Client): Promise<void
             if (welcome.welcomeEmbedFooter) embed.setFooter({ text: replacements(welcome.welcomeEmbedFooter) });
             if (welcome.welcomeEmbedImage) embed.setImage(welcome.welcomeEmbedImage);
 
-            await channel.send({ content: mention || undefined, embeds: [embed] }).catch(() => {});
+            await channel.send({ content: mention || undefined, embeds: [embed] }).catch((err) => logger.warn(`[guildMemberAdd] Échec envoi embed bienvenue dans ${channel.id} pour ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
           } else {
             const msg = welcome.welcomeMessage
               ? replacements(welcome.welcomeMessage)
               : `Bienvenue ${member.displayName} sur **${member.guild.name}** !`;
-            await channel.send(mention + msg).catch(() => {});
+            await channel.send(mention + msg).catch((err) => logger.warn(`[guildMemberAdd] Échec envoi message bienvenue dans ${channel.id} pour ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
           }
         }
       }
@@ -121,7 +122,7 @@ export async function execute(member: GuildMember, client: Client): Promise<void
           .replace(/\{members\}/gi, String(member.guild.memberCount))
           .replace(/\{count\}/gi, String(member.guild.memberCount))
           .replace(/\{inviter\}/gi, inviterName);
-        await member.send(dmMsg).catch(() => {});
+        await member.send(dmMsg).catch((err) => logger.warn(`[guildMemberAdd] Échec envoi DM bienvenue à ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
       }
     }
   }
@@ -136,7 +137,7 @@ export async function execute(member: GuildMember, client: Client): Promise<void
         const role = member.guild.roles.cache.get(entry.roleId);
         if (!role) continue;
         if (role.position >= member.guild.members.me!.roles.highest.position) continue;
-        await member.roles.add(entry.roleId, 'Auto-rôle à l\'arrivée').catch(() => {});
+        await member.roles.add(entry.roleId, 'Auto-rôle à l\'arrivée').catch((err) => logger.warn(`[guildMemberAdd] Échec ajout rôle ${entry.roleId} à ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
       }
     }
   }

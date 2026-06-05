@@ -60,12 +60,20 @@ start();
 // Safety net: never let an unexpected async error crash the whole bot.
 process.on('unhandledRejection', (reason: unknown) => {
   logger.error('Unhandled rejection', { reason, app: 'bot' });
+  process.exit(1);
 });
 process.on('uncaughtException', (err: unknown) => {
   logger.error('Uncaught exception', { err, app: 'bot' });
 });
 
 process.on('SIGTERM', async () => {
+  logger.info('Arrêt...', { app: 'bot' });
+  client.destroy();
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
   logger.info('Arrêt...', { app: 'bot' });
   client.destroy();
   await prisma.$disconnect();

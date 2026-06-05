@@ -12,7 +12,7 @@
     "dev": "turbo run dev",
     "dev:preload": "node scripts/dev-with-preload.js",
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "eslint apps/**/src/**/*.ts packages/**/*.ts",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
     "kill-ports": "bash scripts/force-kill-ports.sh",
@@ -27,6 +27,9 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
+    "eslint": "^10.4.1",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.3",

@@ -1,5 +1,4 @@
-import { CommandInteraction, Client, Interaction, AutocompleteInteraction, ButtonInteraction, ModalSubmitInteraction, StringSelectMenuInteraction } from 'discord.js';
-import { getConfig } from '@pinguin/config';
+import { CommandInteraction, Client, Interaction, AutocompleteInteraction, ButtonInteraction, ModalSubmitInteraction, StringSelectMenuInteraction, GuildMember } from 'discord.js';
 import { checkCooldown } from '../guards/cooldown';
 import { checkModPermissions } from '../guards/permissions';
 import { checkInteractionBlacklist } from '../guards/blacklist';
@@ -64,8 +63,6 @@ export async function execute(interaction: Interaction, client: Client): Promise
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
-  const config = getConfig();
-
   if (!interaction.guildId) {
     await interaction.reply({
       embeds: [errorEmbed('Erreur', 'Cette commande doit être utilisée dans un serveur.')],
@@ -107,7 +104,14 @@ export async function execute(interaction: Interaction, client: Client): Promise
   }
 
   if (command.permissions || command.requireAdmin) {
-    const permCheck = await checkModPermissions(interaction.member as any, command.requireAdmin ?? false);
+    if (!interaction.member || !(interaction.member instanceof GuildMember)) {
+      await interaction.reply({
+        embeds: [errorEmbed('Permission refusée', 'Impossible de vérifier vos permissions.')],
+        ephemeral: true,
+      });
+      return;
+    }
+    const permCheck = await checkModPermissions(interaction.member, command.requireAdmin ?? false);
     if (!permCheck.allowed) {
       await interaction.reply({
         embeds: [errorEmbed('Permission refusée', permCheck.message!)],
@@ -182,7 +186,7 @@ async function handleSelectMenu(interaction: StringSelectMenuInteraction, client
   if (!handler) {
     // Menu non géré : acknowledge pour éviter "interaction échouée"
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.update({ components: [] }).catch(() => {});
+      await replySelectError(interaction, 'Action non reconnue.');
     }
     return;
   }
@@ -198,6 +202,19 @@ async function handleSelectMenu(interaction: StringSelectMenuInteraction, client
 async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Client): Promise<void> {
   if (!interaction.guild) return;
 
+  interface FormField {
+    label: string;
+    required?: boolean;
+  }
+
+  interface FormResponse {
+    label: string;
+    value: string;
+  }
+
+  const fields: FormField[] = JSON.parse(interaction.customId) as FormField[];
+  const responses: FormResponse[] = [];
+
   const handler = registry.findModalHandler(interaction.customId);
   if (!handler) {
     // Modal non géré : acknowledge pour éviter "interaction échouée"
@@ -209,6 +226,9 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Cl
 
   try {
     await handler.handler(interaction, client);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ embeds: [errorEmbed('Erreur', 'Action non reconnue.')], ephemeral: true }).catch(() => {});
+    }
   } catch (error) {
     logger.error('Error handling modal submit', { customId: interaction.customId, err: error instanceof Error ? error.message : String(error) });
     await replyModalError(interaction, 'Une erreur est survenue lors du traitement de votre soumission.');
