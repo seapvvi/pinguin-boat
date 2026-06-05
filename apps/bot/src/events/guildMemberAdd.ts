@@ -59,8 +59,8 @@ export async function execute(member: GuildMember, client: Client): Promise<void
           }
         } else {
           // Cas edge: vanity URL
-          const vanityUrl = await member.guild.fetchVanityURL().catch(() => null);
-          if (vanityUrl && vanityUrl.uses) {
+          const vanityData = await member.guild.fetchVanityData().catch(() => null);
+          if (vanityData && vanityData.uses) {
             inviterName = 'vanity URL';
           }
         }
