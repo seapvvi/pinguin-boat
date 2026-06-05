@@ -1,7 +1,7 @@
 import { Guild, Invite } from 'discord.js';
 import { logger } from '@pinguin/shared';
 
-interface InviteData {
+export interface InviteData {
   uses: number | null;
   inviterId: string | null;
 }

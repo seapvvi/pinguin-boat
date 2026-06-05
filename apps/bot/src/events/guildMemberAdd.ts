@@ -4,7 +4,7 @@ import { logger } from '@pinguin/shared';
 import { handleMemberJoin } from '../services/protection';
 import { isModuleEnabled } from '../guards/module';
 import { sendGuildLog } from '../services/logs';
-import { refreshGuildInvites, findUsedInvite, getCachedInvites } from '../services/invite-cache';
+import { findUsedInvite, getCachedInvites, setGuildInvites } from '../services/invite-cache';
 import type { InviteData } from '../services/invite-cache';
 
 export async function execute(member: GuildMember, client: Client): Promise<void> {
@@ -35,7 +35,7 @@ export async function execute(member: GuildMember, client: Client): Promise<void
 
       try {
         // 1. Lire le cache actuel AVANT tout rafraîchissement
-        const cachedInvites = getCachedInvites(guildId);
+        const previousInvites = getCachedInvites(guildId);
 
         // 2. Récupérer les invites live depuis Discord
         const currentInvites = await member.guild.invites.fetch();
@@ -49,10 +49,10 @@ export async function execute(member: GuildMember, client: Client): Promise<void
         }
 
         // 3. Trouver l'invite utilisée par comparaison (ancien cache vs nouvelles valeurs)
-        const usedInvite = findUsedInvite(cachedInvites, currentInvitesMap);
+        const usedInvite = findUsedInvite(previousInvites, currentInvitesMap);
 
-        // 4. Rafraîchir le cache avec les nouvelles valeurs
-        await refreshGuildInvites(member.guild);
+        // 4. Mettre à jour le cache avec les nouvelles valeurs
+        setGuildInvites(guildId, currentInvitesMap);
         
         if (usedInvite) {
           inviterId = usedInvite.inviterId;
