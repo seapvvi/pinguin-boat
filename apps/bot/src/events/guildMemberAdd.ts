@@ -4,7 +4,8 @@ import { logger } from '@pinguin/shared';
 import { handleMemberJoin } from '../services/protection';
 import { isModuleEnabled } from '../guards/module';
 import { sendGuildLog } from '../services/logs';
-import { refreshGuildInvites, findUsedInvite } from '../services/invite-cache';
+import { refreshGuildInvites, findUsedInvite, getCachedInvites } from '../services/invite-cache';
+import type { InviteData } from '../services/invite-cache';
 
 export async function execute(member: GuildMember, client: Client): Promise<void> {
   if (member.user.bot) return;
@@ -33,13 +34,13 @@ export async function execute(member: GuildMember, client: Client): Promise<void
       let inviterId: string | null = null;
 
       try {
-        // Rafraîchir le cache d'invites pour obtenir les valeurs actuelles
-        await refreshGuildInvites(member.guild);
-        
-        // Récupérer les invites actuelles
+        // 1. Lire le cache actuel AVANT tout rafraîchissement
+        const cachedInvites = getCachedInvites(guildId);
+
+        // 2. Récupérer les invites live depuis Discord
         const currentInvites = await member.guild.invites.fetch();
-        const currentInvitesMap = new Map<string, { uses: number | null; inviterId: string | null }>();
-        
+        const currentInvitesMap = new Map<string, InviteData>();
+
         for (const invite of currentInvites.values()) {
           currentInvitesMap.set(invite.code, {
             uses: invite.uses,
@@ -47,8 +48,11 @@ export async function execute(member: GuildMember, client: Client): Promise<void
           });
         }
 
-        // Trouver l'invite utilisée par comparaison
-        const usedInvite = findUsedInvite(guildId, currentInvitesMap);
+        // 3. Trouver l'invite utilisée par comparaison (ancien cache vs nouvelles valeurs)
+        const usedInvite = findUsedInvite(cachedInvites, currentInvitesMap);
+
+        // 4. Rafraîchir le cache avec les nouvelles valeurs
+        await refreshGuildInvites(member.guild);
         
         if (usedInvite) {
           inviterId = usedInvite.inviterId;

@@ -34,6 +34,7 @@ export function loadCommands(client: Client): void {
         logger.info(`Commande chargée: ${command.data.name}`);
       } catch (error) {
         logger.warn(`Erreur chargement commande ${category}/${file}: ${error}`);
+        throw error;
       }
     }
   }

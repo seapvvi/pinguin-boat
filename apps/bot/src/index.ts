@@ -64,6 +64,7 @@ process.on('unhandledRejection', (reason: unknown) => {
 });
 process.on('uncaughtException', (err: unknown) => {
   logger.error('Uncaught exception', { err, app: 'bot' });
+  process.exit(1);
 });
 
 process.on('SIGTERM', async () => {

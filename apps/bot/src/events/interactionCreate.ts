@@ -202,19 +202,6 @@ async function handleSelectMenu(interaction: StringSelectMenuInteraction, client
 async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Client): Promise<void> {
   if (!interaction.guild) return;
 
-  interface FormField {
-    label: string;
-    required?: boolean;
-  }
-
-  interface FormResponse {
-    label: string;
-    value: string;
-  }
-
-  const fields: FormField[] = JSON.parse(interaction.customId) as FormField[];
-  const responses: FormResponse[] = [];
-
   const handler = registry.findModalHandler(interaction.customId);
   if (!handler) {
     // Modal non géré : acknowledge pour éviter "interaction échouée"
@@ -226,9 +213,6 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Cl
 
   try {
     await handler.handler(interaction, client);
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ embeds: [errorEmbed('Erreur', 'Action non reconnue.')], ephemeral: true }).catch(() => {});
-    }
   } catch (error) {
     logger.error('Error handling modal submit', { customId: interaction.customId, err: error instanceof Error ? error.message : String(error) });
     await replyModalError(interaction, 'Une erreur est survenue lors du traitement de votre soumission.');

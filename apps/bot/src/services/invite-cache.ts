@@ -19,6 +19,8 @@ export function getGuildInvites(guildId: string): GuildInvites | undefined {
   return inviteCache.get(guildId);
 }
 
+export const getCachedInvites = getGuildInvites;
+
 export function setGuildInvites(guildId: string, invites: GuildInvites): void {
   inviteCache.set(guildId, invites);
 }
@@ -90,8 +92,7 @@ export async function refreshGuildInvites(guild: Guild): Promise<void> {
   }
 }
 
-export function findUsedInvite(guildId: string, currentInvites: Map<string, InviteData>): { code: string; inviterId: string | null } | null {
-  const previousInvites = inviteCache.get(guildId);
+export function findUsedInvite(previousInvites: GuildInvites | undefined, currentInvites: Map<string, InviteData>): { code: string; inviterId: string | null } | null {
   if (!previousInvites) return null;
 
   for (const [code, currentData] of currentInvites) {

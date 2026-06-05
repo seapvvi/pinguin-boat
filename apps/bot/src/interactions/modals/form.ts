@@ -15,14 +15,17 @@ async function handleFormSubmit(interaction: ModalSubmitInteraction, client: Cli
     return;
   }
 
-  let fields: any[];
+  interface FormField { label: string; required?: boolean; }
+  interface FormResponse { label: string; value: string; }
+
+  let fields: FormField[];
   try {
-    fields = JSON.parse(template.fields);
+    fields = JSON.parse(template.fields) as FormField[];
   } catch {
     await interaction.reply({ embeds: [errorEmbed('Erreur', 'Formulaire corrompu.')], ephemeral: true });
     return;
   }
-  const responses: any[] = [];
+  const responses: FormResponse[] = [];
 
   for (const field of fields) {
     const value = interaction.fields.getTextInputValue(`field_${field.label}`);
