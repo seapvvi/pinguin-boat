@@ -265,7 +265,6 @@ export default function ModerationPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1"
-          leftIcon={<Search size={16} />}
         />
         <Select
           placeholder="Filtrer par type"
