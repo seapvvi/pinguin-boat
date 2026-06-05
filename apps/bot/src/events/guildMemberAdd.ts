@@ -3,6 +3,7 @@ import { prisma } from '@pinguin/db';
 import { handleMemberJoin } from '../services/protection';
 import { isModuleEnabled } from '../guards/module';
 import { sendGuildLog } from '../services/logs';
+import { refreshGuildInvites, findUsedInvite } from '../services/invite-cache';
 
 export async function execute(member: GuildMember, client: Client): Promise<void> {
   if (member.user.bot) return;
@@ -28,11 +29,54 @@ export async function execute(member: GuildMember, client: Client): Promise<void
     const welcome = await prisma.welcomeSettings.findUnique({ where: { guildId } });
     if (welcome?.enabled) {
       let inviterName = 'quelqu\'un';
+      let inviterId: string | null = null;
+
       try {
-        const logs = await member.guild.fetchAuditLogs({ limit: 1, type: 28 });
-        const entry = logs.entries.first();
-        if (entry?.executor && !entry.executor.bot) inviterName = entry.executor.username ?? "quelqu\u0027un";
-      } catch { /* audit log indisponible */ }
+        // Rafraîchir le cache d'invites pour obtenir les valeurs actuelles
+        await refreshGuildInvites(member.guild);
+        
+        // Récupérer les invites actuelles
+        const currentInvites = await member.guild.invites.fetch();
+        const currentInvitesMap = new Map<string, { uses: number | null; inviterId: string | null }>();
+        
+        for (const invite of currentInvites.values()) {
+          currentInvitesMap.set(invite.code, {
+            uses: invite.uses,
+            inviterId: invite.inviterId,
+          });
+        }
+
+        // Trouver l'invite utilisée par comparaison
+        const usedInvite = findUsedInvite(guildId, currentInvitesMap);
+        
+        if (usedInvite) {
+          inviterId = usedInvite.inviterId;
+          if (inviterId) {
+            const inviter = await member.guild.members.fetch(inviterId).catch(() => null);
+            if (inviter) {
+              inviterName = inviter.user.username;
+            }
+          }
+        } else {
+          // Cas edge: vanity URL
+          const vanityUrl = await member.guild.fetchVanityURL().catch(() => null);
+          if (vanityUrl && vanityUrl.uses) {
+            inviterName = 'vanity URL';
+          }
+        }
+      } catch (error) {
+        // Fallback: essayer les audit logs si le cache échoue
+        try {
+          const logs = await member.guild.fetchAuditLogs({ limit: 1, type: 28 });
+          const entry = logs.entries.first();
+          if (entry?.executor && !entry.executor.bot) {
+            inviterName = entry.executor.username ?? "quelqu'un";
+            inviterId = entry.executor.id;
+          }
+        } catch {
+          /* audit log indisponible */
+        }
+      }
 
       const replacements = (s: string) => s
             .replace(/\{user\}/gi, member.displayName)

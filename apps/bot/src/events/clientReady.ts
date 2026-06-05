@@ -6,6 +6,7 @@ import { initializeNotificationCrons } from '../services/economy-notifications';
 import { initializeInactivityAlertCrons } from '../services/ticket-inactivity-alert';
 import { startStreamNotificationCron } from '../services/stream-notifications';
 import { startPollCron } from '../services/poll-cron';
+import { initializeInviteCache } from '../services/invite-cache';
 import { logger } from '@pinguin/shared';
 
 export const once = true;
@@ -70,6 +71,11 @@ export async function execute(client: Client): Promise<void> {
       }
     }
   }, 10 * 60 * 1000);
+
+  // Initialisation du cache d'invites
+  for (const guild of client.guilds.cache.values()) {
+    await initializeInviteCache(guild);
+  }
 
   // Initialisation des crons d'intérêts bancaires
   const guildIds = Array.from(client.guilds.cache.keys());

@@ -8,6 +8,7 @@ import { startInternalBotApi } from './internal/bot-api';
 import { cleanStaleSessions } from './services/minigames';
 import { initMusicService } from './services/music';
 import { logger } from '@pinguin/shared';
+import './interactions';
 
 const config = getConfig();
 

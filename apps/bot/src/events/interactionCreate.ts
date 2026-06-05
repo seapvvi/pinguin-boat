@@ -4,11 +4,32 @@ import { checkCooldown } from '../guards/cooldown';
 import { checkModPermissions } from '../guards/permissions';
 import { checkInteractionBlacklist } from '../guards/blacklist';
 import { requireModule } from '../guards/module';
-import { errorEmbed, successEmbed, createEmbed } from '../services/embed';
-import { getFormTemplate, createFormSubmission, getFormSettings } from '../services/forms';
+import { errorEmbed } from '../services/embed';
 import { logger } from '@pinguin/shared';
+import { registry } from '../interactions';
 
 async function replyButtonError(interaction: ButtonInteraction, message: string): Promise<void> {
+  const payload = { embeds: [errorEmbed('Erreur', message)], ephemeral: true as const };
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply(payload).catch(() => {});
+  } else {
+    await interaction.reply(payload).catch(() => {});
+  }
+}
+
+async function replySelectError(interaction: StringSelectMenuInteraction, message: string): Promise<void> {
+  const payload = {
+    embeds: [errorEmbed('Erreur', message)],
+    components: [],
+  };
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply(payload).catch(() => {});
+  } else {
+    await interaction.update(payload).catch(() => {});
+  }
+}
+
+async function replyModalError(interaction: ModalSubmitInteraction, message: string): Promise<void> {
   const payload = { embeds: [errorEmbed('Erreur', message)], ephemeral: true as const };
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply(payload).catch(() => {});
@@ -29,75 +50,12 @@ export async function execute(interaction: Interaction, client: Client): Promise
   }
 
   if (interaction.isButton()) {
-    if (!interaction.guildId) {
-      await interaction.reply({ embeds: [errorEmbed('Erreur', 'Utilisable uniquement sur un serveur.')], ephemeral: true }).catch(() => {});
-      return;
-    }
-
-    try {
-      if (interaction.customId.startsWith('ticket_')) {
-        const moduleCheck = await requireModule(interaction.guildId, 'tickets');
-        if (!moduleCheck.enabled) {
-          await interaction.reply({ embeds: [errorEmbed('Module désactivé', moduleCheck.message!)], ephemeral: true });
-          return;
-        }
-        const { handleTicketButton } = await import('../commands/tickets/ticket-button');
-        await handleTicketButton(interaction, client);
-        return;
-      }
-
-      if (interaction.customId === 'giveaway_join' || interaction.customId === 'giveaway_join_api') {
-        const { handleGiveawayJoin } = await import('../commands/giveaways/giveaway-join');
-        await handleGiveawayJoin(interaction, client);
-        return;
-      }
-
-      if (interaction.customId.startsWith('help_prev_') || interaction.customId.startsWith('help_next_')) {
-        const { handleHelpPagination } = await import('../commands/utility/help');
-        const direction = interaction.customId.startsWith('help_prev_') ? 'prev' : 'next';
-        await handleHelpPagination(interaction, client, direction);
-        return;
-      }
-
-      if (interaction.customId.startsWith('changelog_prev_') || interaction.customId.startsWith('changelog_next_')) {
-        const { handleChangelogPagination } = await import('../commands/utility/changelog');
-        await handleChangelogPagination(interaction, client);
-        return;
-      }
-
-      // Minigame buttons (blackjack, morpion) are handled by their own
-      // per-message component collectors. We must NOT acknowledge them here:
-      // doing so races with the collector's i.update() and triggers
-      // "Échec de l'interaction" / unhandled rejections that crash the bot.
-      if (interaction.customId.startsWith('bj_') || interaction.customId.startsWith('morpion_')) {
-        return;
-      }
-
-      // Bouton non géré : acknowledge pour éviter "interaction échouée"
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.deferUpdate().catch(() => {});
-      }
-    } catch (err) {
-      logger.error('[Bot] Erreur bouton', { customId: interaction.customId, err: err instanceof Error ? err.message : String(err) });
-      await replyButtonError(interaction, 'Une erreur est survenue. Réessayez dans un instant.');
-    }
+    await handleButton(interaction, client);
     return;
   }
 
   if (interaction.isStringSelectMenu()) {
-    try {
-      if (interaction.customId === 'help_category_select') {
-        const { handleHelpSelect } = await import('../commands/utility/help');
-        await handleHelpSelect(interaction, client);
-        return;
-      }
-    } catch (err) {
-      logger.error('[Bot] Erreur menu select', { customId: interaction.customId, err: err instanceof Error ? err.message : String(err) });
-      await interaction.update({
-        embeds: [errorEmbed('Erreur', 'Une erreur est survenue. Réessayez dans un instant.')],
-        components: [],
-      }).catch(() => {});
-    }
+    await handleSelectMenu(interaction, client);
     return;
   }
 
@@ -188,129 +146,71 @@ async function handleAutocomplete(interaction: AutocompleteInteraction, client: 
   }
 }
 
+async function handleButton(interaction: ButtonInteraction, client: Client): Promise<void> {
+  if (!interaction.guildId) {
+    await interaction.reply({ embeds: [errorEmbed('Erreur', 'Utilisable uniquement sur un serveur.')], ephemeral: true }).catch(() => {});
+    return;
+  }
+
+  // Minigame buttons (blackjack, morpion) are handled by their own
+  // per-message component collectors. We must NOT acknowledge them here:
+  // doing so races with the collector's i.update() and triggers
+  // "Échec de l'interaction" / unhandled rejections that crash the bot.
+  if (interaction.customId.startsWith('bj_') || interaction.customId.startsWith('morpion_')) {
+    return;
+  }
+
+  const handler = registry.findButtonHandler(interaction.customId);
+  if (!handler) {
+    // Bouton non géré : acknowledge pour éviter "interaction échouée"
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.deferUpdate().catch(() => {});
+    }
+    return;
+  }
+
+  try {
+    await handler.handler(interaction, client);
+  } catch (err) {
+    logger.error('[Bot] Erreur bouton', { customId: interaction.customId, err: err instanceof Error ? err.message : String(err) });
+    await replyButtonError(interaction, 'Une erreur est survenue. Réessayez dans un instant.');
+  }
+}
+
+async function handleSelectMenu(interaction: StringSelectMenuInteraction, client: Client): Promise<void> {
+  const handler = registry.findSelectHandler(interaction.customId);
+  if (!handler) {
+    // Menu non géré : acknowledge pour éviter "interaction échouée"
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.update({ components: [] }).catch(() => {});
+    }
+    return;
+  }
+
+  try {
+    await handler.handler(interaction, client);
+  } catch (err) {
+    logger.error('[Bot] Erreur menu select', { customId: interaction.customId, err: err instanceof Error ? err.message : String(err) });
+    await replySelectError(interaction, 'Une erreur est survenue. Réessayez dans un instant.');
+  }
+}
+
 async function handleModalSubmit(interaction: ModalSubmitInteraction, client: Client): Promise<void> {
   if (!interaction.guild) return;
 
+  const handler = registry.findModalHandler(interaction.customId);
+  if (!handler) {
+    // Modal non géré : acknowledge pour éviter "interaction échouée"
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ embeds: [errorEmbed('Erreur', 'Action non reconnue.')], ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
   try {
-    if (interaction.customId.startsWith('form_submit_')) {
-      const templateId = interaction.customId.replace('form_submit_', '');
-      
-      const template = await getFormTemplate(templateId);
-      if (!template) {
-        await interaction.reply({ embeds: [errorEmbed('Erreur', 'Formulaire introuvable.')], ephemeral: true });
-        return;
-      }
-
-      let fields: any[];
-      try {
-        fields = JSON.parse(template.fields);
-      } catch {
-        await interaction.reply({ embeds: [errorEmbed('Erreur', 'Formulaire corrompu.')], ephemeral: true });
-        return;
-      }
-      const responses: any[] = [];
-
-      for (const field of fields) {
-        const value = interaction.fields.getTextInputValue(`field_${field.label}`);
-        responses.push({
-          label: field.label,
-          value,
-        });
-      }
-
-      // Create submission
-      const submission = await createFormSubmission(
-        interaction.guild.id,
-        templateId,
-        interaction.user.id,
-        responses
-      );
-
-      // Send to submission channel
-      const settings = await getFormSettings(interaction.guild.id);
-      if (settings.channelId) {
-        try {
-          const channel = await interaction.guild.channels.fetch(settings.channelId);
-          if (channel && channel.isTextBased()) {
-            const embed = createEmbed('form')
-              .setTitle(`📋 Nouvelle soumission: ${template.name}`)
-              .setAuthor({
-                name: interaction.user.username,
-                iconURL: interaction.user.displayAvatarURL(),
-              })
-              .setDescription(template.description || '')
-              .setTimestamp();
-
-            responses.forEach((response, index) => {
-              embed.addFields({
-                name: response.label,
-                value: response.value || '*Non renseigné*',
-                inline: false,
-              });
-            });
-
-            embed.addFields({
-              name: 'ID de soumission',
-              value: submission.id,
-              inline: true,
-            });
-
-            embed.addFields({
-              name: 'Utilisateur',
-              value: `<@${interaction.user.id}>`,
-              inline: true,
-            });
-
-            await channel.send({ embeds: [embed] });
-          }
-        } catch (err) {
-          logger.error('Error sending form submission', { err: err instanceof Error ? err.message : String(err) });
-        }
-      }
-
-      // Send to log channel if configured
-      if (settings.logChannel) {
-        try {
-          const logChannel = await interaction.guild.channels.fetch(settings.logChannel);
-          if (logChannel && logChannel.isTextBased()) {
-            await logChannel.send({
-              content: `📝 Nouvelle soumission de formulaire par ${interaction.user} (${interaction.user.id})\nFormulaire: ${template.name}\nID: ${submission.id}`,
-            });
-          }
-        } catch (err) {
-          logger.error('Error sending form log', { err: err instanceof Error ? err.message : String(err) });
-        }
-      }
-
-      await interaction.reply({
-        embeds: [successEmbed('Formulaire soumis', 'Votre réponse a été enregistrée avec succès !')],
-        ephemeral: true,
-      });
-      return;
-    }
-
-    if (interaction.customId.startsWith('warn_modal_')) {
-      const { handleModalSubmit: handleWarnModal } = await import('../commands/moderation/warn-context');
-      await handleWarnModal(interaction, client);
-      return;
-    }
-
-    if (interaction.customId.startsWith('kick_modal_')) {
-      const { handleModalSubmit: handleKickModal } = await import('../commands/moderation/kick-context');
-      await handleKickModal(interaction, client);
-      return;
-    }
-
-    if (interaction.customId === 'poll_create') {
-      const { handlePollCreateModal } = await import('../commands/polls/poll-create-modal');
-      await handlePollCreateModal(interaction, client);
-      return;
-    }
+    await handler.handler(interaction, client);
   } catch (error) {
-    logger.error('Error handling modal submit', { err: error instanceof Error ? error.message : String(error) });
-    await interaction.reply({
-      embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors du traitement de votre soumission.')],
-      ephemeral: true,
-    });
+    logger.error('Error handling modal submit', { customId: interaction.customId, err: error instanceof Error ? error.message : String(error) });
+    await replyModalError(interaction, 'Une erreur est survenue lors du traitement de votre soumission.');
   }
 }
