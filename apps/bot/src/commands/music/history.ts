@@ -5,8 +5,8 @@ import { logger } from '@pinguin/shared';
 import { requireDjRole } from '../../services/music';
 
 export const data = new SlashCommandBuilder()
-  .setName('history')
-  .setDescription('Voir l\'historique des musiques jouées');
+  .setName('music-history')
+  .setDescription('Voir l\'historique des musiques jouées sur ce serveur');
 
 export const module = 'music';
 
