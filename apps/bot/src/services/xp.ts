@@ -25,8 +25,17 @@ export function calculateXpForLevel(level: number): number {
   return Math.floor(100 * level * 1.5);
 }
 
-export function calculateXpForNextLevel(currentXp: number): number {
+export function calculateXpForNextLevel(currentXp: number, formula?: string): number {
   const currentLevel = calculateLevel(currentXp);
+  if (formula) {
+    try {
+      const level = currentLevel + 1;
+      const result = new Function('level', `return ${formula}`)(level);
+      return Number.isFinite(result) && result > 0 ? Math.floor(result) : calculateXpForLevel(level);
+    } catch {
+      return calculateXpForLevel(currentLevel + 1);
+    }
+  }
   return calculateXpForLevel(currentLevel + 1);
 }
 
@@ -129,7 +138,7 @@ export async function addMessageXp(
     }
   }
 
-  return { xp: newXp, level: newLevel, leveledUp };
+  return { xp, level, leveledUp };
 }
 
 export async function addVoiceXp(
