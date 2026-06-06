@@ -61,7 +61,12 @@ export async function guildRoutes(app: FastifyInstance) {
             const isAdmin = (permissions & ADMINISTRATOR) !== BigInt(0);
             
             // Check role-based dashboard access
-            const dashboardAccessRoles = g.settings ? JSON.parse(g.settings.dashboardAccessRoles || '[]') : [];
+            let dashboardAccessRoles: string[] = [];
+            try {
+              dashboardAccessRoles = g.settings ? JSON.parse(g.settings.dashboardAccessRoles || '[]') : [];
+            } catch {
+              dashboardAccessRoles = [];
+            }
             const hasDashboardAccess = isOwner || isAdmin || dashboardAccessRoles.some((r: string) => memberRoleIds.includes(r));
             
             return { ...g, isMember: true, hasDashboardAccess };
