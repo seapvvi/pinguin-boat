@@ -5,8 +5,12 @@ describe('levelFormula', () => {
   it('calculateLevel correspond à la formule donnée', () => {
     expect(calculateLevel(0)).toBe(0);
     expect(calculateLevel(1)).toBe(0);
-    expect(calculateLevel(100)).toBe(1);
-    expect(calculateLevel(10_000)).toBe(Math.floor(0.1 * Math.sqrt(10_000)));
+    expect(calculateLevel(149)).toBe(0);
+    expect(calculateLevel(150)).toBe(1);
+    expect(calculateLevel(299)).toBe(1);
+    expect(calculateLevel(300)).toBe(2);
+    expect(calculateLevel(450)).toBe(3);
+    expect(calculateLevel(10_000)).toBe(66);
   });
 
   it('calculateXpForLevel suit 100 * level * 1.5', () => {

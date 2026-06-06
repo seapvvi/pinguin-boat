@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { success, error, sanitizeError } from '../utils/response';
 import { closeTicketWithTranscript } from '../services/ticket-close';
 
-const INTERNAL_SECRET = process.env.BOT_INTERNAL_SECRET || 'dev-secret';
+const INTERNAL_SECRET = process.env.BOT_INTERNAL_SECRET || (process.env.NODE_ENV === 'production' ? (() => { throw new Error('BOT_INTERNAL_SECRET must be set in production'); })() : 'dev-secret');
 
 function requireInternalSecret(
   request: FastifyRequest,

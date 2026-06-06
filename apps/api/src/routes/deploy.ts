@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
 import { authenticate } from '../middleware/auth';
 import { requireOwner } from '../middleware/owner';
 import { prisma } from '@pinguin/db';
@@ -6,6 +7,8 @@ import { success, error, sanitizeError } from '../utils/response';
 import * as DeployService from '../services/deploy';
 
 const ownerPre = { preHandler: [authenticate, requireOwner] };
+
+const rollbackSchema = z.object({ version: z.string().min(1).optional() });
 
 export async function deployRoutes(app: FastifyInstance) {
   app.post('/start', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -18,9 +21,12 @@ export async function deployRoutes(app: FastifyInstance) {
   });
 
   app.post('/rollback', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = rollbackSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error('Paramètres invalides'));
+    }
     try {
-      const body = request.body as any;
-      await DeployService.rollback(request.user!.id, body?.version);
+      await DeployService.rollback(request.user!.id, parsed.data.version);
       reply.send(success(null, 'Rollback effectué'));
     } catch (err: any) {
       reply.status(500).send(error(sanitizeError(err)));

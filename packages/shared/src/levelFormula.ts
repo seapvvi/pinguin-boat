@@ -2,7 +2,14 @@ export function calculateLevel(xp: number): number {
   if (!Number.isFinite(xp) || xp < 0) {
     return 0;
   }
-  return Math.floor(0.1 * Math.sqrt(xp));
+  let level = 0;
+  const maxIter = 10000;
+  while (level < maxIter) {
+    const required = Math.floor(100 * (level + 1) * 1.5);
+    if (required > xp) break;
+    level++;
+  }
+  return level;
 }
 
 export function calculateXpForLevel(level: number): number {

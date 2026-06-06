@@ -1,5 +1,6 @@
 import {
   Client,
+  Guild,
   GuildMember,
   Message,
   PermissionFlagsBits,
@@ -10,6 +11,7 @@ import { sendCaptcha, hasPendingCaptcha } from './captcha';
 
 const joinTimestamps = new Map<string, number[]>();
 const messageTimestamps = new Map<string, number[]>();
+const lockedChannels = new Map<string, string[]>();
 
 const LINK_REGEX = /https?:\/\/[^\s]+|www\.[^\s]+/i;
 
@@ -51,13 +53,20 @@ export async function handleMemberJoin(member: GuildMember): Promise<void> {
 
   if (settings.emergencyMode || (settings.antiRaid && recent.length >= (settings.raidThreshold ?? 10))) {
     if (settings.antiRaid && recent.length >= (settings.raidThreshold ?? 10)) {
-      const everyone = member.guild.roles.everyone;
-      for (const ch of member.guild.channels.cache.values()) {
-        if (ch.isTextBased() && 'permissionOverwrites' in ch) {
-          await (ch as TextChannel).permissionOverwrites
-            .edit(everyone.id, { SendMessages: false })
-            .catch(() => {});
+      const guildId = member.guild.id;
+      if (!lockedChannels.has(guildId)) {
+        const everyone = member.guild.roles.everyone;
+        const channelIds: string[] = [];
+        for (const ch of member.guild.channels.cache.values()) {
+          if (ch.isTextBased() && 'permissionOverwrites' in ch) {
+            await (ch as TextChannel).permissionOverwrites
+              .edit(everyone.id, { SendMessages: false })
+              .catch(() => {});
+            channelIds.push(ch.id);
+          }
         }
+        lockedChannels.set(guildId, channelIds);
+        setTimeout(() => unlockGuild(guildId, member.guild), 10 * 60 * 1000);
       }
     }
     await applyPunishment(member, settings.punishment, 'Protection anti-raid');
@@ -161,4 +170,20 @@ export async function setEmergencyMode(client: Client, guildId: string, enable: 
       }
     } catch {}
   }
+}
+
+export async function unlockGuild(guildId: string, guild: Guild): Promise<void> {
+  const channelIds = lockedChannels.get(guildId);
+  if (!channelIds) return;
+
+  const everyone = guild.roles.everyone;
+  for (const channelId of channelIds) {
+    const channel = guild.channels.cache.get(channelId);
+    if (channel && channel.isTextBased() && 'permissionOverwrites' in channel) {
+      await (channel as TextChannel).permissionOverwrites
+        .edit(everyone.id, { SendMessages: null })
+        .catch(() => {});
+    }
+  }
+  lockedChannels.delete(guildId);
 }

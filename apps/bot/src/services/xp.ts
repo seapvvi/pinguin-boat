@@ -8,37 +8,26 @@ import { trackWarXp } from './clans';
 export const XP_PER_VOCAL_MINUTE = 15;
 export const DEFAULT_LEVEL_FORMULA = '100 * level * 1.5';
 
-function evaluateFormula(formula: string, level: number): number {
-  try {
-    const sanitized = formula.replace(/[^0-9+\-*/.()\s^level]/g, '');
-    const fn = new Function('level', `"use strict"; return Math.floor(${sanitized});`);
-    const result = fn(level);
-    return Number.isFinite(result) ? Math.max(0, result) : 0;
-  } catch {
-    return Math.floor(100 * level * 1.5);
-  }
-}
-
-export function calculateLevel(xp: number, formula: string = DEFAULT_LEVEL_FORMULA): number {
+export function calculateLevel(xp: number): number {
   if (!Number.isFinite(xp) || xp < 0) return 0;
   let level = 0;
   const maxIter = 10000;
   while (level < maxIter) {
-    const required = evaluateFormula(formula, level + 1);
+    const required = Math.floor(100 * (level + 1) * 1.5);
     if (required > xp) break;
     level++;
   }
   return level;
 }
 
-export function calculateXpForLevel(level: number, formula: string = DEFAULT_LEVEL_FORMULA): number {
+export function calculateXpForLevel(level: number): number {
   if (!Number.isFinite(level) || level < 0) return 0;
-  return evaluateFormula(formula, level);
+  return Math.floor(100 * level * 1.5);
 }
 
-export function calculateXpForNextLevel(currentXp: number, formula: string = DEFAULT_LEVEL_FORMULA): number {
-  const currentLevel = calculateLevel(currentXp, formula);
-  return calculateXpForLevel(currentLevel + 1, formula);
+export function calculateXpForNextLevel(currentXp: number): number {
+  const currentLevel = calculateLevel(currentXp);
+  return calculateXpForLevel(currentLevel + 1);
 }
 
 function parseJsonIds(raw: string): string[] {
@@ -64,8 +53,6 @@ export async function addMessageXp(
     return { xp: p?.xp ?? 0, level: p?.level ?? 0, leveledUp: false };
   }
 
-  const levelFormula = settings?.levelFormula || DEFAULT_LEVEL_FORMULA;
-
   if (settings) {
     const noXpChannels = parseJsonIds(settings.noXpChannels);
     const noXpRoles = parseJsonIds(settings.noXpRoles);
@@ -83,49 +70,54 @@ export async function addMessageXp(
     }
   }
 
-  let profile = await prisma.xPProfile.findUnique({
-    where: { guildId_userId: { guildId, userId } },
-  });
-
-  if (!profile) {
-    profile = await prisma.xPProfile.create({
-      data: { guildId, userId, xp: 0, level: 0, voiceXp: 0, messageCount: 0, voiceMinutes: 0 },
-    });
-  }
-
   const messageCooldown = (settings?.messageCooldown ?? 60) * 1000;
-  if (profile.lastMessageAt) {
-    const msSince = now.getTime() - profile.lastMessageAt.getTime();
-    if (msSince < messageCooldown) {
-      return { xp: profile.xp, level: profile.level, leveledUp: false };
+
+  const { xp, level, leveledUp, xpGain } = await prisma.$transaction(async (tx) => {
+    let profile = await tx.xPProfile.findUnique({
+      where: { guildId_userId: { guildId, userId } },
+    });
+
+    if (!profile) {
+      profile = await tx.xPProfile.create({
+        data: { guildId, userId, xp: 0, level: 0, voiceXp: 0, messageCount: 0, voiceMinutes: 0 },
+      });
     }
-  }
 
-  const xpMin = settings?.xpPerMessageMin ?? 15;
-  const xpMax = settings?.xpPerMessageMax ?? 25;
-  let xpGain = Math.floor(Math.random() * (xpMax - xpMin + 1)) + xpMin;
-  if (settings?.doubleXpLongMessages && (options?.contentLength ?? 0) > 250) {
-    xpGain *= 2;
-  }
-  if (settings?.xpMultiplier && settings.xpMultiplier !== 1) {
-    xpGain = Math.floor(xpGain * settings.xpMultiplier);
-  }
-  if (await isEventActive('double_xp')) {
-    xpGain *= 2;
-  }
+    if (profile.lastMessageAt) {
+      const msSince = now.getTime() - profile.lastMessageAt.getTime();
+      if (msSince < messageCooldown) {
+        return { xp: profile.xp, level: profile.level, leveledUp: false, xpGain: 0 };
+      }
+    }
 
-  const newXp = profile.xp + xpGain;
-  const newLevel = calculateLevel(newXp, levelFormula);
-  const leveledUp = newLevel > profile.level;
+    const xpMin = settings?.xpPerMessageMin ?? 15;
+    const xpMax = settings?.xpPerMessageMax ?? 25;
+    let xpGain = Math.floor(Math.random() * (xpMax - xpMin + 1)) + xpMin;
+    if (settings?.doubleXpLongMessages && (options?.contentLength ?? 0) > 250) {
+      xpGain *= 2;
+    }
+    if (settings?.xpMultiplier && settings.xpMultiplier !== 1) {
+      xpGain = Math.floor(xpGain * settings.xpMultiplier);
+    }
+    if (await isEventActive('double_xp')) {
+      xpGain *= 2;
+    }
 
-  await prisma.xPProfile.update({
-    where: { guildId_userId: { guildId, userId } },
-    data: {
-      xp: newXp,
-      level: newLevel,
-      messageCount: { increment: 1 },
-      lastMessageAt: now,
-    },
+    const newXp = profile.xp + xpGain;
+    const newLevel = calculateLevel(newXp);
+    const leveledUp = newLevel > profile.level;
+
+    await tx.xPProfile.update({
+      where: { guildId_userId: { guildId, userId } },
+      data: {
+        xp: newXp,
+        level: newLevel,
+        messageCount: { increment: 1 },
+        lastMessageAt: now,
+      },
+    });
+
+    return { xp: newXp, level: newLevel, leveledUp, xpGain };
   });
 
   await trackWarXp(guildId, userId, xpGain);
@@ -154,8 +146,6 @@ export async function addVoiceXp(
     return { xp: p?.xp ?? 0, level: p?.level ?? 0, leveledUp: false };
   }
 
-  const levelFormula = settings?.levelFormula || DEFAULT_LEVEL_FORMULA;
-
   let profile = await prisma.xPProfile.findUnique({
     where: { guildId_userId: { guildId, userId } },
   });
@@ -183,7 +173,7 @@ export async function addVoiceXp(
   }
 
   const newXp = profile.xp + xpGain;
-  const newLevel = calculateLevel(newXp, levelFormula);
+  const newLevel = calculateLevel(newXp);
   const leveledUp = newLevel > profile.level;
 
   await prisma.xPProfile.update({

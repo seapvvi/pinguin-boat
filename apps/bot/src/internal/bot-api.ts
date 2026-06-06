@@ -8,7 +8,7 @@ import { logger } from '@pinguin/shared';
 
 export function startInternalBotApi(client: Client): void {
   const port = parseInt(process.env.BOT_INTERNAL_PORT || '3002');
-  const secret = process.env.BOT_INTERNAL_SECRET || 'dev-secret';
+  const secret = process.env.BOT_INTERNAL_SECRET || (process.env.NODE_ENV === 'production' ? (() => { throw new Error('BOT_INTERNAL_SECRET must be set in production'); })() : 'dev-secret');
 
   const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
