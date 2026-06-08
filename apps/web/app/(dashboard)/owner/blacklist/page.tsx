@@ -12,17 +12,7 @@ import {
 import type { Column } from '@pinguin/ui';
 import { fetchBlacklist, blacklistTarget, unblacklistTarget } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-
-interface BlacklistEntry {
-  id: string;
-  targetId: string;
-  targetType: 'USER' | 'GUILD';
-  reason: string;
-  moderatorId: string;
-  moderatorName?: string;
-  createdAt: string;
-  targetName?: string;
-}
+import type { BlacklistEntry } from '@pinguin/shared';
 
 export default function OwnerBlacklistPage() {
   const [entries, setEntries] = useState<BlacklistEntry[]>([]);
@@ -41,7 +31,7 @@ export default function OwnerBlacklistPage() {
     setError(null);
     try {
       const res = await fetchBlacklist();
-      if (res.success && res.data) setEntries(res.data.entries ?? []);
+      if (res.success && res.data) setEntries(res.data.entries);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {

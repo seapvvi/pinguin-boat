@@ -16,6 +16,8 @@ import type {
   ChangelogListDTO,
   BlacklistListDTO,
   GuildBlacklistListDTO,
+  AnnouncementListDTO,
+  ErrorLogListDTO,
   SystemMetricsDTO,
   StreamNotification,
 } from '@pinguin/shared';
@@ -291,8 +293,8 @@ export async function fetchSystemMetrics(): Promise<APIResponse<SystemMetricsDTO
   return api.get<APIResponse<SystemMetricsDTO>>('/api/owner/metrics');
 }
 
-export async function fetchErrorLogs(params?: Record<string, string>): Promise<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>> {
-  return api.get<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>>('/api/owner/errors', params);
+export async function fetchErrorLogs(params?: Record<string, string>): Promise<APIResponse<ErrorLogListDTO>> {
+  return api.get<APIResponse<ErrorLogListDTO>>('/api/owner/errors', params);
 }
 
 export async function fetchOwnerLogs(params?: Record<string, string>): Promise<APIResponse<unknown>> {
@@ -303,8 +305,8 @@ export async function sendAnnouncement(message: string, targetType: 'ALL' | 'GUI
   return api.post<APIResponse<{ success: boolean }>>('/api/owner/announcements', { message, targetType, guildId });
 }
 
-export async function fetchAnnouncements(params?: Record<string, string>): Promise<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>> {
-  return api.get<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>>('/api/owner/announcements', params);
+export async function fetchAnnouncements(params?: Record<string, string>): Promise<APIResponse<AnnouncementListDTO>> {
+  return api.get<APIResponse<AnnouncementListDTO>>('/api/owner/announcements', params);
 }
 
 export async function get2FAStatus(): Promise<APIResponse<{ enabled: boolean; qrCode?: string; secret?: string }>> {

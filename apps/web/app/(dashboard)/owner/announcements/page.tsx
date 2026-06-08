@@ -11,16 +11,7 @@ import {
 } from '@pinguin/ui';
 import { sendAnnouncement, fetchAnnouncements } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-
-interface Announcement {
-  id: string;
-  message: string;
-  targetType: 'ALL' | 'GUILD';
-  guildId?: string;
-  status: 'SENT' | 'PENDING' | 'FAILED';
-  sentBy: string;
-  createdAt: string;
-}
+import type { Announcement } from '@pinguin/shared';
 
 export default function OwnerAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -37,7 +28,7 @@ export default function OwnerAnnouncementsPage() {
     setError(null);
     try {
       const res = await fetchAnnouncements({ limit: '50' });
-      if (res.success && res.data) setAnnouncements(res.data.entries ?? []);
+      if (res.success && res.data) setAnnouncements(res.data.entries);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {

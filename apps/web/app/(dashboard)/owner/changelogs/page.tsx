@@ -11,24 +11,15 @@ import {
 } from '@pinguin/ui';
 import { fetchChangelogs, createChangelog, updateChangelog, deleteChangelog } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-
-interface ChangelogEntry {
-  id: string;
-  title: string;
-  content: string;
-  version: string;
-  published?: boolean;
-  authorId: string;
-  createdAt: string;
-}
+import type { Changelog } from '@pinguin/shared';
 
 export default function OwnerChangelogsPage() {
-  const [changelogs, setChangelogs] = useState<ChangelogEntry[]>([]);
+  const [changelogs, setChangelogs] = useState<Changelog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [editTarget, setEditTarget] = useState<ChangelogEntry | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<ChangelogEntry | null>(null);
+  const [editTarget, setEditTarget] = useState<Changelog | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Changelog | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
   const [formVersion, setFormVersion] = useState('');
@@ -39,7 +30,7 @@ export default function OwnerChangelogsPage() {
     setError(null);
     try {
       const res = await fetchChangelogs({ limit: '50' });
-      if (res.success && res.data) setChangelogs(res.data.entries ?? []);
+      if (res.success && res.data) setChangelogs(res.data.entries);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
@@ -61,7 +52,7 @@ export default function OwnerChangelogsPage() {
     setShowCreate(true);
   };
 
-  const openEdit = (cl: ChangelogEntry) => {
+  const openEdit = (cl: Changelog) => {
     setFormTitle(cl.title);
     setFormContent(cl.content);
     setFormVersion(cl.version);
@@ -84,7 +75,7 @@ export default function OwnerChangelogsPage() {
     } catch { /* ignore */ } finally { setActionLoading(false); }
   };
 
-  const handleTogglePublish = async (cl: ChangelogEntry) => {
+  const handleTogglePublish = async (cl: Changelog) => {
     try {
       await updateChangelog(cl.id, { published: !cl.published });
       load();

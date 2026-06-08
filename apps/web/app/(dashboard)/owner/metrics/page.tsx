@@ -10,6 +10,7 @@ import {
 } from '@pinguin/ui';
 import { fetchSystemMetrics, fetchErrorLogs } from '@/lib/api';
 import { formatNumber, formatDuration, formatDate } from '@/lib/utils';
+import type { ErrorLog } from '@pinguin/shared';
 
 interface MetricsData {
   cpu: number;
@@ -22,18 +23,9 @@ interface MetricsData {
   activeChannels: number;
 }
 
-interface ErrorEntry {
-  id: string;
-  message: string;
-  stack?: string;
-  service: string;
-  level: string;
-  createdAt: string;
-}
-
 export default function OwnerMetricsPage() {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
-  const [errors, setErrors] = useState<ErrorEntry[]>([]);
+  const [errors, setErrors] = useState<ErrorLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedError, setExpandedError] = useState<string | null>(null);
@@ -47,7 +39,7 @@ export default function OwnerMetricsPage() {
         fetchErrorLogs({ limit: '20' }),
       ]);
       if (metricsRes.success && metricsRes.data) setMetrics(metricsRes.data.metrics);
-      if (errorsRes.success && errorsRes.data) setErrors(errorsRes.data.entries ?? []);
+      if (errorsRes.success && errorsRes.data) setErrors(errorsRes.data.entries);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {

@@ -331,6 +331,7 @@ export interface Changelog {
   version: string;
   authorId: string;
   createdAt: string;
+  published?: boolean;
 }
 
 export interface SystemMetrics {
@@ -356,6 +357,27 @@ export interface BlacklistEntry {
   targetType: 'USER' | 'GUILD';
   reason: string;
   moderatorId: string;
+  moderatorName?: string;
+  createdAt: string;
+  targetName?: string;
+}
+
+export interface Announcement {
+  id: string;
+  message: string;
+  targetType: 'ALL' | 'GUILD';
+  guildId?: string;
+  status: 'SENT' | 'PENDING' | 'FAILED';
+  sentBy: string;
+  createdAt: string;
+}
+
+export interface ErrorLog {
+  id: string;
+  message: string;
+  stack?: string;
+  service: string;
+  level: string;
   createdAt: string;
 }
 

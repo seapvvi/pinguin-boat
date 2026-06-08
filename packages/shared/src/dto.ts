@@ -20,6 +20,8 @@ import type {
   PaginationParams,
   XPProfile,
   EconomyWallet,
+  Announcement,
+  ErrorLog,
 } from './types';
 
 export interface LoginResponseDTO {
@@ -194,6 +196,16 @@ export interface BlacklistListDTO {
 
 export interface GuildBlacklistListDTO {
   entries: GuildBlacklistUser[];
+  pagination: PaginationParams & { total: number; totalPages: number };
+}
+
+export interface AnnouncementListDTO {
+  entries: Announcement[];
+  pagination: PaginationParams & { total: number; totalPages: number };
+}
+
+export interface ErrorLogListDTO {
+  entries: ErrorLog[];
   pagination: PaginationParams & { total: number; totalPages: number };
 }
 

@@ -9,4 +9,7 @@ export * from './economyInterests';
 export * from './cooldown';
 export { logger, getLogger, type LoggerContext, type BotLogger } from './logger';
 
+export type { ErrorLog } from './types';
+export type { ErrorLogListDTO } from './dto';
+
 
