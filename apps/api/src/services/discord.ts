@@ -64,13 +64,13 @@ async function discordFetch<T>(
   return response.json() as Promise<T>;
 }
 
-export async function exchangeCode(code: string): Promise<DiscordTokenResponse> {
+export async function exchangeCode(code: string, redirectUri: string): Promise<DiscordTokenResponse> {
   const data = new URLSearchParams({
     client_id: config.DISCORD_CLIENT_ID,
     client_secret: config.DISCORD_CLIENT_SECRET,
     grant_type: 'authorization_code',
     code,
-    redirect_uri: config.NEXT_PUBLIC_DISCORD_REDIRECT_URI,
+    redirect_uri: redirectUri,
   });
 
   const response = await fetch(`${API_BASE}/oauth2/token`, {

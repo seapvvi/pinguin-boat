@@ -5,7 +5,7 @@ import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
 import { getMinigameSettings, createGameSession, getActiveSession, updateGameSession, endGameSession, minigameChannelError } from '../../services/minigames';
 import { successEmbed, errorEmbed, createEmbed } from '../../services/embed';
 import { isModuleEnabled } from '../../guards/module';
-import { checkCooldown } from '../../guards/cooldown';
+import { setCooldown } from '../../guards/cooldown';
 import { logger } from '@pinguin/shared';
 
 interface Horse {
@@ -79,12 +79,6 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       await interaction.editReply({ 
         embeds: [errorEmbed('Fonds insuffisants', 'Vous n\'avez que ' + wallet.wallet + ' ' + economySettings.currencySymbol + ' dans votre portefeuille.')] 
       });
-      return;
-    }
-
-    const cooldownCheck = checkCooldown(interaction, 'race', 5);
-    if (!cooldownCheck.allowed) {
-      await interaction.editReply({ embeds: [errorEmbed('Cooldown', cooldownCheck.message!)] });
       return;
     }
 
@@ -166,6 +160,9 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
           where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
           data: { wallet: { decrement: bet } },
         });
+
+        // Set cooldown only after bet is deducted (game actually starts)
+        setCooldown(interaction.user.id, 'race', 5);
 
         // Initialize race state
         const raceHorses = HORSES.map((h) => ({ ...h, position: 0, speed: 0 }));

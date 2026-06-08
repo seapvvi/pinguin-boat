@@ -4,7 +4,7 @@ import { ensureUser } from '../../services/user';
 import { errorEmbed } from '../../services/embed';
 import { calculateXpForNextLevel } from '../../services/xp';
 import { isModuleEnabled } from '../../guards/module';
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { logger } from '@pinguin/shared';
 import { AttachmentBuilder } from 'discord.js';
 
@@ -93,18 +93,36 @@ async function generateRankCard(
   rank: number,
   levelColor: string
 ): Promise<Buffer> {
-  const width = 800;
-  const height = 250;
+  const width = 900;
+  const height = 280;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  // Fond sombre avec dégradé
-  const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, '#1a1a2e');
-  gradient.addColorStop(1, '#16213e');
+  // Fond sombre avec dégradé radial partant du centre
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = Math.max(width, height) / 1.5;
+  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+  gradient.addColorStop(0, '#0d1117');
+  gradient.addColorStop(1, '#1a1a2e');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
+
+  // Dessin des 25 flocons de neige aléatoires
+  for (let i = 0; i < 25; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const size = 8 + Math.random() * 10; // Entre 8px et 18px
+    const opacity = 0.15 + Math.random() * 0.25; // Entre 0.15 et 0.4
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `${size}px Sans`;
+    ctx.fillText('❄', x, y);
+    ctx.restore();
+  }
 
   // Bordure colorée
   ctx.strokeStyle = levelColor;
@@ -134,23 +152,23 @@ async function generateRankCard(
 
   // Configuration du texte
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 32px Arial';
+  ctx.font = 'bold 32px Sans';
   ctx.fillText(username, 170, 60);
 
   // Niveau
   ctx.fillStyle = '#a0a0a0';
-  ctx.font = '20px Arial';
+  ctx.font = '20px Sans';
   ctx.fillText(`Niveau ${level}`, 170, 95);
 
   // Rang
   ctx.fillStyle = levelColor;
-  ctx.font = 'bold 24px Arial';
+  ctx.font = 'bold 24px Sans';
   ctx.fillText(`Rang #${rank}`, 170, 130);
 
   // Barre de progression
   const barX = 170;
-  const barY = 150;
-  const barWidth = 580;
+  const barY = 155;
+  const barWidth = 680;
   const barHeight = 20;
 
   // Fond de la barre
@@ -168,12 +186,13 @@ async function generateRankCard(
   ctx.roundRect(barX, barY, progressWidth, barHeight, 10);
   ctx.fill();
 
-  // Texte XP
+  // Texte XP (aligné à gauche)
   ctx.fillStyle = '#ffffff';
-  ctx.font = '16px Arial';
+  ctx.font = '16px Sans';
+  ctx.textAlign = 'left';
   ctx.fillText(`${currentXp} / ${requiredXp} XP`, barX, barY - 10);
 
-  // Pourcentage
+  // Pourcentage (aligné à droite, espacement suffisant pour éviter le chevauchement)
   ctx.textAlign = 'right';
   ctx.fillText(`${(progress * 100).toFixed(1)}%`, barX + barWidth, barY - 10);
   ctx.textAlign = 'left';

@@ -35,11 +35,31 @@ export interface User {
 }
 
 export function getLoginUrl(): string {
-  return '/api/auth/login';
+  const DISCORD_CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
+  const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+
+  if (!DISCORD_CLIENT_ID || !NEXT_PUBLIC_APP_URL) {
+    throw new Error('Variables d\'environnement NEXT_PUBLIC_DISCORD_CLIENT_ID et NEXT_PUBLIC_APP_URL requises');
+  }
+
+  // IMPORTANT: Enregistrer exactement cette URL dans Discord Developer Portal → OAuth2 → Redirects
+  const redirect_uri = encodeURIComponent(`${NEXT_PUBLIC_APP_URL}/auth/callback`);
+
+  return `https://discord.com/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${redirect_uri}&response_type=code&scope=identify+guilds`;
 }
 
 export async function handleCallback(code: string, state: string): Promise<AuthCallbackDTO> {
-  const data = await api.get<APIResponse<AuthCallbackDTO>>(`/api/auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
+  const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+
+  if (!NEXT_PUBLIC_APP_URL) {
+    throw new Error('Variable d\'environnement NEXT_PUBLIC_APP_URL requise');
+  }
+
+  const redirect_uri = encodeURIComponent(`${NEXT_PUBLIC_APP_URL}/auth/callback`);
+
+  const data = await api.get<APIResponse<AuthCallbackDTO>>(
+    `/api/auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&redirect_uri=${redirect_uri}`
+  );
   if (!data.success || !data.data) {
     throw new Error(data.error || 'Échec de l\'authentification');
   }

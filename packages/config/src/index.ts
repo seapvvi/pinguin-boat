@@ -30,8 +30,8 @@ const envSchema = z.object({
 
   // Web
   NEXT_PUBLIC_API_URL: z.string().url(),
+  NEXT_PUBLIC_APP_URL: z.string().url(),
   NEXT_PUBLIC_DISCORD_CLIENT_ID: z.string().min(1),
-  NEXT_PUBLIC_DISCORD_REDIRECT_URI: z.string().url(),
   NEXT_PUBLIC_SITE_URL: z.string().url(),
 
   // Bot

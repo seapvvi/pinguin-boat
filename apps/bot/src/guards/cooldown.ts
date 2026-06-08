@@ -40,6 +40,23 @@ export function checkCooldown(
   return { allowed: true };
 }
 
+export function setCooldown(
+  userId: Snowflake,
+  commandName: string,
+  cooldownSeconds: number = 3
+): void {
+  if (!cooldowns.has(commandName)) {
+    cooldowns.set(commandName, new Collection());
+  }
+
+  const now = Date.now();
+  const timestamps = cooldowns.get(commandName)!;
+  const cooldownAmount = cooldownSeconds * 1000;
+
+  timestamps.set(userId, now);
+  setTimeout(() => timestamps.delete(userId), cooldownAmount);
+}
+
 export function clearCooldowns(userId: Snowflake): void {
   for (const [, timestamps] of cooldowns) {
     timestamps.delete(userId);

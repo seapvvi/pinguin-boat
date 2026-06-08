@@ -50,19 +50,15 @@ async function createStreamFromUrl(url: string): Promise<{ stream: any; type: St
       musicLogger.error('play-dl stream error', { err: err.message });
     });
 
-
-
     return { stream: result.stream, type: result.type as unknown as StreamType };
   } catch (e: any) {
-    musicLogger.warn('play-dl failed, trying ytdl-core', { err: e.message });
+    musicLogger.warn('play-dl failed, trying ytdl-core fallback', { err: e.message });
   }
 
-
-  // Fallback to ytdl-core
+  // Fallback to ytdl-core (only for stream creation, not for info/search)
   try {
     const ytdl = await import('@distube/ytdl-core');
     if (ytdl.default.validateURL(url)) {
-
       const stream = ytdl.default(url, {
         filter: 'audioonly',
         quality: 'highestaudio',
@@ -78,9 +74,8 @@ async function createStreamFromUrl(url: string): Promise<{ stream: any; type: St
       return { stream, type: StreamType.Arbitrary };
     }
   } catch (e: any) {
-    musicLogger.error('ytdl-core also failed', { err: e.message });
+    musicLogger.error('ytdl-core fallback also failed', { err: e.message });
   }
-
 
   throw new Error('Impossible de créer le stream audio. Vérifiez que l\'URL est valide.');
 }
@@ -239,39 +234,47 @@ export async function play(guildId: string, query: string, requester: GuildMembe
   let trackUrl: string;
   let track: TrackInfo;
 
-  // If direct YouTube URL, validate and get info directly
+  // Use play-dl as primary engine for both direct URLs and searches
   try {
-    const ytdl = await import('@distube/ytdl-core');
-    if (ytdl.default.validateURL(query)) {
-      const info = await ytdl.default.getInfo(query);
-      const details = info.videoDetails;
+    // Check if query is a direct YouTube URL
+    const isYouTubeUrl = playdl.yt_validate(query) === 'video';
+
+    if (isYouTubeUrl) {
+      // Direct YouTube URL: use playdl.video_info
+      const videoInfo = await playdl.video_info(query);
+      const videoDetails = videoInfo.video_details;
       track = {
-        title: details.title ?? 'Inconnu',
-        url: details.video_url,
-        duration: parseInt(details.lengthSeconds, 10) || 0,
-        thumbnail: details.thumbnails?.[details.thumbnails.length - 1]?.url ?? '',
-        author: details.author?.name ?? 'Inconnu',
+        title: videoDetails.title ?? 'Inconnu',
+        url: videoDetails.url,
+        duration: videoDetails.durationInSec ?? 0,
+        thumbnail: videoDetails.thumbnails?.[0]?.url ?? '',
+        author: videoDetails.channel?.name ?? 'Inconnu',
         source: 'YOUTUBE',
       };
-      trackUrl = details.video_url;
+      trackUrl = videoDetails.url;
     } else {
-      throw new Error('Not a direct URL');
+      // Text search: use playdl.search
+      const searchResult = await playdl.search(query, { limit: 1, source: { youtube: 'video' } });
+      if (!searchResult.length) throw new Error('Aucun résultat trouvé.');
+      const r = searchResult[0];
+      trackUrl = r.url ?? '';
+      if (!trackUrl) throw new Error('URL introuvable dans le résultat de recherche.');
+      track = {
+        title: r.title ?? 'Inconnu',
+        url: trackUrl,
+        duration: r.durationInSec ?? 0,
+        thumbnail: r.thumbnails?.[0]?.url ?? '',
+        author: r.channel?.name ?? 'Inconnu',
+        source: trackUrl.includes('youtube') || trackUrl.includes('youtu.be') ? 'YOUTUBE' : 'OTHER',
+      };
     }
-  } catch {
-    // Search via play-dl
-    const searchResult = await playdl.search(query, { limit: 1, source: { youtube: 'video' } });
-    if (!searchResult.length) throw new Error('Aucun résultat trouvé.');
-    const r = searchResult[0];
-    trackUrl = (r as any).url ?? r.url ?? '';
-    if (!trackUrl) throw new Error('URL introuvable dans le résultat de recherche.');
-    track = {
-      title: (r as any).title ?? 'Inconnu',
-      url: trackUrl,
-      duration: (r as any).durationInSec ?? 0,
-      thumbnail: (r as any).thumbnails?.[0]?.url ?? (r as any).thumbnail ?? '',
-      author: r.channel?.name ?? 'Inconnu',
-      source: trackUrl.includes('youtube') || trackUrl.includes('youtu.be') ? 'YOUTUBE' : 'OTHER',
-    };
+  } catch (err: any) {
+    musicLogger.error('play-dl search/info failed', { err: err.message, query });
+    // Better error message mentioning YOUTUBE_COOKIE if YouTube blocks the request
+    if (err.message?.includes('429') || err.message?.includes('Too Many Requests') || err.message?.includes('cookie')) {
+      throw new Error('YouTube bloque les requêtes. Vérifiez la variable d\'environnement YOUTUBE_COOKIE dans le fichier .env.');
+    }
+    throw new Error(`Erreur lors de la recherche: ${err.message}`);
   }
 
   musicLogger.info('Resolved track', { title: track.title, url: track.url });

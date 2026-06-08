@@ -13,6 +13,7 @@ const MAX_ACTIVE_SESSIONS = 10;
 const callbackQuerySchema = z.object({
   code: z.string().min(1),
   state: z.string().optional(),
+  redirect_uri: z.string().url().optional(),
 });
 
 export async function authRoutes(app: FastifyInstance) {
@@ -34,9 +35,11 @@ export async function authRoutes(app: FastifyInstance) {
       maxAge: 600,
     });
 
+    const redirectUri = `${config.NEXT_PUBLIC_APP_URL}/auth/callback`;
+
     const url = new URL('https://discord.com/api/oauth2/authorize');
     url.searchParams.set('client_id', config.DISCORD_CLIENT_ID);
-    url.searchParams.set('redirect_uri', config.NEXT_PUBLIC_DISCORD_REDIRECT_URI);
+    url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('scope', 'identify email guilds');
     url.searchParams.set('prompt', 'none');
@@ -69,7 +72,8 @@ export async function authRoutes(app: FastifyInstance) {
     reply.clearCookie('oauth_state', { path: '/' });
 
     try {
-      const tokenData = await DiscordService.exchangeCode(query.data.code);
+      const redirectUri = query.data.redirect_uri || `${config.NEXT_PUBLIC_APP_URL}/auth/callback`;
+      const tokenData = await DiscordService.exchangeCode(query.data.code, redirectUri);
       const discordUser = await DiscordService.getUser(tokenData.access_token);
       const guilds = await DiscordService.getUserGuilds(tokenData.access_token);
 
