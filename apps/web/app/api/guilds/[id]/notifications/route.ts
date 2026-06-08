@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@pinguin/db';
+import { webLogger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -15,7 +16,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: { notifications } });
   } catch (error) {
-    console.error('Error fetching notifications:', error);
+    webLogger.error('Error fetching notifications:', error);
     return NextResponse.json(
       { success: false, error: 'Erreur lors du chargement des notifications' },
       { status: 500 },
@@ -56,7 +57,7 @@ export async function POST(
         { status: 409 },
       );
     }
-    console.error('Error creating notification:', error);
+    webLogger.error('Error creating notification:', error);
     return NextResponse.json(
       { success: false, error: 'Erreur lors de la création de la notification' },
       { status: 500 },

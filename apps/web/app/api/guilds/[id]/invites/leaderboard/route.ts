@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@pinguin/db';
+import { webLogger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -60,7 +61,7 @@ export async function GET(
       data: { leaderboard: rankedEntries },
     });
   } catch (error) {
-    console.error('Error fetching invite leaderboard:', error);
+    webLogger.error('Error fetching invite leaderboard:', error);
     return NextResponse.json(
       {
         success: false,

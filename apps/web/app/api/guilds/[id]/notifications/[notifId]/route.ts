@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@pinguin/db';
+import { webLogger } from '@/lib/logger';
 
 export async function PATCH(
   request: NextRequest,
@@ -61,7 +62,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true, data: { success: true } });
   } catch (error) {
-    console.error('Error deleting notification:', error);
+    webLogger.error('Error deleting notification:', error);
     return NextResponse.json(
       { success: false, error: 'Erreur lors de la suppression de la notification' },
       { status: 500 },

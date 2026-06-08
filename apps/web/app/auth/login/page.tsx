@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { Logo } from '@pinguin/ui';
 import { getLoginUrl } from '@/lib/auth';
 

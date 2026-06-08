@@ -121,12 +121,12 @@ export async function fetchModCases(
   return api.get<APIResponse<ModCaseListDTO>>(`/api/guilds/${guildId}/moderation`, params);
 }
 
-export async function fetchGuildChannels(guildId: string): Promise<APIResponse<{ channels: any[] }>> {
-  return api.get<APIResponse<{ channels: any[] }>>(`/api/guilds/${guildId}/channels`);
+export async function fetchGuildChannels(guildId: string): Promise<APIResponse<{ channels: unknown[] }>> {
+  return api.get<APIResponse<{ channels: unknown[] }>>(`/api/guilds/${guildId}/channels`);
 }
 
-export async function fetchGuildRoles(guildId: string): Promise<APIResponse<{ roles: any[] }>> {
-  return api.get<APIResponse<{ roles: any[] }>>(`/api/guilds/${guildId}/roles`);
+export async function fetchGuildRoles(guildId: string): Promise<APIResponse<{ roles: unknown[] }>> {
+  return api.get<APIResponse<{ roles: unknown[] }>>(`/api/guilds/${guildId}/roles`);
 }
 
 export async function fetchTickets(
@@ -218,12 +218,12 @@ export async function fetchGuildBlacklist(
 
 // --- Owner-specific API functions ---
 
-export async function fetchOwnerUsers(params?: Record<string, string>): Promise<APIResponse<{ users: any[]; pagination: any }>> {
-  return api.get<APIResponse<{ users: any[]; pagination: any }>>('/api/owner/users', params);
+export async function fetchOwnerUsers(params?: Record<string, string>): Promise<APIResponse<{ users: unknown[]; pagination: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ users: unknown[]; pagination: Record<string, unknown> }>>('/api/owner/users', params);
 }
 
-export async function fetchOwnerServers(params?: Record<string, string>): Promise<APIResponse<{ servers: any[]; pagination: any }>> {
-  return api.get<APIResponse<{ servers: any[]; pagination: any }>>('/api/owner/servers', params);
+export async function fetchOwnerServers(params?: Record<string, string>): Promise<APIResponse<{ servers: unknown[]; pagination: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ servers: unknown[]; pagination: Record<string, unknown> }>>('/api/owner/servers', params);
 }
 
 export async function forceLeaveGuild(guildId: string): Promise<APIResponse<{ success: boolean }>> {
@@ -247,8 +247,8 @@ export async function revokePremium(userId?: string, guildId?: string): Promise<
   return api.post<APIResponse<{ success: boolean }>>('/api/owner/premium/revoke', { userId, guildId });
 }
 
-export async function fetchFeatureFlags(): Promise<APIResponse<{ flags: any[] }>> {
-  return api.get<APIResponse<{ flags: any[] }>>('/api/owner/feature-flags');
+export async function fetchFeatureFlags(): Promise<APIResponse<{ flags: unknown[] }>> {
+  return api.get<APIResponse<{ flags: unknown[] }>>('/api/owner/feature-flags');
 }
 
 export async function updateFeatureFlag(key: string, enabled: boolean, minTier?: string): Promise<APIResponse<{ success: boolean }>> {
@@ -275,12 +275,12 @@ export async function triggerRestart(service?: string): Promise<APIResponse<{ su
   return api.post<APIResponse<{ success: boolean }>>(service ? `/api/owner/services/restart/${service}` : '/api/owner/services/restart-all');
 }
 
-export async function createChangelog(data: { title: string; content: string; version: string }): Promise<APIResponse<{ changelog: any }>> {
-  return api.post<APIResponse<{ changelog: any }>>('/api/owner/changelogs', data);
+export async function createChangelog(data: { title: string; content: string; version: string }): Promise<APIResponse<{ changelog: Record<string, unknown> }>> {
+  return api.post<APIResponse<{ changelog: Record<string, unknown> }>>('/api/owner/changelogs', data);
 }
 
-export async function updateChangelog(id: string, data: Partial<{ title: string; content: string; version: string; published: boolean }>): Promise<APIResponse<{ changelog: any }>> {
-  return api.put<APIResponse<{ changelog: any }>>(`/api/owner/changelogs/${id}`, data);
+export async function updateChangelog(id: string, data: Partial<{ title: string; content: string; version: string; published: boolean }>): Promise<APIResponse<{ changelog: Record<string, unknown> }>> {
+  return api.put<APIResponse<{ changelog: Record<string, unknown> }>>(`/api/owner/changelogs/${id}`, data);
 }
 
 export async function deleteChangelog(id: string): Promise<APIResponse<{ success: boolean }>> {
@@ -291,20 +291,20 @@ export async function fetchSystemMetrics(): Promise<APIResponse<SystemMetricsDTO
   return api.get<APIResponse<SystemMetricsDTO>>('/api/owner/metrics');
 }
 
-export async function fetchErrorLogs(params?: Record<string, string>): Promise<APIResponse<{ entries: any[]; pagination: any }>> {
-  return api.get<APIResponse<{ entries: any[]; pagination: any }>>('/api/owner/errors', params);
+export async function fetchErrorLogs(params?: Record<string, string>): Promise<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>>('/api/owner/errors', params);
 }
 
-export async function fetchOwnerLogs(params?: Record<string, string>): Promise<APIResponse<any>> {
-  return api.get<APIResponse<any>>('/api/owner/logs', params);
+export async function fetchOwnerLogs(params?: Record<string, string>): Promise<APIResponse<unknown>> {
+  return api.get<APIResponse<unknown>>('/api/owner/logs', params);
 }
 
 export async function sendAnnouncement(message: string, targetType: 'ALL' | 'GUILD', guildId?: string): Promise<APIResponse<{ success: boolean }>> {
   return api.post<APIResponse<{ success: boolean }>>('/api/owner/announcements', { message, targetType, guildId });
 }
 
-export async function fetchAnnouncements(params?: Record<string, string>): Promise<APIResponse<{ entries: any[]; pagination: any }>> {
-  return api.get<APIResponse<{ entries: any[]; pagination: any }>>('/api/owner/announcements', params);
+export async function fetchAnnouncements(params?: Record<string, string>): Promise<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>>('/api/owner/announcements', params);
 }
 
 export async function get2FAStatus(): Promise<APIResponse<{ enabled: boolean; qrCode?: string; secret?: string }>> {
@@ -323,8 +323,8 @@ export async function disable2FA(code: string): Promise<APIResponse<{ success: b
   return api.post<APIResponse<{ success: boolean }>>('/api/owner/2fa/disable', { code });
 }
 
-export async function fetchServices(): Promise<APIResponse<{ services: any[] }>> {
-  return api.get<APIResponse<{ services: any[] }>>('/api/owner/services');
+export async function fetchServices(): Promise<APIResponse<{ services: unknown[] }>> {
+  return api.get<APIResponse<{ services: unknown[] }>>('/api/owner/services');
 }
 
 export async function toggleModule(
@@ -338,8 +338,8 @@ export async function toggleModule(
   );
 }
 
-export async function fetchAuditLogs(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: any[]; pagination: any }>> {
-  return api.get<APIResponse<{ entries: any[]; pagination: any }>>(`/api/guilds/${guildId}/audit`, params);
+export async function fetchAuditLogs(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>>(`/api/guilds/${guildId}/audit`, params);
 }
 
 export async function serviceAction(service: string, action: 'start' | 'stop' | 'restart'): Promise<APIResponse<{ success: boolean }>> {
@@ -356,84 +356,84 @@ export async function startService(service: string): Promise<APIResponse<{ succe
 
 // ─── Forms ───
 
-export async function fetchFormSettings(guildId: string): Promise<APIResponse<{ settings: any }>> {
-  return api.get<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/forms`);
+export async function fetchFormSettings(guildId: string): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/forms`);
 }
 
-export async function updateFormSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: any }>> {
-  return api.put<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/forms`, settings);
+export async function updateFormSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.put<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/forms`, settings);
 }
 
-export async function createFormTemplate(guildId: string, data: { name: string; description?: string; fields?: any[]; enabled?: boolean }): Promise<APIResponse<{ template: any }>> {
-  return api.post<APIResponse<{ template: any }>>(`/api/guilds/${guildId}/forms/templates`, data);
+export async function createFormTemplate(guildId: string, data: { name: string; description?: string; fields?: unknown[]; enabled?: boolean }): Promise<APIResponse<{ template: Record<string, unknown> }>> {
+  return api.post<APIResponse<{ template: Record<string, unknown> }>>(`/api/guilds/${guildId}/forms/templates`, data);
 }
 
-export async function updateFormTemplate(guildId: string, templateId: string, data: Record<string, unknown>): Promise<APIResponse<{ template: any }>> {
-  return api.put<APIResponse<{ template: any }>>(`/api/guilds/${guildId}/forms/templates/${templateId}`, data);
+export async function updateFormTemplate(guildId: string, templateId: string, data: Record<string, unknown>): Promise<APIResponse<{ template: Record<string, unknown> }>> {
+  return api.put<APIResponse<{ template: Record<string, unknown> }>>(`/api/guilds/${guildId}/forms/templates/${templateId}`, data);
 }
 
 export async function deleteFormTemplate(guildId: string, templateId: string): Promise<APIResponse<{ success: boolean }>> {
   return api.delete<APIResponse<{ success: boolean }>>(`/api/guilds/${guildId}/forms/templates/${templateId}`);
 }
 
-export async function fetchFormSubmissions(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ submissions: any[]; pagination: any }>> {
-  return api.get<APIResponse<{ submissions: any[]; pagination: any }>>(`/api/guilds/${guildId}/forms/submissions`, params);
+export async function fetchFormSubmissions(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ submissions: unknown[]; pagination: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ submissions: unknown[]; pagination: Record<string, unknown> }>>(`/api/guilds/${guildId}/forms/submissions`, params);
 }
 
-export async function updateFormSubmission(guildId: string, submissionId: string, data: Record<string, unknown>): Promise<APIResponse<{ submission: any }>> {
-  return api.patch<APIResponse<{ submission: any }>>(`/api/guilds/${guildId}/forms/submissions/${submissionId}`, data);
+export async function updateFormSubmission(guildId: string, submissionId: string, data: Record<string, unknown>): Promise<APIResponse<{ submission: Record<string, unknown> }>> {
+  return api.patch<APIResponse<{ submission: Record<string, unknown> }>>(`/api/guilds/${guildId}/forms/submissions/${submissionId}`, data);
 }
 
 // ─── Starboard ───
 
-export async function fetchStarboardSettings(guildId: string): Promise<APIResponse<{ settings: any }>> {
-  return api.get<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/starboard`);
+export async function fetchStarboardSettings(guildId: string): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/starboard`);
 }
 
-export async function updateStarboardSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: any }>> {
-  return api.put<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/starboard`, settings);
+export async function updateStarboardSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.put<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/starboard`, settings);
 }
 
-export async function fetchStarboardEntries(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: any[]; pagination: any }>> {
-  return api.get<APIResponse<{ entries: any[]; pagination: any }>>(`/api/guilds/${guildId}/starboard/entries`, params);
+export async function fetchStarboardEntries(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ entries: unknown[]; pagination: Record<string, unknown> }>>(`/api/guilds/${guildId}/starboard/entries`, params);
 }
 
 // ─── Clans ───
 
-export async function fetchClans(guildId: string): Promise<APIResponse<{ clans: any[] }>> {
-  return api.get<APIResponse<{ clans: any[] }>>(`/api/guilds/${guildId}/clans`);
+export async function fetchClans(guildId: string): Promise<APIResponse<{ clans: unknown[] }>> {
+  return api.get<APIResponse<{ clans: unknown[] }>>(`/api/guilds/${guildId}/clans`);
 }
 
 // ─── Minigames ───
 
-export async function fetchMinigameSettings(guildId: string): Promise<APIResponse<{ settings: any }>> {
-  return api.get<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/minigames`);
+export async function fetchMinigameSettings(guildId: string): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/minigames`);
 }
 
-export async function updateMinigameSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: any }>> {
-  return api.put<APIResponse<{ settings: any }>>(`/api/guilds/${guildId}/minigames`, settings);
+export async function updateMinigameSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.put<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/minigames`, settings);
 }
 
-export async function fetchMinigameLeaderboard(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: any[] }>> {
-  return api.get<APIResponse<{ entries: any[] }>>(`/api/guilds/${guildId}/minigames/leaderboard`, params);
+export async function fetchMinigameLeaderboard(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: unknown[] }>> {
+  return api.get<APIResponse<{ entries: unknown[] }>>(`/api/guilds/${guildId}/minigames/leaderboard`, params);
 }
 
 // ─── Onboarding ───
 
-export async function fetchOnboardingData(guildId: string): Promise<APIResponse<any>> {
-  return api.get<APIResponse<any>>(`/api/guilds/${guildId}/onboarding-data`);
+export async function fetchOnboardingData(guildId: string): Promise<APIResponse<unknown>> {
+  return api.get<APIResponse<unknown>>(`/api/guilds/${guildId}/onboarding-data`);
 }
 
-export async function markOnboardingDone(guildId: string): Promise<APIResponse<any>> {
-  return api.patch<APIResponse<any>>(`/api/guilds/${guildId}/settings/onboarding-done`);
+export async function markOnboardingDone(guildId: string): Promise<APIResponse<unknown>> {
+  return api.patch<APIResponse<unknown>>(`/api/guilds/${guildId}/settings/onboarding-done`);
 }
 
-export async function submitOnboardingSource(data: { guildId: string; source: string; details?: string }): Promise<APIResponse<any>> {
-  return api.post<APIResponse<any>>('/api/onboarding/source', data);
+export async function submitOnboardingSource(data: { guildId: string; source: string; details?: string }): Promise<APIResponse<unknown>> {
+  return api.post<APIResponse<unknown>>('/api/onboarding/source', data);
 }
 
-export async function fetchOnboardingSources(params?: Record<string, string>): Promise<APIResponse<any>> {
-  return api.get<APIResponse<any>>('/api/admin/onboarding/sources', params);
+export async function fetchOnboardingSources(params?: Record<string, string>): Promise<APIResponse<unknown>> {
+  return api.get<APIResponse<unknown>>('/api/admin/onboarding/sources', params);
 }
 
 export async function fetchMetricsSnapshots(): Promise<APIResponse<{ snapshots: SystemMetricsSnapshot[] }>> {

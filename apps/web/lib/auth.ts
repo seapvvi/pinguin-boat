@@ -35,17 +35,11 @@ export interface User {
 }
 
 export function getLoginUrl(): string {
-  const DISCORD_CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-  const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL;
-
-  if (!DISCORD_CLIENT_ID || !NEXT_PUBLIC_APP_URL) {
-    throw new Error('Variables d\'environnement NEXT_PUBLIC_DISCORD_CLIENT_ID et NEXT_PUBLIC_APP_URL requises');
-  }
-
-  // IMPORTANT: Enregistrer exactement cette URL dans Discord Developer Portal → OAuth2 → Redirects
-  const redirect_uri = encodeURIComponent(`${NEXT_PUBLIC_APP_URL}/auth/callback`);
-
-  return `https://discord.com/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${redirect_uri}&response_type=code&scope=identify+guilds`;
+  const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!clientId || !appUrl) return '#';
+  const redirectUri = encodeURIComponent(`${appUrl}/auth/callback`);
+  return `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify+guilds`;
 }
 
 export async function handleCallback(code: string, state: string): Promise<AuthCallbackDTO> {
