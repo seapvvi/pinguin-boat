@@ -297,8 +297,17 @@ export async function fetchErrorLogs(params?: Record<string, string>): Promise<A
   return api.get<APIResponse<ErrorLogListDTO>>('/api/owner/errors', params);
 }
 
-export async function fetchOwnerLogs(params?: Record<string, string>): Promise<APIResponse<unknown>> {
-  return api.get<APIResponse<unknown>>('/api/owner/logs', params);
+interface OwnerLogEntry {
+  id: string;
+  action: string;
+  details?: string | null;
+  userId?: string;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+export async function fetchOwnerLogs(params?: Record<string, string>): Promise<APIResponse<{ entries: OwnerLogEntry[]; pagination?: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ entries: OwnerLogEntry[]; pagination?: Record<string, unknown> }>>('/api/owner/logs', params);
 }
 
 export async function sendAnnouncement(message: string, targetType: 'ALL' | 'GUILD', guildId?: string): Promise<APIResponse<{ success: boolean }>> {
