@@ -35,7 +35,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: { notification } });
   } catch (error) {
-    console.error('Error updating notification:', error);
+    webLogger.error('Error updating notification:', error);
     return NextResponse.json(
       { success: false, error: 'Erreur lors de la mise à jour de la notification' },
       { status: 500 },

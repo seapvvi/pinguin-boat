@@ -53,10 +53,12 @@ export default function PollsPage() {
       let cancelled = false;
       fetchGuildChannels(guildId).then((res) => {
         if (!res.success || !res.data || cancelled) return;
-        const availableChannels = res.data.channels.filter((c: { type: number }) => c.type === 0);
+        const availableChannels = res.data.channels
+          .filter((c) => c.type === 0)
+          .map((c) => ({ id: String(c.id), name: String(c.name) })) as { id: string; name: string }[];
         setChannels(availableChannels);
         setForm((prev) => {
-          const hasCurrent = availableChannels.some((c: { id: string }) => c.id === prev.channelId);
+          const hasCurrent = availableChannels.some((c) => c.id === prev.channelId);
           const nextChannelId = hasCurrent ? prev.channelId : (availableChannels[0]?.id ?? '');
           return nextChannelId === prev.channelId ? prev : { ...prev, channelId: nextChannelId };
         });

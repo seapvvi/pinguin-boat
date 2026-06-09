@@ -50,8 +50,8 @@ export async function POST(
     });
 
     return NextResponse.json({ success: true, data: { notification } }, { status: 201 });
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return NextResponse.json(
         { success: false, error: 'Cette notification existe déjà pour ce serveur' },
         { status: 409 },
