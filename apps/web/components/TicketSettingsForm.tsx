@@ -24,7 +24,7 @@ export function TicketSettingsForm({ guildId }: { guildId: string }) {
   useEffect(() => {
     api.get<{ data: Record<string, unknown> }>(`/api/guilds/${guildId}/tickets/settings`)
       .then((res) => {
-        const payload = (res as any)?.data as Record<string, unknown> | undefined;
+        const payload = (res as { data?: Record<string, unknown> })?.data;
         if (payload) setSettings(sanitizeTicketSettingsPayload(payload));
       })
       .finally(() => setLoading(false));

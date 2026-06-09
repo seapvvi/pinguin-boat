@@ -3,8 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Wallet, TrendingUp, Banknote, ShoppingCart,
-  Plus, Coins
+  Banknote, ShoppingCart, Plus
 } from 'lucide-react';
 import { Card, Toggle, Input, Button, Badge, Table, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
@@ -76,8 +75,8 @@ export default function EconomyPage() {
     setSaveError(null);
     try {
       await saveEconomy(local);
-    } catch (e: any) {
-      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }

@@ -69,8 +69,8 @@ export default function ModerationPage() {
       await api.delete(`/api/guilds/${guildId}/moderation/${deleteTarget}`);
       setDeleteTarget(null);
       load(page);
-    } catch (e: any) {
-      setDeleteError(e?.message || 'Erreur lors de la suppression');
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Erreur lors de la suppression');
     } finally {
       setDeleting(false);
     }
@@ -116,8 +116,8 @@ export default function ModerationPage() {
       setCreateOpen(false);
       setForm({ userId: '', type: ModerationCaseType.WARN, reason: '', duration: '' });
       load(page);
-    } catch (e: any) {
-      setFormErrors({ general: e?.message || 'Erreur lors de la création' });
+    } catch (e) {
+      setFormErrors({ general: e instanceof Error ? e.message : 'Erreur lors de la création' });
     } finally {
       setSubmitting(false);
     }
@@ -131,8 +131,8 @@ export default function ModerationPage() {
     try {
       await api.post(`/api/guilds/${guildId}/moderation`, { type, userId: userId.trim(), reason: reason.trim() });
       load(page);
-    } catch (e: any) {
-      alert(e?.message || 'Erreur lors de l\'action rapide');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erreur lors de l\'action rapide');
     }
   };
 
@@ -142,7 +142,7 @@ export default function ModerationPage() {
     }
     try {
       const res = await api.get<{ data: { id: string; username: string; avatar?: string | null } }>(`/api/guilds/${guildId}/resolve-user/${userId}`);
-      const userData = (res as any)?.data as { id: string; username: string; avatar?: string | null };
+      const userData = (res as { data?: { id: string; username: string; avatar?: string | null } })?.data;
       if (userData) {
         setUserCache(prev => new Map(prev).set(userId, userData));
         return userData;
@@ -159,8 +159,8 @@ export default function ModerationPage() {
     try {
       await api.post(`/api/guilds/${guildId}/moderation/${caseId}/revoke`);
       load(page);
-    } catch (e: any) {
-      setRevokeError(e?.message || 'Erreur lors de la révocation');
+    } catch (e) {
+      setRevokeError(e instanceof Error ? e.message : 'Erreur lors de la révocation');
     } finally {
       setRevoking(null);
     }

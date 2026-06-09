@@ -37,8 +37,8 @@ export default function LevelsPage() {
         fetchGuildSettings(guildId),
         fetchXPLeaderboard(guildId, { page: '1', limit: '20' }),
       ]);
-      const settingsPayload = (settingsRes as any)?.data;
-      if (settingsPayload) {
+      const settingsPayload = (settingsRes as { data?: { guild?: GuildConfig } })?.data;
+      if (settingsPayload?.guild) {
         setConfig(settingsPayload.guild);
         const levels = settingsPayload.guild.levels;
         setLocal({
@@ -48,7 +48,7 @@ export default function LevelsPage() {
       } else {
         setLocal(null);
       }
-      const lbPayload = (lbRes as any)?.data;
+      const lbPayload = (lbRes as { data?: { entries?: LeaderboardEntry[] } })?.data;
       if (lbPayload) setLeaderboard(lbPayload.entries ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
@@ -66,8 +66,8 @@ export default function LevelsPage() {
     try {
       const res = await updateGuildSettings(guildId, { levels: local });
       if (res.success && res.data) setConfig(res.data.guild);
-    } catch (e: any) {
-      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }
@@ -193,19 +193,23 @@ export default function LevelsPage() {
             <button type="button" onClick={() => setLbTab('guild')} className={`text-sm px-3 py-1 rounded ${lbTab === 'guild' ? 'bg-[var(--accent)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)]'}`}>Serveur</button>
             <button type="button" onClick={async () => {
               setLbTab('global');
-              const res = await api.get<{ entries: any[] } & { data: { entries: any[] } } & { success?: boolean }>(
+              const res = await api.get<{ success?: boolean; data?: { entries?: unknown[] } }>(
                 '/api/overview/leaderboard/global'
               );
-              if ((res as any).success && (res as any).data) {
-                const raw = (res.data as any).entries ?? [];
-                setGlobalLb(raw.map((e: any, i: number) => ({
-                  rank: e.rank ?? i + 1,
-                  userId: e.userId,
-                  username: e.username ?? 'Inconnu',
-                  avatar: e.avatar,
-                  xp: e.totalXp ?? e.xp ?? 0,
-                  level: e.level ?? 0,
-                })));
+              if (res.success && res.data) {
+                const raw = (res.data.entries as unknown[]) ?? [];
+                setGlobalLb(raw.map((e: unknown, i: number) => {
+                  const entry = e as { rank?: number; userId: string; username?: string; avatar?: string; totalXp?: number; xp?: number; level?: number; guildId?: string };
+                  return {
+                    rank: entry.rank ?? i + 1,
+                    userId: entry.userId,
+                    username: entry.username ?? 'Inconnu',
+                    avatar: entry.avatar ?? '',
+                    xp: entry.totalXp ?? entry.xp ?? 0,
+                    level: entry.level ?? 0,
+                    guildId: entry.guildId ?? '',
+                  };
+                }));
               }
             }} className={`text-sm px-3 py-1 rounded ${lbTab === 'global' ? 'bg-[var(--accent)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)]'}`}>Global</button>
           </div>

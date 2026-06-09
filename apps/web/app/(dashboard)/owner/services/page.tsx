@@ -3,13 +3,13 @@ import { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   Server, Play, RotateCcw, Activity, CheckCircle,
-  XCircle, Clock, Terminal, AlertTriangle, RefreshCw
+  XCircle, Clock, Terminal, RefreshCw
 } from 'lucide-react';
 import {
   Card, Button, Badge, Skeleton, EmptyState, ErrorMessage
 } from '@pinguin/ui';
 import { fetchServices, serviceAction, type Service } from '@/lib/api';
-import { formatDate, formatDuration } from '@/lib/utils';
+import { formatDuration } from '@/lib/utils';
 
 const statusVariant: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
   RUNNING: 'success',

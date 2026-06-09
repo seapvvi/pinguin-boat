@@ -79,8 +79,8 @@ export default function TicketsPage() {
       setCreateOpen(false);
       setForm({ subject: '', description: '' });
       load(page);
-    } catch (e: any) {
-      setActionError(e?.message || 'Erreur lors de la création');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Erreur lors de la création');
     } finally {
       setSubmitting(false);
     }
@@ -91,14 +91,14 @@ export default function TicketsPage() {
     try {
       await api.put(`/api/guilds/${guildId}/tickets/${ticketId}`, { action });
       load(page);
-    } catch (e: any) {
-      setActionError(e?.message || 'Erreur lors de l\'action');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Erreur lors de l\'action');
     }
   };
 
   const columns: Column<TicketData>[] = [
     { key: 'subject', label: 'Sujet', render: (t) => <span className="text-sm font-medium">{t.id.slice(0, 8)}…</span> },
-    { key: 'category', label: 'Catégorie', render: (t) => <Badge>{(t as any).categoryId ?? '—'}</Badge> },
+    { key: 'category', label: 'Catégorie', render: (t) => <Badge>{(t as TicketData & { categoryId?: string }).categoryId ?? '—'}</Badge> },
     { key: 'status', label: 'Statut', sortable: true, render: (t) => <Badge variant={statusVariants[t.status]}>{statusLabels[t.status]}</Badge> },
     { key: 'creatorId', label: 'Créateur', render: (t) => <span className="font-mono text-xs">{t.creatorId.slice(0, 8)}…</span> },
     { key: 'createdAt', label: 'Date', sortable: true, render: (t) => <span className="text-xs text-[var(--text-secondary)]">{formatDate(t.createdAt)}</span> },
@@ -191,7 +191,7 @@ export default function TicketsPage() {
               </div>
               <div>
                 <span className="text-xs text-[var(--text-secondary)]">Catégorie</span>
-                <p className="text-sm">{(selectedTicket as any).categoryId ?? '—'}</p>
+                <p className="text-sm">{(selectedTicket as TicketData & { categoryId?: string }).categoryId ?? '—'}</p>
               </div>
               <div>
                 <span className="text-xs text-[var(--text-secondary)]">Créateur</span>

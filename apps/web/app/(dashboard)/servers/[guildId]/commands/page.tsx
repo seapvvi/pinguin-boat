@@ -3,13 +3,14 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Shield, Scale, MessageSquare, Terminal, Activity,
+  Shield, MessageSquare, Terminal, Activity,
   Music, Gift, Gamepad2, Star, ClipboardList, Users,
-  Search, Command, Clock, Zap
+  Command, Clock, Zap
 } from 'lucide-react';
 import { Card, Input, Badge, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings } from '@/lib/api';
+import type { GuildConfig, ModuleName } from '@pinguin/shared';
 
 interface Command {
   name: string;
@@ -170,7 +171,7 @@ const MODULE_LABELS: Record<string, string> = {
 
 export default function CommandsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [config, setConfig] = useState<any>(null);
+  const [config, setConfig] = useState<GuildConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -195,7 +196,7 @@ export default function CommandsPage() {
 
   const isModuleEnabled = (module: string) => {
     if (!config?.disabledModules) return true;
-    return !config.disabledModules.includes(module.toUpperCase());
+    return !config.disabledModules.includes(module.toUpperCase() as ModuleName);
   };
 
   const filteredCommands = COMMANDS.filter((cmd) => {

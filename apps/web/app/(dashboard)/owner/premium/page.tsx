@@ -2,12 +2,11 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  Crown, ToggleLeft, Flag, Shield, User, Server,
-  AlertTriangle
+  Crown, Flag
 } from 'lucide-react';
 import {
   Card, Button, Badge, Skeleton, EmptyState, ErrorMessage,
-  Modal, Toggle, Table
+  Modal, Toggle
 } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
 import {
@@ -60,24 +59,6 @@ export default function OwnerPremiumPage() {
     } catch { /* ignore */ } finally { setFlagToggling(null); }
   };
 
-  const flagColumns: Column<FeatureFlag>[] = [
-    { key: 'name', label: 'Fonctionnalité', render: (f: FeatureFlag) => (
-      <div>
-        <span className="text-sm text-[var(--text-primary)]">{f.name}</span>
-        <p className="text-xs text-[var(--text-secondary)]">{f.description ?? f.key}</p>
-      </div>
-    )},
-    {
-      key: 'enabled', label: 'Activé', render: (f: FeatureFlag) => (
-        <Toggle checked={f.enabled} onChange={(v) => handleFlagToggle(f, v)} disabled={flagToggling === f.key} />
-      ),
-    },
-    {
-      key: 'tier', label: 'Min. Tier', render: (f: FeatureFlag) => (
-        <Badge variant={f.tier === 'FREE' ? 'default' : 'info'}>{f.tier}</Badge>
-      ),
-    },
-  ];
 
   if (error) {
     return (

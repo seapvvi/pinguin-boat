@@ -2,12 +2,11 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  MessageSquare, Send, Globe, Server, History,
-  CheckCircle, XCircle, AlertTriangle, Megaphone
+  MessageSquare, Send, Globe, Server, Megaphone
 } from 'lucide-react';
 import {
   Card, Button, Badge, Skeleton, EmptyState, ErrorMessage,
-  Modal, Input, Select
+  Input, Select
 } from '@pinguin/ui';
 import { sendAnnouncement, fetchAnnouncements } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -17,7 +16,6 @@ export default function OwnerAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
   const [formMessage, setFormMessage] = useState('');
   const [formTarget, setFormTarget] = useState<'ALL' | 'GUILD'>('ALL');
   const [formGuildId, setFormGuildId] = useState('');
@@ -43,7 +41,6 @@ export default function OwnerAnnouncementsPage() {
     setActionLoading(true);
     try {
       await sendAnnouncement(formMessage.trim(), formTarget, formTarget === 'GUILD' ? formGuildId.trim() : undefined);
-      setShowCreate(false);
       setFormMessage('');
       setFormGuildId('');
       load();
@@ -65,7 +62,7 @@ export default function OwnerAnnouncementsPage() {
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">Annonces globales</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">Envoyez des annonces via le bot Discord.</p>
         </div>
-        <Button size="sm" onClick={() => setShowCreate(true)}><Megaphone size={14} /> Nouvelle annonce</Button>
+        <Button size="sm"><Megaphone size={14} /> Nouvelle annonce</Button>
       </div>
 
       <Card className="mb-6">

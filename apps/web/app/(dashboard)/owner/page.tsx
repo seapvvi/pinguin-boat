@@ -74,7 +74,15 @@ export default function OwnerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<{
+    totalGuilds?: number;
+    totalUsers?: number;
+    totalCommands?: number;
+    uptime?: number;
+    cpuUsage?: number;
+    ramUsage?: number;
+    systemStatus?: 'OPERATIONAL' | 'DEGRADED' | 'MAINTENANCE' | 'CRITICAL';
+  } | null>(null);
   const [logs, setLogs] = useState<OwnerAction[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deployId, setDeployId] = useState<string | null>(null);
@@ -98,7 +106,11 @@ export default function OwnerDashboardPage() {
   const [notesSaved, setNotesSaved] = useState(false);
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [sourceData, setSourceData] = useState<any>(null);
+  const [sourceData, setSourceData] = useState<{
+    breakdown?: Array<{ source: string; count: number }>;
+    otherDetails?: Array<{ details: string; guildId: string; createdAt: string }>;
+    pagination?: { page: number; totalPages: number };
+  } | null>(null);
   const [sourceLoading, setSourceLoading] = useState(true);
   const [sourcePage, setSourcePage] = useState(1);
 
@@ -126,7 +138,7 @@ export default function OwnerDashboardPage() {
       ]);
       if (statsRes.success && statsRes.data) setStats(statsRes.data);
       if (logsRes.success && logsRes.data) {
-        setLogs(Array.isArray(logsRes.data) ? logsRes.data : (logsRes.data as any).entries ?? []);
+        setLogs(Array.isArray(logsRes.data) ? logsRes.data as unknown as OwnerAction[] : (logsRes.data as unknown as { entries?: OwnerAction[] })?.entries ?? []);
       }
     } catch (e) {
       if (!silent) setError(e instanceof Error ? e.message : 'Erreur de chargement');
@@ -138,24 +150,24 @@ export default function OwnerDashboardPage() {
   const loadDonors = useCallback(async () => {
     setDonorsLoading(true);
     try {
-      const res = await api.get<any>('/api/owner/donors');
-      setDonors((res as any)?.data?.donors ?? []);
+      const res = await api.get<{ data?: { donors?: Donor[] } }>('/api/owner/donors');
+      setDonors(res?.data?.donors ?? []);
     } catch { } finally { setDonorsLoading(false); }
   }, []);
 
   const loadChangelogs = useCallback(async () => {
     setChangelogsLoading(true);
     try {
-      const res = await api.get<any>('/api/owner/changelogs');
-      setChangelogs((res as any)?.data?.entries ?? (res as any)?.data?.changelogs ?? []);
+      const res = await api.get<{ data?: { entries?: Changelog[]; changelogs?: Changelog[] } }>('/api/owner/changelogs');
+      setChangelogs(res?.data?.entries ?? res?.data?.changelogs ?? []);
     } catch { } finally { setChangelogsLoading(false); }
   }, []);
 
   const loadNotes = useCallback(async () => {
     setNotesLoading(true);
     try {
-      const res = await api.get<any>('/api/owner/notes');
-      setNotes((res as any)?.data?.content ?? '');
+      const res = await api.get<{ data?: { content?: string } }>('/api/owner/notes');
+      setNotes(res?.data?.content ?? '');
     } catch { } finally { setNotesLoading(false); }
   }, []);
 
@@ -539,7 +551,7 @@ export default function OwnerDashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={sourceData.breakdown}
+                    data={sourceData.breakdown ?? []}
                     dataKey="count"
                     nameKey="source"
                     cx="50%"
@@ -547,7 +559,7 @@ export default function OwnerDashboardPage() {
                     outerRadius={80}
                     label={({ payload, percent }: any) => `${sourceLabels[payload.source] || payload.source} (${(percent * 100).toFixed(0)}%)`}
                   >
-                    {sourceData.breakdown.map((_: any, i: number) => (
+                    {(sourceData.breakdown ?? []).map((_: any, i: number) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
@@ -562,9 +574,9 @@ export default function OwnerDashboardPage() {
 
             <div>
               <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-3 uppercase tracking-wide">Réponses "Autre"</h3>
-              {sourceData.otherDetails?.length > 0 ? (
+              {(sourceData.otherDetails?.length ?? 0) > 0 ? (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {sourceData.otherDetails.map((item: any, i: number) => (
+                  {sourceData.otherDetails?.map((item: { details: string; guildId: string; createdAt: string }, i: number) => (
                     <div key={i} className="p-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
                       <p className="text-xs text-[var(--text-primary)]">{item.details}</p>
                       <p className="text-xs text-[var(--text-secondary)] mt-0.5">

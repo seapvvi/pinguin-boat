@@ -75,8 +75,8 @@ export default function ProtectionPage() {
         emergencyActive;
       await api.put(`/api/guilds/${guildId}/protection`, { ...local, enabled });
       await load();
-    } catch (e: any) {
-      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }
@@ -251,8 +251,8 @@ export default function ProtectionPage() {
                   const enable = !emergencyActive;
                   await api.post(`/api/guilds/${guildId}/protection/emergency`, { enable });
                   setEmergencyActive(enable);
-                } catch (e: any) {
-                  setSaveError(e?.message || 'Erreur mode urgence');
+                } catch (e) {
+                  setSaveError(e instanceof Error ? e.message : 'Erreur mode urgence');
                 } finally {
                   setEmergencyLoading(false);
                 }

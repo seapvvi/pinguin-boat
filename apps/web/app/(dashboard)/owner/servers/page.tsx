@@ -17,7 +17,6 @@ export default function OwnerServersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [manageTarget, setManageTarget] = useState<OwnerServer | null>(null);
-  const [detail, setDetail] = useState<any | null>(null);
   const [leaveTarget, setLeaveTarget] = useState<OwnerServer | null>(null);
   const [blacklistReason, setBlacklistReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -57,14 +56,7 @@ export default function OwnerServersPage() {
 
   const openManage = async (server: OwnerServer) => {
     setManageTarget(server);
-    setDetail(null);
     setBlacklistReason('');
-    try {
-      const res = await api.get<any>(`/api/owner/servers/${server.id}`);
-      setDetail((res as any)?.data ?? null);
-    } catch {
-      setDetail(null);
-    }
   };
 
   const handleForceLeave = async () => {
@@ -208,7 +200,7 @@ export default function OwnerServersPage() {
             <div className="p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] border border-[var(--border-color)] space-y-1">
               <p className="text-sm text-[var(--text-primary)] font-medium">{manageTarget.name}</p>
               <p className="text-xs text-[var(--text-secondary)]">ID serveur: <span className="font-mono">{manageTarget.id}</span></p>
-              <p className="text-xs text-[var(--text-secondary)]">ID owner: <span className="font-mono">{detail?.ownerId ?? manageTarget.ownerId}</span></p>
+              <p className="text-xs text-[var(--text-secondary)]">ID owner: <span className="font-mono">{manageTarget.ownerId}</span></p>
               <p className="text-xs text-[var(--text-secondary)]">Membres: {formatNumber(manageTarget.memberCount)}</p>
               <div className="pt-1">
                 {manageTarget.blacklisted ? <Badge variant="error">Blacklisté</Badge> : <Badge variant="success">Autorisé</Badge>}

@@ -1,7 +1,7 @@
 ﻿'use client';
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Ban, Crown, ChevronLeft, ChevronRight, Settings, ShieldAlert } from 'lucide-react';
+import { Search, Ban, ChevronLeft, ChevronRight, Settings, ShieldAlert } from 'lucide-react';
 import { Card, Input, Button, Badge, Skeleton, EmptyState, ErrorMessage, Modal, Select, Table } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
 import { fetchOwnerUsers, blacklistTarget, unblacklistTarget, api, type OwnerUser } from '@/lib/api';
@@ -17,7 +17,6 @@ export default function OwnerUsersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [manageTarget, setManageTarget] = useState<OwnerUser | null>(null);
-  const [detail, setDetail] = useState<any | null>(null);
   const [blacklistReason, setBlacklistReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -56,14 +55,7 @@ export default function OwnerUsersPage() {
 
   const openManage = async (u: OwnerUser) => {
     setManageTarget(u);
-    setDetail(null);
     setBlacklistReason('');
-    try {
-      const res = await api.get<any>(`/api/owner/users/${u.discordId}`);
-      setDetail((res as any)?.data ?? null);
-    } catch {
-      setDetail(null);
-    }
   };
 
   const handleBlacklistToggle = async () => {

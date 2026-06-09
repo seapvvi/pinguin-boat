@@ -41,7 +41,7 @@ export default function MusicPage() {
         setLocal({ ...res.data.guild.music });
       }
       try {
-        const qData = await api.get<any>(`/api/guilds/${guildId}/music/queue`);
+        const qData = await api.get<{ data?: { tracks?: TrackInfo[]; currentTrack?: TrackInfo | null } }>(`/api/guilds/${guildId}/music/queue`);
         if (qData.data) {
           setQueue(qData.data.tracks ?? []);
           setCurrentTrack(qData.data.currentTrack ?? null);
@@ -60,7 +60,7 @@ export default function MusicPage() {
     if (!local?.enabled) return;
     const interval = setInterval(async () => {
       try {
-        const qData = await api.get<any>(`/api/guilds/${guildId}/music/queue`);
+        const qData = await api.get<{ data?: { tracks?: TrackInfo[]; currentTrack?: TrackInfo | null } }>(`/api/guilds/${guildId}/music/queue`);
         if (qData.data) {
           setQueue(qData.data.tracks ?? []);
           setCurrentTrack(qData.data.currentTrack ?? null);
@@ -74,8 +74,8 @@ export default function MusicPage() {
     setControlError(null);
     try {
       await api.post(`/api/guilds/${guildId}/music/control`, { action, value });
-    } catch (e: any) {
-      setControlError(e?.message || 'Erreur de contrôle');
+    } catch (e) {
+      setControlError(e instanceof Error ? e.message : 'Erreur de contrôle');
     }
   };
 
@@ -86,8 +86,8 @@ export default function MusicPage() {
     try {
       const res = await updateGuildSettings(guildId, { music: local });
       if (res.success && res.data) setConfig(res.data.guild);
-    } catch (e: any) {
-      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }

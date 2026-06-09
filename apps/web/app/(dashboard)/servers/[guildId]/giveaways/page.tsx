@@ -125,8 +125,8 @@ export default function GiveawaysPage() {
       setCreateOpen(false);
       setForm({ prize: '', winners: 1, duration: 60, channelId: '', minAccountAge: 0, minGuildJoinTime: 0, requiredRoleId: '', boostRequired: false });
       load(page);
-    } catch (e: any) {
-      setActionError(e?.message || 'Erreur lors de la création');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Erreur lors de la création');
     } finally {
       setSubmitting(false);
     }
@@ -145,8 +145,8 @@ export default function GiveawaysPage() {
         await api.delete(`/api/guilds/${guildId}/giveaways/${id}`);
       }
       load(page);
-    } catch (e: any) {
-      setActionError(e?.message || 'Erreur lors de l\'action');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Erreur lors de l\'action');
     }
   };
 

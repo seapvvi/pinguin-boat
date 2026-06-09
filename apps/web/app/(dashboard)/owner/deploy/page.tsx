@@ -2,8 +2,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
-  RefreshCw, RotateCcw, History, Terminal, CheckCircle,
-  XCircle, Clock, Loader, AlertTriangle, ChevronDown
+  RefreshCw, RotateCcw, Terminal, CheckCircle,
+  XCircle, Clock, Loader
 } from 'lucide-react';
 import {
   Card, Button, Badge, Skeleton, EmptyState, ErrorMessage, Modal

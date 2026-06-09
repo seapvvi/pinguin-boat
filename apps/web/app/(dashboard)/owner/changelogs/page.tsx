@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Sparkles, Plus, Trash2, Eye, EyeOff, Edit3,
-  FileText, Calendar, Hash
+  FileText, Calendar
 } from 'lucide-react';
 import {
   Card, Button, Badge, Skeleton, EmptyState, ErrorMessage,

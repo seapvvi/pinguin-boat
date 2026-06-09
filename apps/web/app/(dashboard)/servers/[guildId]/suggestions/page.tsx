@@ -50,10 +50,10 @@ export default function SuggestionsPage() {
     setError(null);
     try {
       const res = await fetchSuggestions(guildId, { page: String(p), limit: '15' });
-      const payload = (res as any)?.data;
+      const payload = (res as { data?: { suggestions?: Suggestion[]; pagination?: { totalPages?: number } } })?.data;
       if (payload) {
-        setSuggestions(payload.suggestions);
-        setTotalPages(payload.pagination.totalPages);
+        setSuggestions(payload.suggestions ?? []);
+        setTotalPages(payload.pagination?.totalPages ?? 1);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
@@ -79,8 +79,8 @@ export default function SuggestionsPage() {
       });
       setSendContent('');
       load(page);
-    } catch (e: any) {
-      setActionError(e?.message || 'Erreur envoi');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Erreur envoi');
     } finally {
       setSending(false);
     }
@@ -92,8 +92,8 @@ export default function SuggestionsPage() {
     try {
       await api.post(`/api/guilds/${guildId}/suggestions/${suggestionId}/vote`, { vote });
       load(page);
-    } catch (e: any) {
-      setActionError(e?.message || 'Erreur lors du vote');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Erreur lors du vote');
     } finally {
       setVotingId(null);
     }
@@ -108,8 +108,8 @@ export default function SuggestionsPage() {
       setSelectedSuggestion(null);
       setStaffResponse('');
       load(page);
-    } catch (e: any) {
-      setActionError(e?.message || 'Erreur lors de la réponse');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Erreur lors de la réponse');
     } finally {
       setSubmitting(false);
     }
@@ -121,8 +121,8 @@ export default function SuggestionsPage() {
     try {
       await api.delete(`/api/guilds/${guildId}/suggestions/${suggestionId}`);
       load(page);
-    } catch (e: any) {
-      setActionError(e?.message || 'Erreur lors de la suppression');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Erreur lors de la suppression');
     }
   };
 

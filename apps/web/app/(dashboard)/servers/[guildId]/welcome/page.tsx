@@ -100,8 +100,8 @@ export default function WelcomePage() {
         welcomeDMMessage: local.dmWelcomeMessage,
       });
       await load();
-    } catch (e: any) {
-      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }

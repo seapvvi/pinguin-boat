@@ -36,8 +36,8 @@ export default function SupportPage() {
   const [showPopup, setShowPopup] = useState(false);
 
   useEffect(() => {
-    api.get<any>('/api/donors')
-      .then((res: any) => {
+    api.get<{ data?: { donors?: Donor[] }; donors?: Donor[] }>('/api/donors')
+      .then((res) => {
         const list = res?.data?.donors ?? res?.donors ?? [];
         setDonors(list);
       })

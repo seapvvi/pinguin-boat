@@ -29,7 +29,7 @@ export default function StarboardPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<{ channelId?: string; starEmoji?: string; minStars?: number; selfStar?: boolean } | null>(null);
 
   const [channelId, setChannelId] = useState('');
   const [starEmoji, setStarEmoji] = useState('\u2B50');
@@ -49,7 +49,7 @@ export default function StarboardPage() {
     setError(null);
     try {
       const res = await fetchStarboardSettings(guildId);
-      const data = (res as any)?.data;
+      const data = (res as { data?: { settings?: { channelId?: string; starEmoji?: string; minStars?: number; selfStar?: boolean } } })?.data;
       if (data?.settings) {
         setSettings(data.settings);
         setChannelId(data.settings.channelId ?? '');
@@ -68,7 +68,7 @@ export default function StarboardPage() {
     setEntriesLoading(true);
     try {
       const res = await fetchStarboardEntries(guildId, { page: String(p), limit: '15' });
-      const data = (res as any)?.data;
+      const data = (res as { data?: { entries?: StarboardEntry[]; pagination?: { totalPages?: number } } })?.data;
       if (data) {
         setEntries(data.entries ?? []);
         setTotalPages(data.pagination?.totalPages ?? 1);
@@ -100,8 +100,8 @@ export default function StarboardPage() {
         selfStar,
       });
       await load();
-    } catch (e: any) {
-      setError(e?.message || 'Erreur de sauvegarde');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur de sauvegarde');
     } finally {
       setSaving(false);
     }

@@ -58,8 +58,8 @@ export default function OverviewPage() {
         stats: statsRes.status === 'fulfilled' ? statsRes.value.data ?? null : null,
         changelogs: changelogsRes.status === 'fulfilled' ? changelogsRes.value.data?.entries ?? [] : [],
         topXP: lbRes.status === 'fulfilled'
-          ? (lbRes.value.data as { entries?: Array<Partial<LeaderboardEntry>> } | undefined)?.entries
-              ?.map((e: any) => ({
+          ? (lbRes.value.data as { entries?: Array<Partial<LeaderboardEntry> & { totalXp?: number }> } | undefined)?.entries
+              ?.map((e: Partial<LeaderboardEntry> & { totalXp?: number }) => ({
                 rank: e.rank ?? 0,
                 userId: String(e.userId ?? ''),
                 username: String(e.username ?? 'Inconnu'),

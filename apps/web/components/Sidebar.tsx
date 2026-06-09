@@ -139,7 +139,7 @@ const categoryDefs: CategoryDef[] = [
 
 export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProps) {
   const pathname = usePathname();
-  const isOwner = (user as any)?.isOwner ?? false;
+  const isOwner = (user as { isOwner?: boolean })?.isOwner ?? false;
   const isDonor = user?.isDonor || isOwner;
   const { enabled: snowflakesEnabled, toggle: toggleSnowflakes } = useSnowflakes();
 

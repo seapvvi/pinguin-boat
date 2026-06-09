@@ -37,9 +37,9 @@ export default function ThemeSelector() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.get<any>('/api/auth/me')
+    api.get<{ data?: { isDonor?: boolean; isOwner?: boolean } }>('/api/auth/me')
       .then((res) => {
-        const user = (res as any)?.data ?? res;
+        const user = (res as { data?: { isDonor?: boolean; isOwner?: boolean } })?.data;
         if (user?.isDonor || user?.isOwner) setIsDonor(true);
       })
       .catch(() => {});

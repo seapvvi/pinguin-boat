@@ -82,9 +82,9 @@ export default function LogsPage() {
     setError(null);
     try {
       const res = await api.get<{ data: LogSettings & { enabledEvents?: LogEventType[] } }>(`/api/guilds/${guildId}/logs`);
-      const payload = (res as any)?.data;
+      const payload = (res as { data?: unknown })?.data;
       if (payload) {
-        const d = payload as any;
+        const d = payload as { enabled?: boolean; logChannelId?: string | null; enabledEvents?: LogEventType[]; events?: LogEventType[]; ignoreChannels?: string[]; ignoredChannels?: string[]; ignoreUsers?: string[]; ignoredRoles?: string[] };
         setLocal({
           enabled: d.enabled ?? true,
           logChannelId: d.logChannelId ?? null,
@@ -122,8 +122,8 @@ export default function LogsPage() {
     setSaveError(null);
     try {
       await saveLogs(local);
-    } catch (e: any) {
-      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }

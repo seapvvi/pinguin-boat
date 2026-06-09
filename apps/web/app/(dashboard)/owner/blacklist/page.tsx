@@ -2,11 +2,11 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  Users, Server, Ban, Trash2, Plus, Search, AlertTriangle,
+  Users, Server, Trash2, Plus,
   UserX, Shield as ShieldIcon
 } from 'lucide-react';
 import {
-  Card, Button, Badge, Skeleton, EmptyState, ErrorMessage,
+  Card, Button, Skeleton, EmptyState, ErrorMessage,
   Modal, Input, Select, Table
 } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';

@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Users, RefreshCw, LogOut, Megaphone, Clock, Send, X } from 'lucide-react';
-import { Card, Button, Badge, Skeleton, EmptyState, Input, Modal } from '@pinguin/ui';
+import { Users, RefreshCw, LogOut, Megaphone, Clock, Send } from 'lucide-react';
+import { Card, Button, Skeleton, EmptyState, Input, Modal } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 
@@ -32,8 +32,8 @@ export default function ConnectedUsersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>('/api/owner/sessions');
-      setSessions((res as any)?.data?.sessions ?? []);
+      const res = await api.get('/api/owner/sessions');
+      setSessions((res as { data?: { sessions?: ActiveSession[] } })?.data?.sessions ?? []);
     } finally {
       setLoading(false);
     }

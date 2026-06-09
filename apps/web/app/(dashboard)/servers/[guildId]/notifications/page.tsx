@@ -64,8 +64,8 @@ export default function NotificationsPage() {
       setNewDiscordChannelId('');
       setShowAddForm(false);
       await load();
-    } catch (e: any) {
-      setAddError(e?.message || 'Erreur lors de l\'ajout');
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : 'Erreur lors de l\'ajout');
     } finally {
       setSaving(false);
     }
@@ -76,8 +76,8 @@ export default function NotificationsPage() {
     try {
       await deleteStreamNotification(guildId, id);
       await load();
-    } catch (e: any) {
-      setError(e?.message || 'Erreur lors de la suppression');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la suppression');
     }
   };
 
@@ -103,7 +103,7 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleEditChange = (id: string, field: string, value: any) => {
+  const handleEditChange = (id: string, field: string, value: unknown) => {
     setEditValues(prev => ({
       ...prev,
       [id]: { ...prev[id], [field]: value },
@@ -124,8 +124,8 @@ export default function NotificationsPage() {
       });
       setExpandedId(null);
       await load();
-    } catch (e: any) {
-      setError(e?.message || 'Erreur lors de la sauvegarde');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSavingId(null);
     }

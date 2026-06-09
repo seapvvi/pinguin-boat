@@ -23,7 +23,7 @@ export default function MinigamesPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<{ gamesChannelId?: string; betMin?: number; betMax?: number } | null>(null);
 
   const [gamesChannelId, setGamesChannelId] = useState('');
   const [betMin, setBetMin] = useState(10);
@@ -40,7 +40,7 @@ export default function MinigamesPage() {
     setError(null);
     try {
       const res = await fetchMinigameSettings(guildId);
-      const data = (res as any)?.data;
+      const data = (res as { data?: { settings?: { gamesChannelId?: string; betMin?: number; betMax?: number } } })?.data;
       if (data?.settings) {
         setSettings(data.settings);
         setGamesChannelId(data.settings.gamesChannelId ?? '');
@@ -58,7 +58,7 @@ export default function MinigamesPage() {
     setEntriesLoading(true);
     try {
       const res = await fetchMinigameLeaderboard(guildId, { limit: '20' });
-      const data = (res as any)?.data;
+      const data = (res as { data?: { entries?: LeaderboardEntry[] } })?.data;
       setEntries(data?.entries ?? []);
     } catch { } finally {
       setEntriesLoading(false);
@@ -83,8 +83,8 @@ export default function MinigamesPage() {
         betMax,
       });
       await load();
-    } catch (e: any) {
-      setError(e?.message || 'Erreur de sauvegarde');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur de sauvegarde');
     } finally {
       setSaving(false);
     }

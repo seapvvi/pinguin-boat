@@ -39,8 +39,8 @@ export default function BlacklistPage() {
       await api.delete(`/api/guilds/${guildId}/blacklist/${deleteTarget}`);
       setDeleteTarget(null);
       load(page);
-    } catch (e: any) {
-      setDeleteError(e?.message || 'Erreur lors de la suppression');
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Erreur lors de la suppression');
     } finally {
       setDeleting(false);
     }
@@ -63,8 +63,8 @@ export default function BlacklistPage() {
         const userResults = await Promise.all(userPromises);
         const newCache: Record<string, { username: string; avatar: string | null }> = {};
         userResults.forEach((res, idx) => {
-          if (res && (res as any)?.data) {
-            newCache[userIds[idx]] = (res as any).data;
+          if (res && (res as { data?: { id: string; username: string; avatar: string | null } })?.data) {
+            newCache[userIds[idx]] = (res as { data: { id: string; username: string; avatar: string | null } }).data;
           }
         });
         setUserCache(newCache);
@@ -99,8 +99,8 @@ export default function BlacklistPage() {
       setCreateOpen(false);
       setForm({ userId: '', reason: '' });
       load(page);
-    } catch (e: any) {
-      setFormErrors({ general: e?.message || 'Erreur lors de la création' });
+    } catch (e) {
+      setFormErrors({ general: e instanceof Error ? e.message : 'Erreur lors de la création' });
     } finally {
       setSubmitting(false);
     }

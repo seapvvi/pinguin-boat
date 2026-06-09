@@ -29,10 +29,11 @@ interface FormField {
 
 // Older templates were saved with a `type` field (text/textarea/select).
 // Normalize them to the current `style`-based model when loading.
-function normalizeField(f: any): FormField {
+function normalizeField(f: unknown): FormField {
   let style: 'short' | 'paragraph' = 'short';
-  if (f?.style === 'paragraph' || f?.type === 'textarea') style = 'paragraph';
-  return { label: f?.label ?? '', style, required: f?.required !== false };
+  const field = f as { style?: string; type?: string; label?: string; required?: boolean };
+  if (field?.style === 'paragraph' || field?.type === 'textarea') style = 'paragraph';
+  return { label: field?.label ?? '', style, required: field?.required !== false };
 }
 
 interface Template {
@@ -50,7 +51,7 @@ interface Submission {
   templateName: string;
   userId: string;
   user: { discordId: string; username: string; avatar: string | null };
-  responses: any[];
+  responses: unknown[];
   status: string;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -158,7 +159,7 @@ export default function FormsPage() {
     setEditingTemplate(t);
     let fields: FormField[];
     try {
-      fields = (JSON.parse(t.fields) as any[]).map(normalizeField);
+      fields = (JSON.parse(t.fields) as unknown[]).map(normalizeField);
     } catch {
       fields = [];
     }
@@ -559,12 +560,15 @@ export default function FormsPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {Array.isArray(viewSubmission.responses) && viewSubmission.responses.map((r: any, i: number) => (
-                    <div key={i} className="p-3 bg-[var(--bg-surface-alt)] rounded-[var(--radius-sm)]">
-                      <div className="text-xs font-semibold text-[var(--text-secondary)] mb-1">{r.label ?? `Champ ${i + 1}`}</div>
-                      <div className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{r.value ?? '-'}</div>
-                    </div>
-                  ))}
+                  {Array.isArray(viewSubmission.responses) && viewSubmission.responses.map((r: unknown, i: number) => {
+                    const response = r as { label?: string; value?: string };
+                    return (
+                      <div key={i} className="p-3 bg-[var(--bg-surface-alt)] rounded-[var(--radius-sm)]">
+                        <div className="text-xs font-semibold text-[var(--text-secondary)] mb-1">{response.label ?? `Champ ${i + 1}`}</div>
+                        <div className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{response.value ?? '-'}</div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {viewSubmission.status === 'pending' && (

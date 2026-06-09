@@ -13,7 +13,13 @@ import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 export default function GuildSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const router = useRouter();
-  const [settings, setSettings] = useState<Record<string, any> | null>(null);
+  const [settings, setSettings] = useState<{
+    locale?: string;
+    timezone?: string;
+    modLogChannelId?: string;
+    muteRoleId?: string;
+    dashboardAccessRoles?: string[];
+  } | null>(null);
   const [guildName, setGuildName] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,10 +29,10 @@ export default function GuildSettingsPage() {
   const [dangerLoading, setDangerLoading] = useState(false);
 
   useEffect(() => {
-    api.get<Record<string, any>>(`/api/guilds/${guildId}`)
+    api.get<Record<string, unknown>>(`/api/guilds/${guildId}`)
       .then((res) => {
         if (res.success && res.data) {
-          const d = res.data as any;
+          const d = res.data as { guild?: { name?: string; locale?: string; timezone?: string; modLogChannelId?: string; muteRoleId?: string; dashboardAccessRoles?: string[] }; name?: string; locale?: string; timezone?: string; modLogChannelId?: string; muteRoleId?: string; dashboardAccessRoles?: string[] };
           setSettings(d.guild ?? d);
           setGuildName(d.guild?.name ?? d.name ?? '');
         }

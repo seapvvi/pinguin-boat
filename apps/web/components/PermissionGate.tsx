@@ -29,7 +29,7 @@ export function PermissionGate({ permission, children }: PermissionGateProps) {
     if (!guildId) { setLoading(false); setAllowed(false); return; }
     api.get<{ data: PermsResponse }>(`/api/guilds/${guildId}/my-permissions`)
       .then((res) => {
-        const d = (res as any)?.data as PermsResponse | undefined;
+        const d = (res as { data?: PermsResponse })?.data;
         if (d?.isOwner || d?.isAdmin || d?.can?.[permission]) {
           setAllowed(true);
         }

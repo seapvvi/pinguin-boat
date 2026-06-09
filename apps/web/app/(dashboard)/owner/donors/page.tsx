@@ -21,9 +21,9 @@ export default function OwnerDonorsPage() {
   const [form, setForm] = useState({ userId: '', username: '', amount: 0, message: '', isPublic: true });
 
   const load = () => {
-    api.get<any>('/api/owner/donors')
-      .then((res: any) => {
-        const list = res?.data?.donors ?? res?.donors ?? [];
+    api.get('/api/owner/donors')
+      .then((res: unknown) => {
+        const list = (res as { data?: { donors?: Donor[] } })?.data?.donors ?? [];
         setDonors(list);
       })
       .finally(() => setLoading(false));

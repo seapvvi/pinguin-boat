@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  UserPlus, Users, TrendingUp, Plus, X,
-  Shield, Hash
+  Users, TrendingUp, Plus, X,
+  Shield
 } from 'lucide-react';
 import { Card, Toggle, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
@@ -93,8 +93,8 @@ export default function AutorolesPage() {
         await updateGuildSettings(guildId, { levels: { ...config?.levels, roleRewards } });
       }
       load();
-    } catch (e: any) {
-      setSaveError(e?.message || 'Erreur lors de la sauvegarde');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }

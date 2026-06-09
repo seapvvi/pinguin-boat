@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   FileText, Plus, Eye, Send, Edit2, Trash2,
-  X, GripVertical
+  X
 } from 'lucide-react';
 import { Card, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';

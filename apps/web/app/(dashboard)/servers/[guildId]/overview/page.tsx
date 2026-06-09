@@ -28,7 +28,7 @@ export default function GuildOverviewPage() {
   const [memberCount, setMemberCount] = useState<number>(0);
   const [channelCount, setChannelCount] = useState<number>(0);
   const [roleCount, setRoleCount] = useState<number>(0);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<{ id?: string; action?: string; createdAt?: string }[]>([]);
 
   const onboarding = useOnboarding(guildId);
 
@@ -44,9 +44,9 @@ export default function GuildOverviewPage() {
       if (settingsRes.success && settingsRes.data) {
         const guild = settingsRes.data.guild;
         setConfig(guild);
-        setMemberCount((guild as any).memberCount ?? 0);
-        setChannelCount((guild as any).channelCount ?? 0);
-        setRoleCount((guild as any).roleCount ?? 0);
+        setMemberCount((guild as GuildConfig & { memberCount?: number }).memberCount ?? 0);
+        setChannelCount((guild as GuildConfig & { channelCount?: number }).channelCount ?? 0);
+        setRoleCount((guild as GuildConfig & { roleCount?: number }).roleCount ?? 0);
       }
       if (casesRes.success && casesRes.data) setCases(casesRes.data.cases ?? []);
       if (auditRes.success && auditRes.data) setRecentActivity(auditRes.data.entries ?? []);
@@ -75,8 +75,8 @@ export default function GuildOverviewPage() {
         : [...current, module];
       const res = await updateGuildSettings(guildId, { disabledModules: updated });
       if (res.success && res.data) setConfig(res.data.guild);
-    } catch (e: any) {
-      setToggleError(e?.message || 'Erreur lors du changement de module');
+    } catch (e) {
+      setToggleError(e instanceof Error ? e.message : 'Erreur lors du changement de module');
     } finally {
       setToggling(null);
     }
@@ -213,7 +213,7 @@ export default function GuildOverviewPage() {
           <span className="text-xs text-[var(--text-secondary)]">Aucune activité récente.</span>
         ) : (
           <div className="space-y-2">
-            {recentActivity.map((act: any, i: number) => (
+            {recentActivity.map((act, i: number) => (
               <div key={act.id ?? i} className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
                 <div className="flex items-center gap-2">
                   <Activity size={14} className="text-[var(--text-secondary)]" />

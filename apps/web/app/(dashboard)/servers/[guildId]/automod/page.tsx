@@ -57,17 +57,6 @@ export default function AutoModPage() {
 
   useEffect(() => { load(); }, [guildId]);
 
-  const saveAutomod = async (s: AutoModSettings) => {
-    const payload = {
-      ...s,
-      bannedWordsList: bannedWordsText.split(',').map((x) => x.trim()).filter(Boolean),
-      whitelistRoles: parseList(s.whitelistRoles),
-      whitelistChannels: parseList(s.whitelistChannels),
-      forbiddenPingRoles: parseList(s.forbiddenPingRoles),
-      forbiddenMarkdownList: parseList(s.forbiddenMarkdownList),
-    };
-    await api.patch(`/api/guilds/${guildId}/automod`, payload);
-  };
 
 
   const update = (key: string, value: unknown) => {
@@ -92,8 +81,8 @@ export default function AutoModPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       await load();
-    } catch (e: any) {
-      setError(e?.message || 'Erreur lors de la sauvegarde');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }

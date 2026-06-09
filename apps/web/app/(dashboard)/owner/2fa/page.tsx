@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Shield, ShieldCheck, ShieldOff, Key, Smartphone,
-  CheckCircle, XCircle, AlertTriangle, RefreshCw
+  CheckCircle, XCircle, RefreshCw
 } from 'lucide-react';
 import {
-  Card, Button, Badge, Skeleton, EmptyState, ErrorMessage,
+  Card, Button, Badge, Skeleton, ErrorMessage,
   Modal, Input
 } from '@pinguin/ui';
 import { get2FAStatus, setup2FA, verify2FA, disable2FA } from '@/lib/api';
@@ -31,8 +31,8 @@ export default function Owner2FAPage() {
       if (res.success && res.data) {
         setEnabled(res.data.enabled);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur de chargement');
+    } catch (_e) {
+      setError('Erreur de chargement');
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ export default function Owner2FAPage() {
         setSecret(res.data.secret);
         setVerificationCode('');
       }
-    } catch (e) {
+    } catch (_e) {
       setStatusMessage({ type: 'error', text: 'Erreur lors de la configuration.' });
     } finally { setActionLoading(false); }
   };
@@ -66,7 +66,7 @@ export default function Owner2FAPage() {
       setSecret(null);
       setVerificationCode('');
       setStatusMessage({ type: 'success', text: '2FA activée avec succès !' });
-    } catch (e) {
+    } catch (_e) {
       setStatusMessage({ type: 'error', text: 'Code invalide. Veuillez réessayer.' });
     } finally { setActionLoading(false); }
   };
@@ -81,7 +81,7 @@ export default function Owner2FAPage() {
       setShowDisableModal(false);
       setDisableCode('');
       setStatusMessage({ type: 'success', text: '2FA désactivée.' });
-    } catch (e) {
+    } catch (_e) {
       setStatusMessage({ type: 'error', text: 'Code invalide.' });
     } finally { setActionLoading(false); }
   };

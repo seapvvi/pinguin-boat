@@ -6,7 +6,7 @@ import {
   AlertTriangle, Info, Activity, Gauge, CheckCircle
 } from 'lucide-react';
 import {
-  Card, Button, Badge, Skeleton, EmptyState, ErrorMessage, KPICard
+  Card, Badge, Skeleton, EmptyState, ErrorMessage, KPICard
 } from '@pinguin/ui';
 import { fetchSystemMetrics, fetchErrorLogs } from '@/lib/api';
 import { formatNumber, formatDuration, formatDate } from '@/lib/utils';

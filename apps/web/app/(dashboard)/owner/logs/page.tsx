@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  ScrollText, Search, Download, Filter, CheckCircle,
-  XCircle, ChevronLeft, ChevronRight, Clock, Activity
+  ScrollText, Download, Filter, CheckCircle,
+  XCircle, ChevronLeft, ChevronRight, Clock
 } from 'lucide-react';
 import {
   Card, Input, Button, Badge, Skeleton, EmptyState, ErrorMessage,

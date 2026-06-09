@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Swords, Users, Trophy, TrendingUp, Shield
+  Users, Trophy, TrendingUp, Shield
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Skeleton, EmptyState } from '@pinguin/ui';
+import { Card, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, fetchClans, type Clan, type ClanMember } from '@/lib/api';
+import { fetchGuildSettings, fetchClans, type Clan } from '@/lib/api';
 import type { GuildConfig } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { useBackgroundRefresh } from '@/lib/hooks';
