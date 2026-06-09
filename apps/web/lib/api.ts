@@ -22,6 +22,106 @@ import type {
   StreamNotification,
 } from '@pinguin/shared';
 
+// ─── Shared Interfaces ───
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface FeatureFlag {
+  key: string;
+  name: string;
+  enabled: boolean;
+  tier: string;
+  description?: string;
+}
+
+export interface Service {
+  name: string;
+  displayName: string;
+  status: 'RUNNING' | 'STOPPED' | 'ERROR' | 'RESTARTING';
+  pid?: number;
+  uptime?: number;
+  memory?: number;
+  cpu?: number;
+  logs?: string[];
+  lastHealthCheck?: string;
+}
+
+export interface OwnerUser {
+  id: string;
+  discordId: string;
+  username: string;
+  discriminator: string;
+  avatar: string | null;
+  globalName: string | null;
+  blacklisted: boolean;
+  createdAt: string;
+}
+
+export interface OwnerServer {
+  id: string;
+  name: string;
+  icon: string | null;
+  memberCount: number;
+  ownerId: string;
+  ownerName: string;
+  botStatus: 'ONLINE' | 'OFFLINE' | 'IDLE';
+  blacklisted: boolean;
+}
+
+export interface OwnerLog {
+  id: string;
+  action: string;
+  userId: string;
+  username?: string;
+  ip?: string;
+  details?: string | null;
+  success: boolean;
+  createdAt: string;
+}
+
+export interface ClanMember {
+  id: string;
+  userId: string;
+  username: string;
+  avatar: string | null;
+  role: string;
+  joinedAt: string;
+}
+
+export interface Clan {
+  id: string;
+  name: string;
+  ownerId: string;
+  description: string;
+  tag?: string | null;
+  icon?: string | null;
+  memberCount?: number;
+  totalXp?: number;
+  totalWallet?: number;
+  members?: ClanMember[];
+  createdAt?: string;
+}
+
+export interface SystemMetricsSnapshot {
+  id: string;
+  cpuUsage: number;
+  ramUsage: number;
+  ramTotal: number;
+  uptimeSeconds: number;
+  guildCount: number;
+  userCount: number;
+  commandCount: number;
+  messagesToday: number;
+  activeChannels: number;
+  onlineMembers: number;
+  timestamp: string;
+}
+
 interface FetchOptions extends RequestInit {
   params?: Record<string, string>;
 }
@@ -220,12 +320,12 @@ export async function fetchGuildBlacklist(
 
 // --- Owner-specific API functions ---
 
-export async function fetchOwnerUsers(params?: Record<string, string>): Promise<APIResponse<{ users: OwnerUser[]; pagination: Record<string, unknown> }>> {
-  return api.get<APIResponse<{ users: OwnerUser[]; pagination: Record<string, unknown> }>>('/api/owner/users', params);
+export async function fetchOwnerUsers(params?: Record<string, string>): Promise<APIResponse<{ users: OwnerUser[]; pagination: Pagination }>> {
+  return api.get<APIResponse<{ users: OwnerUser[]; pagination: Pagination }>>('/api/owner/users', params);
 }
 
-export async function fetchOwnerServers(params?: Record<string, string>): Promise<APIResponse<{ servers: OwnerServer[]; pagination: Record<string, unknown> }>> {
-  return api.get<APIResponse<{ servers: OwnerServer[]; pagination: Record<string, unknown> }>>('/api/owner/servers', params);
+export async function fetchOwnerServers(params?: Record<string, string>): Promise<APIResponse<{ servers: OwnerServer[]; pagination: Pagination }>> {
+  return api.get<APIResponse<{ servers: OwnerServer[]; pagination: Pagination }>>('/api/owner/servers', params);
 }
 
 export async function forceLeaveGuild(guildId: string): Promise<APIResponse<{ success: boolean }>> {
@@ -247,48 +347,6 @@ export async function grantPremium(data: { userId?: string; guildId?: string; pl
 
 export async function revokePremium(userId?: string, guildId?: string): Promise<APIResponse<{ success: boolean }>> {
   return api.post<APIResponse<{ success: boolean }>>('/api/owner/premium/revoke', { userId, guildId });
-}
-
-export interface FeatureFlag {
-  key: string;
-  name: string;
-  enabled: boolean;
-  tier: string;
-  description?: string;
-}
-
-export interface Service {
-  name: string;
-  displayName: string;
-  status: 'RUNNING' | 'STOPPED' | 'ERROR' | 'RESTARTING';
-  pid?: number;
-  uptime?: number;
-  memory?: number;
-  cpu?: number;
-  logs?: string[];
-  lastHealthCheck?: string;
-}
-
-export interface OwnerUser {
-  id: string;
-  discordId: string;
-  username: string;
-  discriminator: string;
-  avatar: string | null;
-  globalName: string | null;
-  blacklisted: boolean;
-  createdAt: string;
-}
-
-export interface OwnerServer {
-  id: string;
-  name: string;
-  icon: string | null;
-  memberCount: number;
-  ownerId: string;
-  ownerName: string;
-  botStatus: 'ONLINE' | 'OFFLINE' | 'IDLE';
-  blacklisted: boolean;
 }
 
 export async function fetchFeatureFlags(): Promise<APIResponse<{ flags: FeatureFlag[] }>> {
@@ -339,21 +397,10 @@ export async function fetchErrorLogs(params?: Record<string, string>): Promise<A
   return api.get<APIResponse<ErrorLogListDTO>>('/api/owner/errors', params);
 }
 
-export interface OwnerLog {
-  id: string;
-  action: string;
-  userId: string;
-  username?: string;
-  ip?: string;
-  details?: string | null;
-  success: boolean;
-  createdAt: string;
-}
-
 export async function fetchOwnerLogs(
   params?: Record<string, string>
-): Promise<APIResponse<{ entries: OwnerLog[]; pagination?: { totalPages?: number } }>> {
-  return api.get<APIResponse<{ entries: OwnerLog[]; pagination?: { totalPages?: number } }>>(
+): Promise<APIResponse<{ entries: OwnerLog[]; pagination: Pagination }>> {
+  return api.get<APIResponse<{ entries: OwnerLog[]; pagination: Pagination }>>(
     '/api/owner/logs',
     params
   );
@@ -460,8 +507,8 @@ export async function fetchStarboardEntries(guildId: string, params?: Record<str
 
 // ─── Clans ───
 
-export async function fetchClans(guildId: string): Promise<APIResponse<{ clans: Record<string, unknown>[] }>> {
-  return api.get<APIResponse<{ clans: Record<string, unknown>[] }>>(`/api/guilds/${guildId}/clans`);
+export async function fetchClans(guildId: string): Promise<APIResponse<{ clans: Clan[] }>> {
+  return api.get<APIResponse<{ clans: Clan[] }>>(`/api/guilds/${guildId}/clans`);
 }
 
 // ─── Minigames ───
@@ -498,21 +545,6 @@ export async function fetchOnboardingSources(params?: Record<string, string>): P
 
 export async function fetchMetricsSnapshots(): Promise<APIResponse<{ snapshots: SystemMetricsSnapshot[] }>> {
   return api.get<APIResponse<{ snapshots: SystemMetricsSnapshot[] }>>('/api/system/metrics/snapshots');
-}
-
-export interface SystemMetricsSnapshot {
-  id: string;
-  cpuUsage: number;
-  ramUsage: number;
-  ramTotal: number;
-  uptimeSeconds: number;
-  guildCount: number;
-  userCount: number;
-  commandCount: number;
-  messagesToday: number;
-  activeChannels: number;
-  onlineMembers: number;
-  timestamp: string;
 }
 
 // ─── Stream Notifications ───

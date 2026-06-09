@@ -7,30 +7,10 @@ import {
 } from 'lucide-react';
 import { Card, Toggle, Input, Button, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, fetchClans } from '@/lib/api';
+import { fetchGuildSettings, fetchClans, type Clan, type ClanMember } from '@/lib/api';
 import type { GuildConfig } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { useBackgroundRefresh } from '@/lib/hooks';
-
-interface ClanMember {
-  id: string;
-  userId: string;
-  username: string;
-  avatar: string | null;
-  role: string;
-  joinedAt: string;
-}
-
-interface Clan {
-  id: string;
-  name: string;
-  ownerId: string;
-  description: string | null;
-  memberCount: number;
-  totalXp: number;
-  totalWallet: number;
-  members: ClanMember[];
-}
 
 export default function ClansPage() {
   const { guildId } = useParams<{ guildId: string }>();
