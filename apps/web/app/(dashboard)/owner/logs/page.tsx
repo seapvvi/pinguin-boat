@@ -10,19 +10,8 @@ import {
   Select, Table
 } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
-import { fetchOwnerLogs } from '@/lib/api';
+import { fetchOwnerLogs, type OwnerLog } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-
-interface OwnerLog {
-  id: string;
-  action: string;
-  userId: string;
-  username?: string;
-  ip?: string;
-  details?: string;
-  success: boolean;
-  createdAt: string;
-}
 
 const actionTypes = [
   { value: '', label: 'Toutes les actions' },
@@ -62,7 +51,7 @@ export default function OwnerLogsPage() {
       if (actionFilter) params.action = actionFilter;
       const res = await fetchOwnerLogs(params);
       if (res.success && res.data) {
-        const entries = (res.data.entries ?? []).filter((l: OwnerLog) => {
+        const entries = (res.data.entries ?? []).filter((l) => {
           if (l.action === 'GET_OWNER_LOGS') return false;
           if (!l.details) return true;
           if (l.details.includes('/owner/logs') || l.details.includes('/api/owner/logs')) return false;

@@ -297,17 +297,24 @@ export async function fetchErrorLogs(params?: Record<string, string>): Promise<A
   return api.get<APIResponse<ErrorLogListDTO>>('/api/owner/errors', params);
 }
 
-interface OwnerLogEntry {
+export interface OwnerLog {
   id: string;
   action: string;
+  userId: string;
+  username?: string;
+  ip?: string;
   details?: string | null;
-  userId?: string;
+  success: boolean;
   createdAt: string;
-  [key: string]: unknown;
 }
 
-export async function fetchOwnerLogs(params?: Record<string, string>): Promise<APIResponse<{ entries: OwnerLogEntry[]; pagination?: Record<string, unknown> }>> {
-  return api.get<APIResponse<{ entries: OwnerLogEntry[]; pagination?: Record<string, unknown> }>>('/api/owner/logs', params);
+export async function fetchOwnerLogs(
+  params?: Record<string, string>
+): Promise<APIResponse<{ entries: OwnerLog[]; pagination?: { totalPages?: number } }>> {
+  return api.get<APIResponse<{ entries: OwnerLog[]; pagination?: { totalPages?: number } }>>(
+    '/api/owner/logs',
+    params
+  );
 }
 
 export async function sendAnnouncement(message: string, targetType: 'ALL' | 'GUILD', guildId?: string): Promise<APIResponse<{ success: boolean }>> {
