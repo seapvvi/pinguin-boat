@@ -43,7 +43,7 @@ export default function ClansPage() {
   useEffect(() => { load(); }, [guildId]);
   useBackgroundRefresh(load, 15000, [guildId]);
 
-  const sortedByXp = [...clans].sort((a, b) => b.totalXp - a.totalXp);
+  const sortedByXp = [...clans].sort((a, b) => (b.totalXp ?? 0) - (a.totalXp ?? 0));
 
   if (error) {
     return (
@@ -97,11 +97,11 @@ export default function ClansPage() {
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-[var(--text-secondary)]">
                           <Users size={12} className="inline mr-0.5" />
-                          {clan.memberCount}
+                          {clan.memberCount ?? 0}
                         </span>
                         <span className="text-xs text-[var(--text-secondary)]">
                           <Trophy size={12} className="inline mr-0.5" />
-                          {clan.totalXp} XP
+                          {clan.totalXp ?? 0} XP
                         </span>
                       </div>
                     </div>
@@ -137,11 +137,11 @@ export default function ClansPage() {
                     </div>
                     <span className="text-xs text-[var(--text-secondary)]">
                       <Users size={12} className="inline mr-0.5" />
-                      {clan.memberCount} membre{clan.memberCount > 1 ? 's' : ''}
+                      {clan.memberCount ?? 0} membre{(clan.memberCount ?? 0) > 1 ? 's' : ''}
                     </span>
                   </div>
                   <div className="space-y-1">
-                    {clan.members.map((member) => (
+                    {(clan.members ?? []).map((member) => (
                       <div key={member.id} className="flex items-center justify-between py-1 px-2 rounded bg-[var(--bg-surface)]">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-[var(--text-secondary)]">{member.username}</span>
