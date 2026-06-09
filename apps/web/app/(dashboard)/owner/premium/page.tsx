@@ -11,16 +11,9 @@ import {
 } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
 import {
-  fetchFeatureFlags, updateFeatureFlag, toggleAlphaMode
+  fetchFeatureFlags, updateFeatureFlag, toggleAlphaMode,
+  type FeatureFlag
 } from '@/lib/api';
-
-interface FeatureFlag {
-  key: string;
-  name: string;
-  enabled: boolean;
-  tier: string;
-  description?: string;
-}
 
 export default function OwnerPremiumPage() {
   const [flags, setFlags] = useState<FeatureFlag[]>([]);

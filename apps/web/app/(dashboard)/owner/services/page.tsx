@@ -8,20 +8,8 @@ import {
 import {
   Card, Button, Badge, Skeleton, EmptyState, ErrorMessage
 } from '@pinguin/ui';
-import { fetchServices, serviceAction } from '@/lib/api';
+import { fetchServices, serviceAction, type Service } from '@/lib/api';
 import { formatDate, formatDuration } from '@/lib/utils';
-
-interface Service {
-  name: string;
-  displayName: string;
-  status: 'RUNNING' | 'STOPPED' | 'ERROR' | 'RESTARTING';
-  pid?: number;
-  uptime?: number;
-  memory?: number;
-  cpu?: number;
-  logs?: string[];
-  lastHealthCheck?: string;
-}
 
 const statusVariant: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
   RUNNING: 'success',

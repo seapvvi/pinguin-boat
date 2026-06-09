@@ -4,19 +4,8 @@ import { motion } from 'motion/react';
 import { Search, Ban, Crown, ChevronLeft, ChevronRight, Settings, ShieldAlert } from 'lucide-react';
 import { Card, Input, Button, Badge, Skeleton, EmptyState, ErrorMessage, Modal, Select, Table } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
-import { fetchOwnerUsers, blacklistTarget, unblacklistTarget, api } from '@/lib/api';
+import { fetchOwnerUsers, blacklistTarget, unblacklistTarget, api, type OwnerUser } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-
-interface OwnerUser {
-  id: string;
-  discordId: string;
-  username: string;
-  discriminator: string;
-  avatar: string | null;
-  globalName: string | null;
-  blacklisted: boolean;
-  createdAt: string;
-}
 
 export default function OwnerUsersPage() {
   const [users, setUsers] = useState<OwnerUser[]>([]);

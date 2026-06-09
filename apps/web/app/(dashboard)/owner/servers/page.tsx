@@ -4,19 +4,8 @@ import { motion } from 'motion/react';
 import { Search, Ban, LogOut, ChevronLeft, ChevronRight, Settings, ShieldAlert } from 'lucide-react';
 import { Card, Input, Button, Badge, Skeleton, EmptyState, ErrorMessage, Modal, Select, Table } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
-import { fetchOwnerServers, forceLeaveGuild, blacklistTarget, unblacklistTarget, api } from '@/lib/api';
+import { fetchOwnerServers, forceLeaveGuild, blacklistTarget, unblacklistTarget, api, type OwnerServer } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
-
-interface OwnerServer {
-  id: string;
-  name: string;
-  icon: string | null;
-  memberCount: number;
-  ownerId: string;
-  ownerName: string;
-  botStatus: 'ONLINE' | 'OFFLINE' | 'IDLE';
-  blacklisted: boolean;
-}
 
 export default function OwnerServersPage() {
   const [servers, setServers] = useState<OwnerServer[]>([]);
