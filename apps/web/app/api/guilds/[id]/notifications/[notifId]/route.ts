@@ -35,7 +35,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: { notification } });
   } catch (error) {
-    webLogger.error('Error updating notification:', error);
+    webLogger.error('Error updating notification:', error as Record<string, unknown>);
     return NextResponse.json(
       { success: false, error: 'Erreur lors de la mise à jour de la notification' },
       { status: 500 },
@@ -62,7 +62,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true, data: { success: true } });
   } catch (error) {
-    webLogger.error('Error deleting notification:', error);
+    webLogger.error('Error deleting notification:', error as Record<string, unknown>);
     return NextResponse.json(
       { success: false, error: 'Erreur lors de la suppression de la notification' },
       { status: 500 },

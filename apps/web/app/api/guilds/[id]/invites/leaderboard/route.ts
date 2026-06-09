@@ -61,7 +61,7 @@ export async function GET(
       data: { leaderboard: rankedEntries },
     });
   } catch (error) {
-    webLogger.error('Error fetching invite leaderboard:', error);
+    webLogger.error('Error fetching invite leaderboard:', error as Record<string, unknown>);
     return NextResponse.json(
       {
         success: false,

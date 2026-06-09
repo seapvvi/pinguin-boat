@@ -16,7 +16,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: { notifications } });
   } catch (error) {
-    webLogger.error('Error fetching notifications:', error);
+    webLogger.error('Error fetching notifications:', error as Record<string, unknown>);
     return NextResponse.json(
       { success: false, error: 'Erreur lors du chargement des notifications' },
       { status: 500 },
@@ -57,7 +57,7 @@ export async function POST(
         { status: 409 },
       );
     }
-    webLogger.error('Error creating notification:', error);
+    webLogger.error('Error creating notification:', error as Record<string, unknown>);
     return NextResponse.json(
       { success: false, error: 'Erreur lors de la création de la notification' },
       { status: 500 },
