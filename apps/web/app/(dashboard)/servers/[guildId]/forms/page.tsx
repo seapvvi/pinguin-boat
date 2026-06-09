@@ -182,7 +182,7 @@ export default function FormsPage() {
         await createFormTemplate(guildId, {
           name: templateForm.name,
           description: templateForm.description || undefined,
-          fields,
+          fields: fields as unknown as Record<string, unknown>[],
         });
       }
       setShowTemplateModal(false);
