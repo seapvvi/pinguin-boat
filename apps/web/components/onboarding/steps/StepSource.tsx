@@ -1,5 +1,4 @@
 'use client';
-import { Button } from '@pinguin/ui';
 
 const sources = [
   { value: 'top.gg', label: 'Top.gg' },

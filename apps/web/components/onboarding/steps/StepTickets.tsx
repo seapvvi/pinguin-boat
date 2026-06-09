@@ -1,5 +1,5 @@
 'use client';
-import { Input, Select, Toggle } from '@pinguin/ui';
+import { Select, Toggle } from '@pinguin/ui';
 
 interface StepTicketsProps {
   enabled: boolean;

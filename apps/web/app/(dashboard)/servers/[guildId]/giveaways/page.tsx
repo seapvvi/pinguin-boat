@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Gift, Plus, Trophy, Users, Clock, BarChart3,
+  Gift, Plus, Trophy, BarChart3,
   ChevronLeft, ChevronRight, RotateCcw, XCircle, Trash2
 } from 'lucide-react';
 import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
@@ -85,11 +85,6 @@ export default function GiveawaysPage() {
           const hasCurrent = availableChannels.some((c: { id: string }) => c.id === prev.channelId);
           const nextChannelId = hasCurrent ? prev.channelId : (availableChannels[0]?.id ?? '');
           return nextChannelId === prev.channelId ? prev : { ...prev, channelId: nextChannelId };
-        });
-        setFormErrors((prev) => {
-          if (!prev.channelId) return prev;
-          const { channelId, ...rest } = prev;
-          return rest;
         });
       }).catch(() => {
         if (!cancelled) setChannels([]);

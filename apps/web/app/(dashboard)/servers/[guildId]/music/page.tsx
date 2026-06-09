@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Music, Play, Pause, SkipForward, SkipBack,
+  Play, Pause, SkipForward, SkipBack,
   Square, Volume2, Shuffle, Repeat, History,
   ListMusic, Disc3
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Badge, Select, Skeleton, EmptyState } from '@pinguin/ui';
+import { Card, Toggle, Input, Button, Badge, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
@@ -16,7 +16,6 @@ import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function MusicPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [config, setConfig] = useState<GuildConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -25,7 +24,6 @@ export default function MusicPage() {
   const [local, setLocal] = useState<MusicSettings | null>(null);
   const [queue, setQueue] = useState<TrackInfo[]>([]);
   const [currentTrack, setCurrentTrack] = useState<TrackInfo | null>(null);
-  const [history, setHistory] = useState<TrackInfo[]>([]);
   const [playing, setPlaying] = useState(false);
   const [volume, setVolume] = useState(50);
   const [loop, setLoop] = useState<'NONE' | 'QUEUE' | 'TRACK'>('NONE');
@@ -37,7 +35,6 @@ export default function MusicPage() {
     try {
       const res = await fetchGuildSettings(guildId);
       if (res.success && res.data) {
-        setConfig(res.data.guild);
         setLocal({ ...res.data.guild.music });
       }
       try {
@@ -84,8 +81,7 @@ export default function MusicPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await updateGuildSettings(guildId, { music: local });
-      if (res.success && res.data) setConfig(res.data.guild);
+      await updateGuildSettings(guildId, { music: local });
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
@@ -212,17 +208,7 @@ export default function MusicPage() {
               <History size={18} className="text-[var(--accent)]" />
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">Historique</h2>
             </div>
-            {history.length === 0 ? (
-              <span className="text-xs text-[var(--text-secondary)]">Aucun historique.</span>
-            ) : (
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {history.map((track, i) => (
-                  <div key={i} className="flex items-center gap-3 p-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
-                    <span className="text-xs text-[var(--text-secondary)]">{track.title}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <span className="text-xs text-[var(--text-secondary)]">Aucun historique.</span>
           </Card>
         </div>
 

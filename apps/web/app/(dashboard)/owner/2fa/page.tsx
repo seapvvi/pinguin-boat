@@ -31,7 +31,7 @@ export default function Owner2FAPage() {
       if (res.success && res.data) {
         setEnabled(res.data.enabled);
       }
-    } catch (_e) {
+    } catch {
       setError('Erreur de chargement');
     } finally {
       setLoading(false);

@@ -7,14 +7,12 @@ import {
 } from 'lucide-react';
 import { Card, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, fetchClans, type Clan } from '@/lib/api';
-import type { GuildConfig } from '@pinguin/shared';
+import { fetchClans, type Clan } from '@/lib/api';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { useBackgroundRefresh } from '@/lib/hooks';
 
 export default function ClansPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [config, setConfig] = useState<GuildConfig | null>(null);
   const [clans, setClans] = useState<Clan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,13 +21,7 @@ export default function ClansPage() {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const [settingsRes, clansRes] = await Promise.all([
-        fetchGuildSettings(guildId),
-        fetchClans(guildId),
-      ]);
-      if (settingsRes.success && settingsRes.data) {
-        setConfig(settingsRes.data.guild);
-      }
+      const clansRes = await fetchClans(guildId);
       if (clansRes.success && clansRes.data) {
         setClans(clansRes.data.clans ?? []);
       }

@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   Hash, Shield, Scale, Activity,
-  MessageSquare, Terminal, Music, Gift, Check, X,
+  MessageSquare, Terminal, Music, Gift,
   Gamepad2, Star, ClipboardList, Users,
 } from 'lucide-react';
 import { Card, KPICard, Skeleton, Badge, Toggle } from '@pinguin/ui';

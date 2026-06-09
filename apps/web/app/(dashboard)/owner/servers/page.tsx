@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { Search, Ban, LogOut, ChevronLeft, ChevronRight, Settings, ShieldAlert } from 'lucide-react';
 import { Card, Input, Button, Badge, Skeleton, EmptyState, ErrorMessage, Modal, Select, Table } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
-import { fetchOwnerServers, forceLeaveGuild, blacklistTarget, unblacklistTarget, api, type OwnerServer } from '@/lib/api';
+import { fetchOwnerServers, forceLeaveGuild, blacklistTarget, unblacklistTarget, type OwnerServer } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
 
 export default function OwnerServersPage() {

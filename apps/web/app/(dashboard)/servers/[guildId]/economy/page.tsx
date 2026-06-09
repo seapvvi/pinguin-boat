@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Banknote, ShoppingCart, Plus
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Badge, Table, Skeleton, EmptyState } from '@pinguin/ui';
+import { Card, Toggle, Input, Button, Table, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, fetchEconomyLeaderboard, updateGuildSettings } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
@@ -27,7 +27,6 @@ interface EconomyEntry {
 
 export default function EconomyPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [config, setConfig] = useState<GuildConfig | null>(null);
   const [leaderboard, setLeaderboard] = useState<EconomyEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +45,6 @@ export default function EconomyPage() {
         fetchEconomyLeaderboard(guildId, { page: '1', limit: '20' }),
       ]);
       if (settingsRes.success && settingsRes.data) {
-        setConfig(settingsRes.data.guild);
         const ec = settingsRes.data.guild.economy as EconomySettings & { shopItems?: typeof shopItems };
         setLocal({ ...ec });
         setShopItems(ec.shopItems ?? []);
@@ -64,7 +62,6 @@ export default function EconomyPage() {
 
   const saveEconomy = async (data: EconomySettings) => {
     const res = await updateGuildSettings(guildId, { economy: { ...data, shopItems } });
-    if (res.success && res.data) setConfig(res.data.guild);
   };
 
   useAutoSave(local, saveEconomy, { enabled: !!local });

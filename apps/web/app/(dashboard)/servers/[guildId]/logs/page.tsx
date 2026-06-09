@@ -3,9 +3,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  ScrollText, MessageSquare, Users, Hash, Activity
+  MessageSquare, Users, Hash, Activity
 } from 'lucide-react';
-import { Card, Input, Button, Skeleton } from '@pinguin/ui';
+import { Card, Button, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import type { LogSettings } from '@pinguin/shared';

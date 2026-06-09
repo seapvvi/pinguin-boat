@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Trophy, TrendingUp, Plus, X, Users, MessageSquare, Mic
+  Plus, X
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Badge, Select, Modal, Skeleton, Table, EmptyState } from '@pinguin/ui';
+import { Card, Toggle, Input, Button, Badge, Modal, Skeleton, Table, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, fetchXPLeaderboard, updateGuildSettings } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
-import type { GuildConfig, LevelSettings, LeaderboardEntry, RoleReward } from '@pinguin/shared';
+import type { GuildConfig, LevelSettings, LeaderboardEntry } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
@@ -17,7 +17,6 @@ import { api } from '@/lib/api';
 
 export default function LevelsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [config, setConfig] = useState<GuildConfig | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +38,6 @@ export default function LevelsPage() {
       ]);
       const settingsPayload = (settingsRes as { data?: { guild?: GuildConfig } })?.data;
       if (settingsPayload?.guild) {
-        setConfig(settingsPayload.guild);
         const levels = settingsPayload.guild.levels;
         setLocal({
           ...levels,
@@ -64,8 +62,7 @@ export default function LevelsPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await updateGuildSettings(guildId, { levels: local });
-      if (res.success && res.data) setConfig(res.data.guild);
+      await updateGuildSettings(guildId, { levels: local });
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {

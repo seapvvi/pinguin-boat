@@ -26,7 +26,6 @@ import {
   Crown,
   UserCog,
   ChevronDown,
-  Menu,
   X,
   Snowflake,
   LogOut,

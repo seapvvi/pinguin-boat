@@ -8,7 +8,6 @@ import {
   Card, Button, Badge, Skeleton, EmptyState, ErrorMessage,
   Modal, Toggle
 } from '@pinguin/ui';
-import type { Column } from '@pinguin/ui';
 import {
   fetchFeatureFlags, updateFeatureFlag, toggleAlphaMode,
   type FeatureFlag

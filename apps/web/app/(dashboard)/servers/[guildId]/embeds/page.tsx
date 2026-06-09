@@ -10,12 +10,11 @@ import { Card, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pingui
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
 import { generateId } from '@/lib/utils';
-import type { GuildConfig, EmbedPreset, EmbedField } from '@pinguin/shared';
+import type { EmbedPreset, EmbedField } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function EmbedsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [config, setConfig] = useState<GuildConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [embeds, setEmbeds] = useState<EmbedPreset[]>([]);
@@ -38,7 +37,6 @@ export default function EmbedsPage() {
     try {
       const res = await fetchGuildSettings(guildId);
       if (res.success && res.data) {
-        setConfig(res.data.guild);
         setEmbeds(res.data.guild.embeds ?? []);
       }
     } catch (e) {

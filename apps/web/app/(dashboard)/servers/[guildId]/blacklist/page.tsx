@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Ban, Search, Plus, ChevronLeft, ChevronRight, User, Trash2
+  Search, Plus, ChevronLeft, ChevronRight, Trash2
 } from 'lucide-react';
 import { Card, Table, Input, Button, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';

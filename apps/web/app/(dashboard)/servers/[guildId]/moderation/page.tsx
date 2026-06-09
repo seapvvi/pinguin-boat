@@ -3,12 +3,12 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Shield, AlertTriangle, Ban, MicOff, UserX,
-  Search, Plus, ChevronLeft, ChevronRight
+  AlertTriangle, Ban, MicOff, UserX,
+  Plus, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState, Avatar } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchModCases, fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
+import { fetchModCases, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { ModCase } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -107,7 +107,7 @@ export default function ModerationPage() {
     setSubmitting(true);
     setFormErrors({});
     try {
-      const res = await api.post(`/api/guilds/${guildId}/moderation`, {
+      await api.post(`/api/guilds/${guildId}/moderation`, {
         type: form.type,
         userId: form.userId.trim(),
         reason: form.reason.trim(),

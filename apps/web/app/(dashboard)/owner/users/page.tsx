@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { Search, Ban, ChevronLeft, ChevronRight, Settings, ShieldAlert } from 'lucide-react';
 import { Card, Input, Button, Badge, Skeleton, EmptyState, ErrorMessage, Modal, Select, Table } from '@pinguin/ui';
 import type { Column } from '@pinguin/ui';
-import { fetchOwnerUsers, blacklistTarget, unblacklistTarget, api, type OwnerUser } from '@/lib/api';
+import { fetchOwnerUsers, blacklistTarget, unblacklistTarget, type OwnerUser } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 
 export default function OwnerUsersPage() {
