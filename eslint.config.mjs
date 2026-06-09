@@ -1,9 +1,10 @@
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
+import next from '@next/eslint-plugin-next';
 
 export default [
   {
-    files: ['apps/**/*.ts', 'packages/**/*.ts'],
+    files: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/**/*.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -13,12 +14,14 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tseslint,
+      '@next/next': next,
     },
     rules: {
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-console': 'warn',
+      ...next.configs.recommended.rules,
     },
   },
 ];
