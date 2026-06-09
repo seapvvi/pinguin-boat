@@ -79,7 +79,7 @@ export default function GiveawaysPage() {
       let cancelled = false;
       fetchGuildChannels(guildId).then((res) => {
         if (!res.success || !res.data || cancelled) return;
-        const availableChannels = res.data.channels.filter((c: any) => c.type === 0 && c.name !== '📢｜annonces');
+        const availableChannels = (res.data.channels as { id: string; name: string; type: number }[]).filter((c) => c.type === 0 && c.name !== '📢｜annonces');
         setChannels(availableChannels);
         setForm((prev) => {
           const hasCurrent = availableChannels.some((c: { id: string }) => c.id === prev.channelId);
