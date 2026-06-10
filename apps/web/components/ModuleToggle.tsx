@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Toggle, Skeleton, ErrorMessage } from '@pinguin/ui';
+import { Toggle, Skeleton } from '@pinguin/ui';
 import { fetchGuildSettings, toggleModule as apiToggleModule } from '@/lib/api';
 
 interface ModuleToggleProps {

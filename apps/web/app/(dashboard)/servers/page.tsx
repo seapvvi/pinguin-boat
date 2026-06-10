@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Server, Search, Plus, Users } from 'lucide-react';
-import { Card, Input, Badge, Skeleton, EmptyState } from '@pinguin/ui';
+import { Input, Badge, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuilds, api } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';

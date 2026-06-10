@@ -47,10 +47,10 @@ export function OnboardingModal({
   currentStep,
   totalSteps,
   data: propData,
-  onClose,
+  onClose: _onClose,
   onSkip,
   onComplete,
-  onStepChange,
+  onStepChange: _onStepChange,
   onNextStep,
   onPrevStep,
 }: OnboardingModalProps) {

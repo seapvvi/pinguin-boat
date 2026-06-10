@@ -13,7 +13,7 @@ import { DiscordSelect } from '@/components/DiscordSelect';
 
 export default function ProtectionPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [config, setConfig] = useState<GuildConfig | null>(null);
+  const [_config, setConfig] = useState<GuildConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -41,19 +41,6 @@ export default function ProtectionPage() {
   };
 
   useEffect(() => { load(); }, [guildId]);
-
-  const saveProtection = async (data: ProtectionSettings) => {
-    const enabled =
-      data.antiRaid ||
-      data.antiSpam ||
-      data.antiMassMention ||
-      data.antiLink ||
-      data.antiAlts ||
-      data.captchaVerification ||
-      emergencyActive;
-    await api.put(`/api/guilds/${guildId}/protection`, { ...data, enabled });
-  };
-
 
   const update = (key: keyof ProtectionSettings, value: unknown) => {
     if (!local) return;

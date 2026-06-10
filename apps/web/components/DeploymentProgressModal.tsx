@@ -114,7 +114,7 @@ export default function DeploymentProgressModal({ deploymentId, onClose }: Deplo
               <div className="space-y-1.5">
                 {STEPS.map((step, i) => {
                   const done = logs.some(l => l.includes(step.keyword));
-                  const active = !done && (i === 0 || STEPS.slice(0, i).every((s, j) =>
+                  const active = !done && (i === 0 || STEPS.slice(0, i).every((s) =>
                     logs.some(l => l.includes(s.keyword))
                   ));
                   return (

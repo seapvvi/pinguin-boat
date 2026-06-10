@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Star, Settings, ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import { Card, Button, Badge, Skeleton, EmptyState, ErrorMessage, Input, Toggle } from '@pinguin/ui';
+import { Card, Button, Skeleton, EmptyState, ErrorMessage, Input, Toggle } from '@pinguin/ui';
 import {
   fetchStarboardSettings, updateStarboardSettings, fetchStarboardEntries,
 } from '@/lib/api';

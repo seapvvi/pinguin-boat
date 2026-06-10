@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Ticket, Plus, MessageSquare, UserCheck, X,
+  Plus, MessageSquare, UserCheck,
   ChevronLeft, ChevronRight, Lock
 } from 'lucide-react';
 import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';

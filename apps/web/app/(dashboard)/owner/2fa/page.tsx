@@ -50,7 +50,7 @@ export default function Owner2FAPage() {
         setSecret(res.data.secret);
         setVerificationCode('');
       }
-    } catch (_e) {
+    } catch {
       setStatusMessage({ type: 'error', text: 'Erreur lors de la configuration.' });
     } finally { setActionLoading(false); }
   };
@@ -66,7 +66,7 @@ export default function Owner2FAPage() {
       setSecret(null);
       setVerificationCode('');
       setStatusMessage({ type: 'success', text: '2FA activée avec succès !' });
-    } catch (_e) {
+    } catch {
       setStatusMessage({ type: 'error', text: 'Code invalide. Veuillez réessayer.' });
     } finally { setActionLoading(false); }
   };
@@ -81,7 +81,7 @@ export default function Owner2FAPage() {
       setShowDisableModal(false);
       setDisableCode('');
       setStatusMessage({ type: 'success', text: '2FA désactivée.' });
-    } catch (_e) {
+    } catch {
       setStatusMessage({ type: 'error', text: 'Code invalide.' });
     } finally { setActionLoading(false); }
   };

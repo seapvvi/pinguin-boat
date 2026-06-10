@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import { DoorOpen, Image, Mail, LogOut, Eye } from 'lucide-react';
+import { Image, Mail, LogOut, Eye } from 'lucide-react';
 import { Card, Toggle, Input, Button, Badge, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
@@ -67,21 +67,6 @@ export default function WelcomePage() {
   };
 
   useEffect(() => { load(); }, [guildId]);
-
-  const saveWelcome = async (data: WelcomeSettings) => {
-    await api.put(`/api/guilds/${guildId}/welcome`, {
-      enabled: data.enabled,
-      welcomeChannelId: data.welcomeChannelId,
-      welcomeMessage: data.welcomeMessage,
-      welcomeEmbed: data.welcomeEmbed,
-      goodbyeChannelId: data.goodbyeChannelId,
-      goodbyeMessage: data.goodbyeMessage,
-      goodbyeEmbed: data.goodbyeEmbed,
-      welcomeDM: data.dmWelcome,
-      welcomeDMMessage: data.dmWelcomeMessage,
-    });
-  };
-
 
   const handleSave = async () => {
     if (!local) return;

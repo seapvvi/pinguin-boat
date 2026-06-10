@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Server, Users, Terminal, Clock, Cpu,
   DollarSign, Wifi, MessageSquare, Activity,
-  TrendingUp, Heart, Plus, ChevronRight, Sparkles
+  TrendingUp, Heart, Sparkles
 } from 'lucide-react';
 import { Card, KPICard, Skeleton, EmptyState, Badge } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';

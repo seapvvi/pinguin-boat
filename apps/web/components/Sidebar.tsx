@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn, Logo, Avatar, Toggle, Snowflakes } from '@pinguin/ui';
+import { Logo, Avatar, Toggle, Snowflakes } from '@pinguin/ui';
 import { useSnowflakes } from '@pinguin/ui';
 import { getAvatarUrl } from '@/lib/utils';
 import {
@@ -52,11 +52,6 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onLogout: () => void;
-}
-
-interface Category {
-  label: string;
-  items: Item[];
 }
 
 interface Item {

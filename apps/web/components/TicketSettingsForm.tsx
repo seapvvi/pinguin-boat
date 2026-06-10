@@ -5,14 +5,12 @@ import { Card, Toggle, Input, Button, Skeleton } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
 function sanitizeTicketSettingsPayload(payload: Record<string, unknown>): Record<string, unknown> {
-  const {
-    id: _id,
-    guildId: _guildId,
-    createdAt: _createdAt,
-    updatedAt: _updatedAt,
-    enabled: _enabled,
-    ...editable
-  } = payload;
+  const { ...editable } = payload;
+  delete editable.id;
+  delete editable.guildId;
+  delete editable.createdAt;
+  delete editable.updatedAt;
+  delete editable.enabled;
   return editable;
 }
 

@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Trash2, Plus, Video, Radio, Palette, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trash2, Plus, Video, Radio, Palette } from 'lucide-react';
 import { Card, Button, Badge, Skeleton, Select, Input, Toggle } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchStreamNotifications, createStreamNotification, updateStreamNotification, deleteStreamNotification } from '@/lib/api';

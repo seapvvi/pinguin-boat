@@ -9,7 +9,6 @@ import {
 import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState, Select } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchPolls, fetchGuildChannels, api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
 import type { Poll } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
@@ -64,8 +63,9 @@ export default function PollsPage() {
         });
         setFormErrors((prev) => {
           if (!prev.channelId) return prev;
-          const { channelId, ...rest } = prev;
-          return rest;
+          return Object.fromEntries(
+            Object.entries(prev).filter(([k]) => k !== 'channelId')
+          );
         });
       }).catch(() => {
         if (!cancelled) setChannels([]);

@@ -11,7 +11,7 @@ import { Card, Toggle, Input, Button, Badge, Skeleton, EmptyState } from '@pingu
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
-import type { GuildConfig, MusicSettings, TrackInfo } from '@pinguin/shared';
+import type { MusicSettings, TrackInfo } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 
 export default function MusicPage() {
@@ -24,7 +24,7 @@ export default function MusicPage() {
   const [local, setLocal] = useState<MusicSettings | null>(null);
   const [queue, setQueue] = useState<TrackInfo[]>([]);
   const [currentTrack, setCurrentTrack] = useState<TrackInfo | null>(null);
-  const [playing, setPlaying] = useState(false);
+  const [playing] = useState(false);
   const [volume, setVolume] = useState(50);
   const [loop, setLoop] = useState<'NONE' | 'QUEUE' | 'TRACK'>('NONE');
   const [shuffle, setShuffle] = useState(false);

@@ -9,7 +9,6 @@ import {
 import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchSuggestions, api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
 import type { Suggestion } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';

@@ -9,7 +9,7 @@ import { Card, Toggle, Input, Button, Table, Skeleton, EmptyState } from '@pingu
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, fetchEconomyLeaderboard, updateGuildSettings } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
-import type { GuildConfig, EconomySettings } from '@pinguin/shared';
+import type { EconomySettings } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -61,7 +61,7 @@ export default function EconomyPage() {
   useBackgroundRefresh(load, 10000, [guildId]);
 
   const saveEconomy = async (data: EconomySettings) => {
-    const res = await updateGuildSettings(guildId, { economy: { ...data, shopItems } });
+    await updateGuildSettings(guildId, { economy: { ...data, shopItems } });
   };
 
   useAutoSave(local, saveEconomy, { enabled: !!local });

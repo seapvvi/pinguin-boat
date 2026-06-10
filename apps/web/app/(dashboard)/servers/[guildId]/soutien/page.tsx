@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Heart, ExternalLink, Palette, MessageCircle, Star, Rocket,
-  Vote, Brush, Shield, Megaphone, Users
+  Vote, Brush, Shield, Megaphone
 } from 'lucide-react';
 import { Card, Skeleton, Button } from '@pinguin/ui';
 import { api } from '@/lib/api';
