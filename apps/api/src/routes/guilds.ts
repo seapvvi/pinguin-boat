@@ -1998,15 +1998,6 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.get('/:guildId/embeds', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as any;
-      const embeds = await prisma.savedEmbed.findMany({ where: { guildId }, orderBy: { createdAt: 'desc' } });
-      const data = embeds.map((e) => ({ ...e, fields: JSON.parse(e.fields) }));
-      reply.send(success({ embeds: data }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
   app.put('/:guildId/embeds', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as any;
