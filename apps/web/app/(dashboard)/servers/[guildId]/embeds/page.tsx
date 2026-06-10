@@ -151,7 +151,11 @@ export default function EmbedsPage() {
     try {
       const res = await fetchGuildChannels(guildId);
       if (res.success && res.data) {
-        setChannels((res.data.channels as Channel[]).filter((c) => c.type === 0));
+        setChannels(res.data.channels.filter((c) => c.type === 0).map((c) => ({
+          id: String(c.id),
+          name: String(c.name),
+          type: Number(c.type),
+        })));
       }
     } catch {
       setError('Impossible de charger les salons');

@@ -37,10 +37,10 @@ export function DiscordSelect({
           const res = await fetchGuildChannels(guildId);
           if (res.success && res.data) {
             const mapped = res.data.channels
-                .filter((c) => channelTypes.includes((c as { type: number }).type))
+                .filter((c) => channelTypes.includes(Number(c.type)))
                 .map((c) => ({
-                  value: (c as { id: string }).id,
-                  label: `#${(c as { name: string }).name}`,
+                  value: String(c.id),
+                  label: `#${String(c.name)}`,
                 }));
             setOptions(mapped);
             if (!value && mapped.length > 0) onChange(mapped[0].value);
@@ -49,10 +49,10 @@ export function DiscordSelect({
           const res = await fetchGuildRoles(guildId);
           if (res.success && res.data) {
             const mapped = res.data.roles
-                .filter((r) => (r as { name: string }).name !== '@everyone')
+                .filter((r) => String(r.name) !== '@everyone')
                 .map((r) => ({
-                  value: (r as { id: string }).id,
-                  label: (r as { name: string }).name,
+                  value: String(r.id),
+                  label: String(r.name),
                 }));
             setOptions(mapped);
             if (!value && mapped.length > 0) onChange(mapped[0].value);
