@@ -43,7 +43,6 @@ export async function authRoutes(app: FastifyInstance) {
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('scope', 'identify email guilds');
-    url.searchParams.set('prompt', 'none');
     url.searchParams.set('state', state);
 
     reply.redirect(url.toString());
