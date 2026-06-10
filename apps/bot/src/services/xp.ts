@@ -108,6 +108,15 @@ export async function addMessageXp(
     if (settings?.xpMultiplier && settings.xpMultiplier !== 1) {
       xpGain = Math.floor(xpGain * settings.xpMultiplier);
     }
+    if (options?.roleIds && options.roleIds.length > 0) {
+      const roleRewards = await tx.xPRoleReward.findMany({
+        where: { guildId, roleId: { in: options.roleIds } },
+      });
+      const roleMult = Math.max(1, ...roleRewards.map((r) => r.xpMultiplier));
+      if (roleMult > 1) {
+        xpGain = Math.floor(xpGain * roleMult);
+      }
+    }
     if (await isEventActive('double_xp')) {
       xpGain *= 2;
     }
@@ -144,7 +153,8 @@ export async function addMessageXp(
 export async function addVoiceXp(
   guildId: string,
   userId: string,
-  minutes: number
+  minutes: number,
+  roleIds?: string[]
 ): Promise<{ xp: number; level: number; leveledUp: boolean }> {
   const now = new Date();
   await ensureUser(userId);
@@ -176,6 +186,15 @@ export async function addVoiceXp(
   let xpGain = XP_PER_VOCAL_MINUTE * Math.max(1, minutes);
   if (settings?.xpMultiplier && settings.xpMultiplier !== 1) {
     xpGain = Math.floor(xpGain * settings.xpMultiplier);
+  }
+  if (roleIds && roleIds.length > 0) {
+    const roleRewards = await prisma.xPRoleReward.findMany({
+      where: { guildId, roleId: { in: roleIds } },
+    });
+    const roleMult = Math.max(1, ...roleRewards.map((r) => r.xpMultiplier));
+    if (roleMult > 1) {
+      xpGain = Math.floor(xpGain * roleMult);
+    }
   }
   if (await isEventActive('double_xp')) {
     xpGain *= 2;

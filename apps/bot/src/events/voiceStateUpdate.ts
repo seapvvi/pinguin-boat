@@ -31,7 +31,9 @@ export async function execute(oldState: VoiceState, newState: VoiceState, client
     if (timer) {
       const minutes = Math.floor((Date.now() - timer.startTime) / 60000);
       if (minutes >= 1) {
-        const result = await addVoiceXp(guildId, userId, minutes);
+        const member = newState.member;
+        if (!member) return;
+        const result = await addVoiceXp(guildId, userId, minutes, [...member.roles.cache.keys()]);
         if (result.leveledUp && newState.member) {
           const rewards = await prisma.xPRoleReward.findMany({
             where: { guildId, levelRequired: { lte: result.level } },

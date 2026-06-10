@@ -323,6 +323,7 @@ model Guild {
   ticketCategories TicketCategory[]
   xpProfiles       XPProfile[]
   xpRoleRewards    XPRoleReward[]
+  rankCardSettings RankCardSettings?
   economyWallets   EconomyWallet[]
   economyTransactions EconomyTransaction[]
   quests           Quest[]
@@ -690,6 +691,7 @@ model XPRoleReward {
   roleId        String   @map("role_id")
   levelRequired Int      @map("level_required")
   removeOnLevel Boolean  @default(false) @map("remove_on_level")
+  xpMultiplier  Float    @default(1.0) @map("xp_multiplier")
   createdAt     DateTime @default(now()) @map("created_at")
 
   guild Guild @relation(fields: [guildId], references: [id])
@@ -1724,4 +1726,27 @@ model InviteTrack {
   @@index([guildId, joinedId])
   @@index([inviterId])
   @@map("invite_tracks")
+}
+
+/// Configuration de la carte de rang personnalisée
+model RankCardSettings {
+  id                String   @id @default(cuid()) @map("id")
+  guildId           String   @unique @map("guild_id")
+  backgroundType    String   @default("COLOR") @map("background_type")
+  backgroundColor   String   @default("#23272a") @map("background_color")
+  backgroundImage   String?  @map("background_image")
+  gradientFrom      String   @default("#23272a") @map("gradient_from")
+  gradientTo        String   @default("#2c2f33") @map("gradient_to")
+  xpBarColor        String   @default("#5865f2") @map("xp_bar_color")
+  xpBarBackground   String   @default("#4f545c") @map("xp_bar_background")
+  textColor         String   @default("#ffffff") @map("text_color")
+  avatarBorder      Boolean  @default(true) @map("avatar_border")
+  avatarBorderColor String   @default("#5865f2") @map("avatar_border_color")
+  fontFamily        String   @default("Sans-serif") @map("font_family")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  guild Guild @relation(fields: [guildId], references: [id])
+
+  @@map("rank_card_settings")
 }

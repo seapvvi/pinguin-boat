@@ -95,11 +95,19 @@ export interface LevelSettings {
   levelUpChannelId: string | null;
   stackRoles: boolean;
   roleRewards: RoleReward[];
+  xpMultiplier?: number;
+  levelFormula?: string;
+  maxLevel?: number;
+  announcementChannelId?: string | null;
+  announcementMessage?: string | null;
+  levelUpNotification?: 'DM' | 'CHANNEL' | 'NONE';
 }
 
 export interface RoleReward {
   level: number;
   roleId: string;
+  xpMultiplier?: number;
+  removeOnLevel?: boolean;
 }
 
 export interface EconomySettings {

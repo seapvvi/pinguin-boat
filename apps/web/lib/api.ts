@@ -319,6 +319,14 @@ export async function fetchXPProfile(guildId: string, userId: string): Promise<A
   return api.get<APIResponse<XPProfileDTO>>(`/api/guilds/${guildId}/levels/${userId}`);
 }
 
+export async function fetchRankCardSettings(guildId: string): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/levels/rank-card`);
+}
+
+export async function updateRankCardSettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.put<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/levels/rank-card`, settings);
+}
+
 export async function fetchEconomyLeaderboard(
   guildId: string,
   params?: Record<string, string>

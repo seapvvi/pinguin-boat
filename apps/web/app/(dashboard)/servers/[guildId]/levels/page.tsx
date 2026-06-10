@@ -1,19 +1,31 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Plus, X
+  Plus, X, Eye
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Badge, Modal, Skeleton, Table, EmptyState } from '@pinguin/ui';
+import { Card, Toggle, Input, Button, Badge, Modal, Skeleton, Table, EmptyState, Select } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, fetchXPLeaderboard, updateGuildSettings } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
-import type { GuildConfig, LevelSettings, LeaderboardEntry } from '@pinguin/shared';
+import type { GuildConfig, LevelSettings, LeaderboardEntry, RoleReward } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { api } from '@/lib/api';
+import RankCardEditor from '@/components/levels/RankCardEditor';
+
+const NOTIF_TYPES = [
+  { value: 'CHANNEL', label: 'Message simple' },
+  { value: 'DM', label: 'Message privé (DM)' },
+];
+
+const LEVEL_UP_VARIABLES = [
+  { key: '{{user}}', label: 'Utilisateur' },
+  { key: '{{level}}', label: 'Niveau' },
+  { key: '{{server}}', label: 'Serveur' },
+];
 
 export default function LevelsPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -24,7 +36,7 @@ export default function LevelsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<LevelSettings | null>(null);
   const [rewardModal, setRewardModal] = useState(false);
-  const [newReward, setNewReward] = useState({ level: 1, roleId: '' });
+  const [newReward, setNewReward] = useState<RoleReward>({ level: 1, roleId: '', xpMultiplier: 1.0 });
   const [lbTab, setLbTab] = useState<'guild' | 'global'>('guild');
   const [globalLb, setGlobalLb] = useState<LeaderboardEntry[]>([]);
 
@@ -72,11 +84,12 @@ export default function LevelsPage() {
 
   const addReward = () => {
     if (!local) return;
+    const mult = Math.max(0.1, Math.min(10, newReward.xpMultiplier ?? 1.0));
     setLocal({
       ...local,
-      roleRewards: [...(local.roleRewards ?? []), { level: newReward.level, roleId: newReward.roleId }],
+      roleRewards: [...(local.roleRewards ?? []), { ...newReward, xpMultiplier: mult }],
     });
-    setNewReward({ level: 1, roleId: '' });
+    setNewReward({ level: 1, roleId: '', xpMultiplier: 1.0 });
     setRewardModal(false);
   };
 
@@ -87,6 +100,22 @@ export default function LevelsPage() {
       roleRewards: (local.roleRewards ?? []).filter((_, i) => i !== index),
     });
   };
+
+  const updateReward = (index: number, patch: Partial<RoleReward>) => {
+    if (!local) return;
+    setLocal({
+      ...local,
+      roleRewards: (local.roleRewards ?? []).map((rr, i) => (i === index ? { ...rr, ...patch } : rr)),
+    });
+  };
+
+  const previewMessage = useCallback(() => {
+    const msg = local?.announcementMessage || '';
+    return msg
+      .replace('{{user}}', '@Jean#1234')
+      .replace('{{level}}', '15')
+      .replace('{{server}}', 'Mon Serveur');
+  }, [local?.announcementMessage]);
 
   const lbColumns: Column<LeaderboardEntry>[] = [
     { key: 'rank', label: '#', render: (e) => <span className="text-xs font-bold text-[var(--text-secondary)]">#{e.rank}</span> },
@@ -135,6 +164,7 @@ export default function LevelsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="space-y-6">
+          {/* ─── Paramètres ─── */}
           <Card>
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Paramètres</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -152,6 +182,13 @@ export default function LevelsPage() {
             </div>
           </Card>
 
+          {/* ─── Carte de rang ─── */}
+          <Card>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Carte de rang</h2>
+            <RankCardEditor guildId={guildId} />
+          </Card>
+
+          {/* ─── Récompenses de rôles ─── */}
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-[var(--text-primary)]">Récompenses de rôles</h2>
@@ -162,29 +199,103 @@ export default function LevelsPage() {
             ) : (
               <div className="space-y-2">
                 {local.roleRewards.map((rr, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="info">Niveau {rr.level}</Badge>
-                      <span className="text-sm font-mono text-[var(--text-secondary)]">{rr.roleId.slice(0, 10)}…</span>
+                  <div key={i} className="flex flex-col p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="info">Niveau {rr.level}</Badge>
+                        <span className="text-sm font-mono text-[var(--text-secondary)]">{rr.roleId.slice(0, 10)}…</span>
+                      </div>
+                      <button onClick={() => removeReward(i)} className="text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors">
+                        <X size={14} />
+                      </button>
                     </div>
-                    <button onClick={() => removeReward(i)} className="text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors">
-                      <X size={14} />
-                    </button>
+                    <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
+                      {rr.xpMultiplier != null && rr.xpMultiplier !== 1 && (
+                        <Badge variant="success">{rr.xpMultiplier}× XP</Badge>
+                      )}
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={rr.removeOnLevel ?? false}
+                          onChange={(e) => updateReward(i, { removeOnLevel: e.target.checked })}
+                          className="accent-[var(--accent)]"
+                        />
+                        Retirer au niveau suivant
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={String(rr.xpMultiplier ?? 1.0)}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v)) updateReward(i, { xpMultiplier: Math.max(0.1, Math.min(10, v)) });
+                        }}
+                        placeholder="Multiplicateur XP"
+                        className="w-28"
+                      />
+                      <span className="text-xs text-[var(--text-secondary)]">× XP (0.1 – 10)</span>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </Card>
 
+          {/* ─── Notifications de level-up ─── */}
           <Card>
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Salons et rôles ignorés</h2>
-            <Input placeholder="IDs des salons ignorés (séparés par des virgules)" />
-            <div className="mt-3">
-              <Input placeholder="IDs des rôles ignorés (séparés par des virgules)" />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Notifications de level-up</h2>
+            <div className="space-y-4">
+              <Select
+                label="Type de notification"
+                options={NOTIF_TYPES}
+                value={local.levelUpNotification || 'CHANNEL'}
+                onChange={(e) => setLocal({ ...local, levelUpNotification: e.target.value as 'CHANNEL' | 'DM' | 'NONE' })}
+              />
+              <DiscordSelect
+                type="channel"
+                guildId={guildId}
+                label="Salon d'annonce"
+                value={local.announcementChannelId || ''}
+                onChange={(id) => setLocal({ ...local, announcementChannelId: id })}
+                channelTypes={[0]}
+              />
+              <div>
+                <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">
+                  Message de level-up
+                </label>
+                <textarea
+                  value={local.announcementMessage || ''}
+                  onChange={(e) => setLocal({ ...local, announcementMessage: e.target.value })}
+                  placeholder="Bravo {{user}}, tu as atteint le niveau **{{level}}** !"
+                  rows={3}
+                  className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-transparent border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none focus:border-[var(--accent)] transition-colors resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Variables</label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {LEVEL_UP_VARIABLES.map((v) => (
+                    <code key={v.key} className="text-xs px-1.5 py-0.5 rounded bg-[var(--bg-surface-alt)] text-[var(--accent)]">
+                      {v.key}
+                    </code>
+                  ))}
+                </div>
+              </div>
+              {local.announcementMessage && (
+                <div className="p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] border border-[var(--border-color)]">
+                  <div className="flex items-center gap-1 text-xs text-[var(--text-secondary)] mb-1">
+                    <Eye size={12} />
+                    Aperçu
+                  </div>
+                  <p className="text-sm text-[var(--text-primary)]">{previewMessage()}</p>
+                </div>
+              )}
             </div>
           </Card>
         </div>
 
+        {/* ─── Leaderboard ─── */}
         <Card padding={false}>
           <div className="p-5 border-b border-[var(--border-color)] flex gap-2">
             <button type="button" onClick={() => setLbTab('guild')} className={`text-sm px-3 py-1 rounded ${lbTab === 'guild' ? 'bg-[var(--accent)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)]'}`}>Serveur</button>
@@ -218,10 +329,31 @@ export default function LevelsPage() {
         </Card>
       </div>
 
-      <Modal open={rewardModal} onClose={() => setRewardModal(false)} title="Ajouter une récompense">
+      {/* ─── Modal ajout récompense ─── */}
+      <Modal open={rewardModal} onClose={() => setRewardModal(false)} title="Ajouter un palier">
         <div className="space-y-4">
-          <Input label="Niveau requis" type="number" value={String(newReward.level)} onChange={(e) => setNewReward({ ...newReward, level: Number(e.target.value) })} />
-          <DiscordSelect type="role" guildId={guildId} label="Rôle" value={newReward.roleId} onChange={(id) => setNewReward({ ...newReward, roleId: id })} />
+          <Input
+            label="Niveau requis"
+            type="number"
+            value={String(newReward.level)}
+            onChange={(e) => setNewReward({ ...newReward, level: Math.max(1, Number(e.target.value)) })}
+          />
+          <DiscordSelect
+            type="role"
+            guildId={guildId}
+            label="Rôle"
+            value={newReward.roleId}
+            onChange={(id) => setNewReward({ ...newReward, roleId: id })}
+          />
+          <Input
+            label="Multiplicateur XP (0.1 – 10)"
+            type="number"
+            step="0.1"
+            min="0.1"
+            max="10"
+            value={String(newReward.xpMultiplier ?? 1.0)}
+            onChange={(e) => setNewReward({ ...newReward, xpMultiplier: Math.max(0.1, Math.min(10, parseFloat(e.target.value) || 1.0)) })}
+          />
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setRewardModal(false)}>Annuler</Button>
             <Button onClick={addReward}>Ajouter</Button>

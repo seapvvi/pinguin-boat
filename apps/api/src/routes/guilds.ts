@@ -218,7 +218,7 @@ export async function guildRoutes(app: FastifyInstance) {
           ignoredRoles: JSON.parse(guild.xpSettings.ignoredRoles),
           announcementChannelId: guild.xpSettings.announcementChannelId,
           announcementMessage: guild.xpSettings.announcementMessage,
-          roleRewards: [],
+          roleRewards: (guild as any).xpRoleRewards?.map((rr: any) => ({ level: rr.levelRequired, roleId: rr.roleId, xpMultiplier: rr.xpMultiplier })) ?? [],
         } : undefined,
         welcome: guild.welcomeSettings || undefined,
         logs: mapLogsPayload(guild.logSettings, guild.modulesEnabled),
@@ -400,6 +400,7 @@ export async function guildRoutes(app: FastifyInstance) {
             guildId,
             levelRequired: rr.level,
             roleId: rr.roleId,
+            xpMultiplier: rr.xpMultiplier ?? 1.0,
           }));
           if (rewards.length > 0) {
             await prisma.xPRoleReward.createMany({ data: rewards });
@@ -592,7 +593,7 @@ export async function guildRoutes(app: FastifyInstance) {
           ignoredRoles: JSON.parse(guild.xpSettings.ignoredRoles),
           announcementChannelId: guild.xpSettings.announcementChannelId,
           announcementMessage: guild.xpSettings.announcementMessage,
-          roleRewards: (guild as any).xpRoleRewards?.map((rr: any) => ({ level: rr.levelRequired, roleId: rr.roleId })) ?? [],
+          roleRewards: (guild as any).xpRoleRewards?.map((rr: any) => ({ level: rr.levelRequired, roleId: rr.roleId, xpMultiplier: rr.xpMultiplier })) ?? [],
         } : undefined,
         welcome: guild.welcomeSettings || undefined,
         logs: mapLogsPayload(guild.logSettings, guild.modulesEnabled),
@@ -1495,10 +1496,46 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.roleRewards) {
         await prisma.xPRoleReward.deleteMany({ where: { guildId } });
         for (const r of body.roleRewards) {
-          await prisma.xPRoleReward.create({ data: { guildId, roleId: r.roleId, levelRequired: r.level } });
+          await prisma.xPRoleReward.create({ data: { guildId, roleId: r.roleId, levelRequired: r.level, xpMultiplier: r.xpMultiplier ?? 1.0 } });
         }
       }
       reply.send(success(null, 'Paramètres XP mis à jour'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.get('/:guildId/levels/rank-card', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      let settings = await prisma.rankCardSettings.findUnique({ where: { guildId } });
+      if (!settings) {
+        settings = await prisma.rankCardSettings.create({ data: { guildId } });
+      }
+      reply.send(success({ settings }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.put('/:guildId/levels/rank-card', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      const settings = await prisma.rankCardSettings.upsert({
+        where: { guildId },
+        update: {
+          backgroundType: body.backgroundType ?? undefined,
+          backgroundColor: body.backgroundColor ?? undefined,
+          backgroundImage: body.backgroundImage ?? undefined,
+          gradientFrom: body.gradientFrom ?? undefined,
+          gradientTo: body.gradientTo ?? undefined,
+          xpBarColor: body.xpBarColor ?? undefined,
+          xpBarBackground: body.xpBarBackground ?? undefined,
+          textColor: body.textColor ?? undefined,
+          avatarBorder: body.avatarBorder ?? undefined,
+          avatarBorderColor: body.avatarBorderColor ?? undefined,
+          fontFamily: body.fontFamily ?? undefined,
+        },
+        create: { guildId, ...body },
+      });
+      reply.send(success({ settings }));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
