@@ -6,14 +6,13 @@ import { Swords, Sliders, Users, MessageSquare, Hash, AlertTriangle } from 'luci
 import { Card, Toggle, Input, Select, Button, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
-import type { GuildConfig, ProtectionSettings } from '@pinguin/shared';
+import type { ProtectionSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
 
 export default function ProtectionPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [_config, setConfig] = useState<GuildConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -28,7 +27,6 @@ export default function ProtectionPage() {
     try {
       const res = await fetchGuildSettings(guildId);
       if (res.success && res.data) {
-        setConfig(res.data.guild);
         const p = res.data.guild.protection as ProtectionSettings & { emergencyMode?: boolean };
         setLocal({ ...p });
         setEmergencyActive(!!p.emergencyMode);

@@ -54,13 +54,6 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
-interface Item {
-  label: string;
-  icon: React.ReactNode;
-  href: string;
-  ownerOnly?: boolean;
-}
-
 function guildHref(guildId: string | null, base: string, isGuildPage: boolean): string {
   if (!isGuildPage) return base;
   if (!guildId) return `/servers?redirect=${encodeURIComponent(base)}`;
