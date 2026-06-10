@@ -6,7 +6,7 @@ import {
   Plus, MessageSquare, UserCheck, ChevronLeft, ChevronRight, Lock,
   FileText, Settings, BarChart3, List, Layers, Trash2, GripVertical, Edit3,
 } from 'lucide-react';
-import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState, KPICard } from '@pinguin/ui';
+import { Card, Table, Button, Badge, Modal, Skeleton, EmptyState, KPICard } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchTickets, api, fetchTicketStats, fetchTicketCategories, deleteTicketCategory, reorderTicketCategories, generateTicketTranscript } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -17,7 +17,7 @@ import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { TicketSettingsForm } from '@/components/TicketSettingsForm';
 import { CategoryBuilder } from '@/components/tickets/CategoryBuilder';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 type TabKey = 'overview' | 'categories' | 'settings' | 'stats';
 
@@ -51,17 +51,6 @@ function formatDuration(ms: number): string {
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   return m > 0 ? `${h} h ${m} min` : `${h} h`;
-}
-
-function parseRoleIds(val: unknown): string[] {
-  if (Array.isArray(val)) return val.map(String);
-  if (typeof val === 'string') {
-    try {
-      const parsed = JSON.parse(val);
-      return Array.isArray(parsed) ? parsed.map(String) : [];
-    } catch { return []; }
-  }
-  return [];
 }
 
 const CATEGORY_COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#10b981', '#f97316'];
