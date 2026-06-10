@@ -15,7 +15,6 @@ const config = getConfig();
 
 const guildIdSchema = z.object({ guildId: z.string().min(1) });
 const ticketIdSchema = z.object({ guildId: z.string().min(1), ticketId: z.string().min(1) });
-const embedIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
 const suggestionIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
 const giveawayIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
 const pollIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
@@ -2280,94 +2279,6 @@ export async function guildRoutes(app: FastifyInstance) {
         ),
       ]);
       reply.send(success(null, 'Embeds mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // Envoi d'un embed depuis le dashboard (UI) vers un salon.
-  // Endpoint attendu par le frontend: POST /api/guilds/:guildId/embeds/send
-  app.post('/:guildId/embeds/send', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
-      const channelId = body.channelId as string | undefined;
-      const embedPreset = body.embed as any;
-
-      if (!channelId) return reply.status(400).send(error('channelId requis'));
-      if (!embedPreset) return reply.status(400).send(error('embed requis'));
-
-      // Normalisation des champs attendus par discord.js EmbedBuilder
-      const fields = Array.isArray(embedPreset.fields) ? embedPreset.fields : [];
-
-      await sendChannelMessage(channelId, {
-        embeds: [{
-          title: embedPreset.title ?? undefined,
-          description: embedPreset.description ?? undefined,
-          color: typeof embedPreset.color === 'string' ? parseInt(embedPreset.color.replace('#', ''), 16) : embedPreset.color,
-          fields: fields.map((f: any) => ({
-            name: String(f.name ?? ''),
-            value: String(f.value ?? ''),
-            inline: Boolean(f.inline),
-          })),
-          footer: embedPreset.footer ? { text: String(embedPreset.footer) } : undefined,
-          thumbnail: embedPreset.thumbnail ? { url: String(embedPreset.thumbnail) } : undefined,
-          image: embedPreset.image ? { url: String(embedPreset.image) } : undefined,
-          timestamp: embedPreset.timestamp ? new Date().toISOString() : undefined,
-        }],
-      });
-
-      reply.send(success(null, 'Embed envoyé'));
-    } catch (err: any) {
-      reply.status(500).send(error(sanitizeError(err)));
-    }
-  });
-
-  app.post('/:guildId/embeds', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
-      if (!body.name) return reply.status(400).send(error('Nom requis'));
-      const embed = await prisma.savedEmbed.create({
-        data: {
-          guildId, name: body.name,
-          title: body.title || null, description: body.description || null,
-          color: body.color || '#e0e0e0',
-          fields: body.fields ? JSON.stringify(body.fields) : '[]',
-          footer: body.footer || null, image: body.image || null,
-          thumbnail: body.thumbnail || null, timestamp: body.timestamp ?? true,
-        },
-      });
-      reply.status(201).send(success(embed, 'Embed créé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.put('/:guildId/embeds/:id', { preHandler: [authenticate, validateParams(embedIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, id } = request.params as any;
-      const body = request.body as any;
-      const embed = await prisma.savedEmbed.findFirst({ where: { id, guildId } });
-      if (!embed) return reply.status(404).send(error('Embed introuvable'));
-      const upd: any = {};
-      if (body.name) upd.name = body.name;
-      if (body.title !== undefined) upd.title = body.title;
-      if (body.description !== undefined) upd.description = body.description;
-      if (body.color) upd.color = body.color;
-      if (body.fields) upd.fields = JSON.stringify(body.fields);
-      if (body.footer !== undefined) upd.footer = body.footer;
-      if (body.image !== undefined) upd.image = body.image;
-      if (body.thumbnail !== undefined) upd.thumbnail = body.thumbnail;
-      if (body.timestamp !== undefined) upd.timestamp = body.timestamp;
-      const updated = await prisma.savedEmbed.update({ where: { id }, data: upd });
-      reply.send(success(updated, 'Embed mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.delete('/:guildId/embeds/:id', { preHandler: [authenticate, validateParams(embedIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, id } = request.params as any;
-      const embed = await prisma.savedEmbed.findFirst({ where: { id, guildId } });
-      if (!embed) return reply.status(404).send(error('Embed introuvable'));
-      await prisma.savedEmbed.delete({ where: { id } });
-      reply.send(success(null, 'Embed supprimé'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
