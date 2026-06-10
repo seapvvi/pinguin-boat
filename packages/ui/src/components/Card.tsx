@@ -9,6 +9,7 @@ interface CardProps {
   padding?: boolean;
   hover?: boolean;
   style?: React.CSSProperties;
+  onClick?: () => void;
 }
 
 export function Card({ children, className, padding = true, hover = false, style }: CardProps) {

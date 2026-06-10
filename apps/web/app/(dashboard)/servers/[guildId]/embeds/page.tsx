@@ -1,102 +1,130 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  FileText, Plus, Eye, Send, Edit2, Trash2,
-  X
+  FileText, Plus, Send, Edit2, Trash2, Save,
 } from 'lucide-react';
-import { Card, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Card, Input, Button, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchGuildSettings, api } from '@/lib/api';
-import { generateId } from '@/lib/utils';
-import type { EmbedPreset, EmbedField } from '@pinguin/shared';
+import { api, fetchGuildChannels } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
+import type { EmbedData } from '@pinguin/db';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import EmbedEditor from '@/components/embeds/EmbedEditor';
+
+interface SavedEmbed extends EmbedData {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Channel {
+  id: string;
+  name: string;
+  type: number;
+}
+
+const EMPTY_EMBED: EmbedData = {
+  color: '#5865F2',
+  fields: [],
+  timestamp: false,
+};
 
 export default function EmbedsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [embeds, setEmbeds] = useState<EmbedPreset[]>([]);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<EmbedPreset | null>(null);
+  const [embeds, setEmbeds] = useState<SavedEmbed[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [sendChannel, setSendChannel] = useState('');
-  const [form, setForm] = useState<EmbedPreset>({
-    id: '', name: '', title: '', description: '', color: '#5865F2',
-    fields: [], footer: '', thumbnail: '', image: '', timestamp: false,
-    authorName: null, authorIcon: null,
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [templateName, setTemplateName] = useState('');
+  const [embedData, setEmbedData] = useState<EmbedData>(EMPTY_EMBED);
   const [submitting, setSubmitting] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const load = async () => {
+  // Send modal
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendEmbedId, setSendEmbedId] = useState<string | null>(null);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [selectedChannel, setSelectedChannel] = useState('');
+  const [sending, setSending] = useState(false);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchGuildSettings(guildId);
+      const res = await api.get<{ success: boolean; data: { embeds: SavedEmbed[] } }>(`/api/guilds/${guildId}/embeds`);
       if (res.success && res.data) {
-        setEmbeds(res.data.guild.embeds ?? []);
+        setEmbeds(res.data.embeds);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
       setLoading(false);
     }
-  };
+  }, [guildId]);
 
-  useEffect(() => { load(); }, [guildId]);
+  useEffect(() => { load(); }, [load]);
 
-  const resetForm = () => {
-    setForm({ id: '', name: '', title: '', description: '', color: '#5865F2', fields: [], footer: '', thumbnail: '', image: '', timestamp: false, authorName: null, authorIcon: null });
-    setFormErrors({});
+  const resetEditor = () => {
     setEditingId(null);
+    setTemplateName('');
+    setEmbedData(EMPTY_EMBED);
+    setIsCreating(false);
   };
 
-  const openCreate = (embed?: EmbedPreset) => {
-    if (embed) {
-      setForm({ ...embed });
-      setEditingId(embed.id);
-    } else {
-      resetForm();
-    }
-    setCreateOpen(true);
+  const openNew = () => {
+    resetEditor();
+    setIsCreating(true);
   };
 
-  const addField = () => {
-    setForm({ ...form, fields: [...form.fields, { name: '', value: '', inline: false }] });
-  };
-
-  const removeField = (index: number) => {
-    setForm({ ...form, fields: form.fields.filter((_, i) => i !== index) });
-  };
-
-  const updateField = (index: number, key: keyof EmbedField, value: unknown) => {
-    const fields = [...form.fields];
-    fields[index] = { ...fields[index], [key]: value };
-    setForm({ ...form, fields });
+  const openEdit = (embed: SavedEmbed) => {
+    setEditingId(embed.id);
+    setTemplateName(embed.name);
+    setEmbedData({
+      title: embed.title,
+      description: embed.description,
+      color: embed.color,
+      fields: embed.fields,
+      footer: embed.footer,
+      image: embed.image,
+      thumbnail: embed.thumbnail,
+      authorName: embed.authorName,
+      authorIcon: embed.authorIcon,
+      timestamp: embed.timestamp,
+    });
   };
 
   const handleSave = async () => {
-    const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = 'Requis';
-    setFormErrors(errs);
-    if (Object.keys(errs).length > 0) return;
-
+    if (!templateName.trim()) {
+      setError('Le nom du template est requis');
+      return;
+    }
     setSubmitting(true);
+    setError(null);
     try {
-      let updated: EmbedPreset[];
-      const embed = { ...form, id: editingId || generateId() };
+      const body = {
+        name: templateName.trim(),
+        title: embedData.title ?? null,
+        description: embedData.description ?? null,
+        color: embedData.color,
+        fields: embedData.fields,
+        footer: embedData.footer ?? null,
+        image: embedData.image ?? null,
+        thumbnail: embedData.thumbnail ?? null,
+        authorName: embedData.authorName ?? null,
+        authorIcon: embedData.authorIcon ?? null,
+        timestamp: embedData.timestamp,
+      };
       if (editingId) {
-        updated = embeds.map((e) => e.id === editingId ? embed : e);
+        await api.put(`/api/guilds/${guildId}/embeds/${editingId}`, body);
       } else {
-        updated = [...embeds, embed];
+        await api.post(`/api/guilds/${guildId}/embeds`, body);
       }
-      await api.put(`/api/guilds/${guildId}/embeds`, { embeds: updated });
-      setEmbeds(updated);
-      setCreateOpen(false);
-      resetForm();
+      await load();
+      resetEditor();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     } finally {
@@ -105,27 +133,64 @@ export default function EmbedsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    const updated = embeds.filter((e) => e.id !== id);
+    setError(null);
     try {
-      await api.put(`/api/guilds/${guildId}/embeds`, { embeds: updated });
-      setEmbeds(updated);
+      await api.delete(`/api/guilds/${guildId}/embeds/${id}`);
+      setEmbeds((prev) => prev.filter((e) => e.id !== id));
+      if (editingId === id) resetEditor();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la suppression');
     }
   };
 
-  const handleSend = async (embed: EmbedPreset) => {
-    if (!sendChannel.trim()) return;
+  const openSend = async (id: string) => {
+    setSendEmbedId(id);
+    setSendOpen(true);
+    setSelectedChannel('');
+    setChannelsLoading(true);
     try {
-      await api.post(`/api/guilds/${guildId}/embeds/send`, { embed, channelId: sendChannel.trim() });
-      setSendChannel('');
-      setPreviewOpen(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de l\'envoi');
+      const res = await fetchGuildChannels(guildId);
+      if (res.success && res.data) {
+        setChannels((res.data.channels as Channel[]).filter((c) => c.type === 0));
+      }
+    } catch {
+      setError('Impossible de charger les salons');
+    } finally {
+      setChannelsLoading(false);
     }
   };
 
-  if (error) {
+  const handleSend = async () => {
+    if (!sendEmbedId || !selectedChannel) return;
+    setSending(true);
+    setError(null);
+    try {
+      const embed = embeds.find((e) => e.id === sendEmbedId);
+      if (!embed) throw new Error('Embed introuvable');
+      await api.post(`/api/guilds/${guildId}/embeds/${sendEmbedId}/send`, {
+        channelId: selectedChannel,
+        embed: {
+          title: embed.title ?? null,
+          description: embed.description ?? null,
+          color: embed.color,
+          fields: embed.fields,
+          footer: embed.footer ?? null,
+          image: embed.image ?? null,
+          thumbnail: embed.thumbnail ?? null,
+          authorName: embed.authorName ?? null,
+          authorIcon: embed.authorIcon ?? null,
+          timestamp: embed.timestamp,
+        },
+      });
+      setSendOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de l\'envoi');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (error && loading) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
@@ -137,125 +202,144 @@ export default function EmbedsPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Embeds sauvegardés</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Créez et gérez vos embeds personnalisés.</p>
+          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Éditeur d&apos;embeds</h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">Créez, modifiez et envoyez des embeds personnalisés.</p>
         </div>
-        <Button size="sm" onClick={() => openCreate()}><Plus size={14} /> Nouvel embed</Button>
       </div>
 
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="embeds" label="Embeds" />
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-[var(--radius)]" />
-          ))}
-        </div>
-      ) : embeds.length === 0 ? (
-        <EmptyState title="Aucun embed" description="Créez votre premier embed." icon={<FileText size={32} />} />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {embeds.map((embed) => (
-            <Card key={embed.id} hover>
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">{embed.name}</h3>
-                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{embed.fields.length} champ(s)</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => { setPreviewData(embed); setPreviewOpen(true); }}><Eye size={12} /></Button>
-                  <Button variant="ghost" size="sm" onClick={() => openCreate(embed)}><Edit2 size={12} /></Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(embed.id)}><Trash2 size={12} /></Button>
-                </div>
-              </div>
-              {embed.title && <p className="text-xs text-[var(--text-primary)] truncate mb-2">{embed.title}</p>}
-              {embed.description && <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{embed.description}</p>}
-              <div className="flex items-center gap-2 mt-2">
-                <div className="w-3 h-3 rounded-[0px]" style={{ backgroundColor: embed.color }} />
-                {embed.timestamp && <Badge variant="info">Timestamp</Badge>}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Liste des templates à gauche */}
+        <div className="lg:w-80 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Templates</h2>
+            <Button variant="ghost" size="sm" onClick={openNew}>
+              <Plus size={14} /> Nouveau
+            </Button>
+          </div>
 
-      <Modal open={createOpen} onClose={() => { setCreateOpen(false); resetForm(); }} title={editingId ? 'Modifier l\'embed' : 'Nouvel embed'}>
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-          <Input label="Nom" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} error={formErrors.name} placeholder="Mon embed" />
-          <Input label="Titre" value={form.title ?? ''} onChange={(e) => setForm({ ...form, title: e.target.value || null })} placeholder="Titre de l'embed" />
-          <div>
-            <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Description</label>
-            <textarea
-              value={form.description ?? ''}
-              onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-              placeholder="Description de l'embed"
-              className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-transparent border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none focus:border-[var(--accent)] transition-colors resize-none h-20"
-            />
-          </div>
-          <Input label="Couleur" type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-10" />
-          <Input label="Footer" value={form.footer ?? ''} onChange={(e) => setForm({ ...form, footer: e.target.value || null })} placeholder="Texte du footer" />
-          <Input label="Image (URL)" value={form.image ?? ''} onChange={(e) => setForm({ ...form, image: e.target.value || null })} placeholder="https://..." />
-          <Input label="Thumbnail (URL)" value={form.thumbnail ?? ''} onChange={(e) => setForm({ ...form, thumbnail: e.target.value || null })} placeholder="https://..." />
-          <div className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
-            <span className="text-sm text-[var(--text-primary)]">Afficher le timestamp</span>
-            <input type="checkbox" checked={form.timestamp} onChange={(e) => setForm({ ...form, timestamp: e.target.checked })} className="accent-[var(--accent)]" />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">Champs ({form.fields.length})</span>
-              <Button variant="ghost" size="sm" onClick={addField}><Plus size={12} /> Ajouter</Button>
-            </div>
-            <div className="space-y-3">
-              {form.fields.map((field, i) => (
-                <div key={i} className="p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-[var(--text-secondary)]">Champ {i + 1}</span>
-                    <button onClick={() => removeField(i)} className="text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors">
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <Input placeholder="Nom" value={field.name} onChange={(e) => updateField(i, 'name', e.target.value)} />
-                  <Input placeholder="Valeur" value={field.value} onChange={(e) => updateField(i, 'value', e.target.value)} />
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" checked={field.inline} onChange={(e) => updateField(i, 'inline', e.target.checked)} className="accent-[var(--accent)]" />
-                    <span className="text-xs text-[var(--text-secondary)]">Inline</span>
-                  </div>
-                </div>
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 rounded-[var(--radius-sm)]" />
               ))}
             </div>
+          ) : embeds.length === 0 ? (
+            <EmptyState title="Aucun template" description="Créez votre premier embed." icon={<FileText size={24} />} />
+          ) : (
+            <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+              {embeds.map((embed) => (
+                <Card
+                  key={embed.id}
+                  hover
+                  className={`cursor-pointer transition-colors ${editingId === embed.id ? 'ring-1 ring-[var(--accent)]' : ''}`}
+                  onClick={() => openEdit(embed)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-1 self-stretch rounded flex-shrink-0" style={{ backgroundColor: embed.color }} />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate">{embed.name}</h3>
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                        {embed.fields.length} champ{embed.fields.length > 1 ? 's' : ''}
+                      </p>
+                      <p className="text-[10px] text-[var(--text-secondary)] mt-1">{formatDate(embed.createdAt)}</p>
+                    </div>
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(embed); }}>
+                        <Edit2 size={12} />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openSend(embed.id); }}>
+                        <Send size={12} />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(embed.id); }}>
+                        <Trash2 size={12} />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Éditeur à droite */}
+        <div className="flex-1 min-w-0">
+          {(isCreating || editingId) ? (
+            <div className="space-y-4">
+              {/* Barre d'outils */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Nom du template"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    className="text-sm font-semibold"
+                  />
+                </div>
+                <Button onClick={handleSave} loading={submitting} disabled={!templateName.trim()}>
+                  <Save size={14} /> {editingId ? 'Mettre à jour' : 'Créer'}
+                </Button>
+                <Button variant="secondary" onClick={resetEditor}>Annuler</Button>
+              </div>
+
+              {error && (
+                <div className="p-3 rounded-[var(--radius-sm)] bg-red-500/10 border border-red-500/30 text-sm text-red-400">
+                  {error}
+                </div>
+              )}
+
+              <EmbedEditor value={embedData} onChange={setEmbedData} />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-64 border border-dashed border-[var(--border-color)] rounded-[var(--radius)]">
+              <div className="text-center">
+                <FileText size={40} className="mx-auto mb-3 text-[var(--text-secondary)]" />
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Sélectionnez un template ou créez-en un nouveau
+                </p>
+                <Button className="mt-4" onClick={openNew}>
+                  <Plus size={14} /> Nouveau template
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal d'envoi */}
+      <Modal open={sendOpen} onClose={() => setSendOpen(false)} title="Envoyer l'embed">
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Salon de destination</label>
+            {channelsLoading ? (
+              <Skeleton className="h-10 rounded-[var(--radius-sm)]" />
+            ) : channels.length === 0 ? (
+              <p className="text-sm text-[var(--text-secondary)]">Aucun salon texte disponible</p>
+            ) : (
+              <select
+                value={selectedChannel}
+                onChange={(e) => setSelectedChannel(e.target.value)}
+                className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none focus:border-[var(--accent)] transition-colors"
+              >
+                <option value="">-- Choisir un salon --</option>
+                {channels.map((ch) => (
+                  <option key={ch.id} value={ch.id}>
+                    #{ch.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => { setCreateOpen(false); resetForm(); }}>Annuler</Button>
-            <Button loading={submitting} onClick={handleSave}>{editingId ? 'Mettre à jour' : 'Créer'}</Button>
+            <Button variant="secondary" onClick={() => setSendOpen(false)}>Annuler</Button>
+            <Button onClick={handleSend} loading={sending} disabled={!selectedChannel}>
+              <Send size={14} /> Envoyer
+            </Button>
           </div>
         </div>
-      </Modal>
-
-      <Modal open={previewOpen} onClose={() => setPreviewOpen(false)} title="Aperçu de l'embed">
-        {previewData && (
-          <div className="space-y-4">
-            <div className="border-l-4 rounded-[var(--radius-sm)] p-4 bg-[var(--bg-surface-alt)]" style={{ borderColor: previewData.color }}>
-              {previewData.title && <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">{previewData.title}</h3>}
-              {previewData.description && <p className="text-xs text-[var(--text-secondary)] mb-3">{previewData.description}</p>}
-              {previewData.fields.map((f, i) => (
-                <div key={i} className={`mb-2 ${f.inline ? 'inline-block w-1/2 pr-2' : 'block'}`}>
-                  <span className="text-xs font-semibold text-[var(--text-primary)]">{f.name}</span>
-                  <p className="text-xs text-[var(--text-secondary)]">{f.value}</p>
-                </div>
-              ))}
-              {previewData.footer && <p className="text-xs text-[var(--text-secondary)] mt-2">{previewData.footer}</p>}
-            </div>
-            <Input label="ID du salon" value={sendChannel} onChange={(e) => setSendChannel(e.target.value)} placeholder="Salon de destination" />
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="secondary" onClick={() => setPreviewOpen(false)}>Fermer</Button>
-              <Button onClick={() => handleSend(previewData)} disabled={!sendChannel.trim()}>
-                <Send size={14} /> Envoyer
-              </Button>
-            </div>
-          </div>
-        )}
       </Modal>
     </motion.div>
   );

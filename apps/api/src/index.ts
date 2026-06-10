@@ -18,6 +18,7 @@ import { systemRoutes } from './routes/system';
 import { onboardingRoutes } from './routes/onboarding';
 import { notificationRoutes } from './routes/notifications';
 import { blacklistRoutes } from './routes/blacklist';
+import { embedRoutes } from './routes/embeds';
 import { authenticate } from './middleware/auth';
 import { success, error, paginated, sanitizeError, getErrorMessage } from './utils/response';
 import { getSystemMetrics, getGlobalStats } from './services/metrics';
@@ -72,6 +73,7 @@ async function main() {
   await app.register(onboardingRoutes, { prefix: '/api' });
   await app.register(notificationRoutes, { prefix: '/api/guilds' });
   await app.register(blacklistRoutes, { prefix: '/api/guilds' });
+  await app.register(embedRoutes, { prefix: '/api/guilds' });
 
   const inviteQuerySchema = z.object({
     guild_id: z.string().optional(),
