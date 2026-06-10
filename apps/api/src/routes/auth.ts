@@ -9,6 +9,7 @@ import * as DiscordService from '../services/discord';
 
 const config = getConfig();
 const MAX_ACTIVE_SESSIONS = 10;
+const APP_URL = config.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '');
 
 const callbackQuerySchema = z.object({
   code: z.string().min(1),
@@ -35,7 +36,7 @@ export async function authRoutes(app: FastifyInstance) {
       maxAge: 600,
     });
 
-    const redirectUri = `${config.NEXT_PUBLIC_APP_URL}/auth/callback`;
+    const redirectUri = `${APP_URL}/auth/callback`;
 
     const url = new URL('https://discord.com/api/oauth2/authorize');
     url.searchParams.set('client_id', config.DISCORD_CLIENT_ID);
@@ -72,7 +73,7 @@ export async function authRoutes(app: FastifyInstance) {
     reply.clearCookie('oauth_state', { path: '/' });
 
     try {
-      const redirectUri = query.data.redirect_uri || `${config.NEXT_PUBLIC_APP_URL}/auth/callback`;
+      const redirectUri = query.data.redirect_uri || `${APP_URL}/auth/callback`;
       const tokenData = await DiscordService.exchangeCode(query.data.code, redirectUri);
       const discordUser = await DiscordService.getUser(tokenData.access_token);
       const guilds = await DiscordService.getUserGuilds(tokenData.access_token);
@@ -203,8 +204,10 @@ export async function authRoutes(app: FastifyInstance) {
 
       reply.send(
         success({
+          token: sessionToken,
           userId: user.id,
           username: user.username,
+          discriminator: '0',
           avatar: user.avatar,
           guilds: manageableGuilds,
         }, 'Connexion réussie')

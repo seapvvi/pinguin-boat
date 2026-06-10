@@ -3,7 +3,6 @@
 export const dynamic = 'force-dynamic';
 
 import { Logo } from '@pinguin/ui';
-import { getLoginUrl } from '@/lib/auth';
 
 export default function LoginPage() {
   return (
@@ -58,7 +57,7 @@ export default function LoginPage() {
         </div>
 
         <a
-          href={getLoginUrl()}
+          href="/api/auth/login"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
