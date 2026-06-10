@@ -7,6 +7,7 @@ import { validateParams, validateBody } from '../middleware/validate';
 import { success, error, sanitizeError } from '../utils/response';
 import { getQueueState, botControl, botPlay, notifyModuleChange, createTicketChannel, leaveGuildViaBot, invalidateBotAutoModCache } from '../services/bot-proxy';
 import { closeTicketWithTranscript } from '../services/ticket-close';
+import { generateTicketTranscriptHtml } from '../services/pastebin';
 import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, getGuildMember, getBotUserId, PERM_VIEW_CHANNEL, PERM_SEND_MESSAGES, PERM_READ_HISTORY, PERM_MANAGE_CHANNELS, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
 
@@ -1164,6 +1165,257 @@ export async function guildRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
       reply.send(success(updated, 'Ticket mis à jour'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  // ─── Ticket stats ───
+  app.get('/:guildId/tickets/stats', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      const [totalOpen, totalClosed, closedTickets, recentClaims] = await Promise.all([
+        prisma.ticket.count({ where: { guildId, status: { in: ['OPEN', 'CLAIMED', 'PENDING'] } } }),
+        prisma.ticket.count({ where: { guildId, status: 'CLOSED' } }),
+        // Closed tickets for resolution and by-category stats
+        prisma.ticket.findMany({
+          where: { guildId, status: 'CLOSED', closedAt: { not: null } },
+          select: { id: true, categoryId: true, createdAt: true, closedAt: true },
+        }),
+        // Claims in last 30 days for response time
+        prisma.ticketClaim.findMany({
+          where: {
+            ticket: { guildId, createdAt: { gte: thirtyDaysAgo } },
+          },
+          include: { ticket: { select: { id: true, categoryId: true, createdAt: true } } },
+        }),
+      ]);
+
+      // Avg response time (claimedAt - createdAt)
+      let avgResponseTimeMs = 0;
+      if (recentClaims.length > 0) {
+        const totalMs = recentClaims.reduce((sum, c) => sum + (c.claimedAt.getTime() - c.ticket.createdAt.getTime()), 0);
+        avgResponseTimeMs = Math.round(totalMs / recentClaims.length);
+      }
+
+      // Avg resolution time (closedAt - createdAt)
+      let avgResolutionTimeMs = 0;
+      if (closedTickets.length > 0) {
+        const totalMs = closedTickets.reduce((sum, t) => sum + (t.closedAt!.getTime() - t.createdAt.getTime()), 0);
+        avgResolutionTimeMs = Math.round(totalMs / closedTickets.length);
+      }
+
+      // By-category stats
+      const catCount = new Map<string, { count: number; totalResolution: number; totalResponse: number; claimCount: number }>();
+      for (const t of closedTickets) {
+        const catId = t.categoryId ?? '__none__';
+        if (!catCount.has(catId)) catCount.set(catId, { count: 0, totalResolution: 0, totalResponse: 0, claimCount: 0 });
+        const entry = catCount.get(catId)!;
+        entry.count++;
+        entry.totalResolution += t.closedAt!.getTime() - t.createdAt.getTime();
+      }
+      for (const c of recentClaims) {
+        const catId = c.ticket.categoryId ?? '__none__';
+        if (!catCount.has(catId)) catCount.set(catId, { count: 0, totalResolution: 0, totalResponse: 0, claimCount: 0 });
+        const entry = catCount.get(catId)!;
+        entry.totalResponse += c.claimedAt.getTime() - c.ticket.createdAt.getTime();
+        entry.claimCount++;
+      }
+
+      const categoryIds = [...catCount.keys()].filter((id) => id !== '__none__');
+      const categories = await prisma.ticketCategory.findMany({
+        where: { id: { in: categoryIds } },
+        select: { id: true, name: true },
+      });
+      const catNameMap = new Map(categories.map((c) => [c.id, c.name]));
+
+      const byCategory = [...catCount.entries()]
+        .filter(([id]) => id !== '__none__')
+        .map(([catId, data]) => ({
+          categoryId: catId,
+          categoryName: catNameMap.get(catId) ?? 'Inconnue',
+          count: data.count,
+          avgResponseTimeMs: data.claimCount > 0 ? Math.round(data.totalResponse / data.claimCount) : 0,
+          avgResolutionTimeMs: data.count > 0 ? Math.round(data.totalResolution / data.count) : 0,
+        }));
+
+      reply.send(success({
+        totalOpen,
+        totalClosed,
+        avgResponseTimeMs,
+        avgResolutionTimeMs,
+        byCategory,
+      }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  // ─── Transcript export ───
+  app.post('/:guildId/tickets/:ticketId/transcript', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, ticketId } = request.params as any;
+      const body = request.body as { format?: string } | undefined;
+      const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, guildId } });
+      if (!ticket) return reply.status(404).send(error('Ticket introuvable'));
+      if (!ticket.channelId || ticket.channelId.startsWith('pending-')) {
+        return reply.status(400).send(error('Aucun salon Discord associé à ce ticket'));
+      }
+      const settings = await prisma.ticketSettings.findUnique({ where: { guildId } });
+      const format = body?.format ?? settings?.transcriptFormat ?? 'HTML';
+
+      const messages = await getChannelMessages(ticket.channelId, 200);
+      const guild = await prisma.guild.findUnique({ where: { id: guildId }, select: { name: true } });
+
+      if (format === 'TXT') {
+        const lines: string[] = [];
+        lines.push(`Ticket: ${ticket.subject}`);
+        lines.push(`Serveur: ${guild?.name ?? '—'}`);
+        lines.push(`Ouvert le: ${ticket.createdAt.toISOString()}`);
+        lines.push(`Fermé le: ${ticket.closedAt?.toISOString() ?? '—'}`);
+        lines.push(`Statut: ${ticket.status}`);
+        lines.push('');
+        lines.push('─'.repeat(60));
+        lines.push('');
+        const ordered = [...messages].reverse();
+        for (const m of ordered) {
+          const time = m.timestamp ? new Date(m.timestamp).toISOString() : '—';
+          const author = m.author?.username ?? 'Inconnu';
+          const content = m.content ?? '';
+          lines.push(`[${time}] ${author}: ${content}`);
+          if (m.attachments?.length > 0) {
+            for (const a of m.attachments) {
+              lines.push(`  📎 ${a.name ?? 'fichier'}: ${a.url}`);
+            }
+          }
+        }
+        const txtContent = lines.join('\n');
+
+        // Save to TranscriptMeta
+        await prisma.transcriptMeta.upsert({
+          where: { ticketId },
+          update: { content: txtContent },
+          create: { ticketId, channelId: ticket.channelId, guildId, content: txtContent },
+        });
+
+        reply.send(success({
+          content: txtContent,
+          format: 'TXT',
+          filename: `transcript-${ticket.subject.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 60)}.txt`,
+        }));
+      } else {
+        const html = generateTicketTranscriptHtml(messages, ticket.subject, {
+          guildName: guild?.name,
+          openedAt: ticket.createdAt?.toLocaleString('fr-FR') ?? '—',
+          closedAt: ticket.closedAt?.toLocaleString('fr-FR') ?? '—',
+          closedBy: ticket.closedById ?? '—',
+        });
+
+        // Save to TranscriptMeta
+        await prisma.transcriptMeta.upsert({
+          where: { ticketId },
+          update: { content: html },
+          create: { ticketId, channelId: ticket.channelId, guildId, content: html },
+        });
+
+        reply.send(success({
+          content: html,
+          format: 'HTML',
+          filename: `transcript-${ticket.subject.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 60)}.html`,
+          ticketId,
+        }));
+      }
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  // ─── Ticket categories ───
+  app.get('/:guildId/tickets/categories', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const categories = await prisma.ticketCategory.findMany({
+        where: { guildId },
+        orderBy: { position: 'asc' },
+      });
+      const parsed = categories.map((c) => ({
+        ...c,
+        staffRoleIds: JSON.parse(c.staffRoleIds || '[]'),
+      }));
+      reply.send(success({ categories: parsed }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.post('/:guildId/tickets/categories', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as any;
+      if (!body.name) return reply.status(400).send(error('Nom requis'));
+      const maxPos = await prisma.ticketCategory.aggregate({
+        where: { guildId },
+        _max: { position: true },
+      });
+      const category = await prisma.ticketCategory.create({
+        data: {
+          guildId,
+          name: body.name,
+          description: body.description ?? null,
+          staffRoleIds: Array.isArray(body.staffRoleIds) ? JSON.stringify(body.staffRoleIds) : '[]',
+          maxTicketsPerUser: body.maxTicketsPerUser ?? 5,
+          openingMode: body.openingMode ?? 'BUTTON',
+          formId: body.formId ?? null,
+          welcomeMessage: body.welcomeMessage ?? null,
+          color: body.color ?? '#5865F2',
+          emoji: body.emoji ?? null,
+          position: (maxPos._max.position ?? -1) + 1,
+        },
+      });
+      reply.status(201).send(success({ category }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.put('/:guildId/tickets/categories/:categoryId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, categoryId } = request.params as any;
+      const body = request.body as any;
+      const existing = await prisma.ticketCategory.findFirst({ where: { id: categoryId, guildId } });
+      if (!existing) return reply.status(404).send(error('Catégorie introuvable'));
+      const data: any = {};
+      if (body.name !== undefined) data.name = body.name;
+      if (body.description !== undefined) data.description = body.description;
+      if (body.staffRoleIds !== undefined) data.staffRoleIds = JSON.stringify(body.staffRoleIds);
+      if (body.maxTicketsPerUser !== undefined) data.maxTicketsPerUser = body.maxTicketsPerUser;
+      if (body.openingMode !== undefined) data.openingMode = body.openingMode;
+      if (body.formId !== undefined) data.formId = body.formId;
+      if (body.welcomeMessage !== undefined) data.welcomeMessage = body.welcomeMessage;
+      if (body.color !== undefined) data.color = body.color;
+      if (body.emoji !== undefined) data.emoji = body.emoji;
+      if (body.position !== undefined) data.position = body.position;
+      const category = await prisma.ticketCategory.update({ where: { id: categoryId }, data });
+      reply.send(success({ category: { ...category, staffRoleIds: JSON.parse(category.staffRoleIds || '[]') } }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.delete('/:guildId/tickets/categories/:categoryId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, categoryId } = request.params as any;
+      const existing = await prisma.ticketCategory.findFirst({ where: { id: categoryId, guildId } });
+      if (!existing) return reply.status(404).send(error('Catégorie introuvable'));
+      await prisma.ticketCategory.delete({ where: { id: categoryId } });
+      reply.send(success(null, 'Catégorie supprimée'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.patch('/:guildId/tickets/categories/reorder', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as { orderedIds: string[] };
+      if (!Array.isArray(body.orderedIds)) return reply.status(400).send(error('orderedIds requis'));
+      await prisma.$transaction(
+        body.orderedIds.map((id, index) =>
+          prisma.ticketCategory.updateMany({
+            where: { id, guildId },
+            data: { position: index },
+          })
+        )
+      );
+      reply.send(success(null, 'Ordre mis à jour'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 

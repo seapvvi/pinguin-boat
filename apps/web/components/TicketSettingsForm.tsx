@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Toggle, Input, Button, Skeleton } from '@pinguin/ui';
+import { Card, Toggle, Input, Button, Skeleton, Select } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
 function sanitizeTicketSettingsPayload(payload: Record<string, unknown>): Record<string, unknown> {
@@ -108,6 +108,16 @@ export function TicketSettingsForm({ guildId }: { guildId: string }) {
         <span className="text-sm">Suppression auto à la fermeture</span>
         <Toggle checked={bool('autoDelete')} onChange={(v) => update('autoDelete', v)} />
       </div>
+      <DiscordSelect type="channel" guildId={guildId} label="Salon des transcripts" value={str('transcriptChannelId')} onChange={(id) => update('transcriptChannelId', id || null)} />
+      <Select
+        label="Format des transcripts"
+        options={[
+          { value: 'HTML', label: 'HTML (riche, avec embeds)' },
+          { value: 'TXT', label: 'TXT (texte brut)' },
+        ]}
+        value={str('transcriptFormat')}
+        onChange={(e) => update('transcriptFormat', e.target.value)}
+      />
     </Card>
   );
 }

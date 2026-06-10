@@ -242,6 +242,51 @@ export async function fetchTickets(
   return api.get<APIResponse<TicketListDTO>>(`/api/guilds/${guildId}/tickets`, params);
 }
 
+export async function fetchTicketStats(guildId: string): Promise<APIResponse<{
+  totalOpen: number;
+  totalClosed: number;
+  avgResponseTimeMs: number;
+  avgResolutionTimeMs: number;
+  byCategory: {
+    categoryId: string;
+    categoryName: string;
+    count: number;
+    avgResponseTimeMs: number;
+    avgResolutionTimeMs: number;
+  }[];
+}>> {
+  return api.get(`/api/guilds/${guildId}/tickets/stats`);
+}
+
+export async function fetchTicketCategories(guildId: string): Promise<APIResponse<{ categories: Record<string, unknown>[] }>> {
+  return api.get(`/api/guilds/${guildId}/tickets/categories`);
+}
+
+export async function createTicketCategory(guildId: string, data: Record<string, unknown>): Promise<APIResponse<{ category: Record<string, unknown> }>> {
+  return api.post(`/api/guilds/${guildId}/tickets/categories`, data);
+}
+
+export async function updateTicketCategory(guildId: string, categoryId: string, data: Record<string, unknown>): Promise<APIResponse<{ category: Record<string, unknown> }>> {
+  return api.put(`/api/guilds/${guildId}/tickets/categories/${categoryId}`, data);
+}
+
+export async function deleteTicketCategory(guildId: string, categoryId: string): Promise<APIResponse<null>> {
+  return api.delete(`/api/guilds/${guildId}/tickets/categories/${categoryId}`);
+}
+
+export async function reorderTicketCategories(guildId: string, orderedIds: string[]): Promise<APIResponse<null>> {
+  return api.patch(`/api/guilds/${guildId}/tickets/categories/reorder`, { orderedIds });
+}
+
+export async function generateTicketTranscript(guildId: string, ticketId: string, format?: 'HTML' | 'TXT'): Promise<APIResponse<{
+  content: string;
+  format: string;
+  filename: string;
+  ticketId?: string;
+}>> {
+  return api.post(`/api/guilds/${guildId}/tickets/${ticketId}/transcript`, { format });
+}
+
 export async function fetchGiveaways(
   guildId: string,
   params?: Record<string, string>
