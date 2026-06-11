@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth';
 import { requireGuildAdmin } from '../middleware/guild-auth';
 import { validateParams, validateBody } from '../middleware/validate';
 import { success, error, sanitizeError } from '../utils/response';
+import { sendTestNotification } from '../services/bot-proxy';
 import { z } from 'zod';
 
 const guildIdSchema = z.object({ guildId: z.string().min(1) });
@@ -131,6 +132,34 @@ export async function notificationRoutes(app: FastifyInstance) {
 
       reply.send(success(null, 'Notification supprimée'));
     } catch (err: any) {
+      reply.status(500).send(error(sanitizeError(err)));
+    }
+  });
+
+  app.post('/:guildId/notifications/:id/test', {
+    preHandler: [authenticate, requireGuildAdmin, validateParams(notificationIdSchema)],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, id } = request.params as { guildId: string; id: string };
+
+      const existing = await prisma.streamNotification.findUnique({
+        where: { id },
+      });
+
+      if (!existing) {
+        return reply.status(404).send(error('Notification introuvable'));
+      }
+
+      if (existing.guildId !== guildId) {
+        return reply.status(403).send(error('Cette notification n\'appartient pas à ce serveur'));
+      }
+
+      await sendTestNotification(guildId, id);
+      reply.send(success(null, 'Notification de test envoyée'));
+    } catch (err: any) {
+      if (err.message === 'BOT_OFFLINE') {
+        return reply.status(503).send(error('Le bot n\'est pas dans ce serveur'));
+      }
       reply.status(500).send(error(sanitizeError(err)));
     }
   });

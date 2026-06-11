@@ -1,5 +1,6 @@
 import http from 'http';
-import { Client, TextChannel } from 'discord.js';
+import { Client, TextChannel, EmbedBuilder } from 'discord.js';
+import { prisma } from '@pinguin/db';
 import * as music from '../services/music';
 import { invalidateCache } from '../utils/cache';
 import { invalidateAutoModCache } from '../services/automod';
@@ -254,6 +255,54 @@ export function startInternalBotApi(client: Client): void {
       if (invalidateModulesMatch && req.method === 'POST') {
         invalidateModuleCache(invalidateModulesMatch[1]);
         res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
+      // POST /internal/guilds/:guildId/send-test-notification — send test notification embed
+      if (path === `/internal/guilds/${guildId}/send-test-notification` && req.method === 'POST') {
+        const body = await readBody(req);
+        const notifId = body.notificationId;
+        if (!notifId) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'notificationId required' }));
+          return;
+        }
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) {
+          res.statusCode = 404;
+          res.end(JSON.stringify({ error: 'Guild not found' }));
+          return;
+        }
+        try {
+          const notif = await prisma.streamNotification.findUnique({ where: { id: notifId } });
+          if (!notif || notif.guildId !== guildId) {
+            res.statusCode = 404;
+            res.end(JSON.stringify({ error: 'Notification not found' }));
+            return;
+          }
+          const channel = guild.channels.cache.get(notif.discordChannelId);
+          if (!channel || !channel.isTextBased()) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'Discord channel not found or not text-based' }));
+            return;
+          }
+          const embed = new EmbedBuilder()
+            .setColor(notif.customColor ? parseInt(notif.customColor.replace('#', ''), 16) : 0x9146ff)
+            .setTitle(notif.customTitle?.replace(/{streamer}/g, notif.channelName).replace(/{game}/g, 'Test Game').replace(/{title}/g, 'Test Title') ?? `🔴 ${notif.channelName} est en direct (TEST)`)
+            .setDescription(notif.customDescription?.replace(/{streamer}/g, notif.channelName).replace(/{game}/g, 'Test Game').replace(/{title}/g, 'Test Title') ?? 'Ceci est une notification de test. Votre configuration fonctionne correctement.')
+            .setThumbnail('https://cdn.discordapp.com/embed/avatars/0.png')
+            .setImage('https://via.placeholder.com/640x360.png?text=Test+Stream')
+            .setTimestamp();
+          if (notif.customFooter) {
+            embed.setFooter({ text: notif.customFooter });
+          }
+          const content = notif.pingEveryoneOnLive ? '@everyone' : undefined;
+          await channel.send({ content, embeds: [embed] });
+          res.end(JSON.stringify({ success: true }));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+        }
         return;
       }
 

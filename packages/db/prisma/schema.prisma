@@ -218,6 +218,8 @@ enum AuditAction {
   OWNER_LOGIN
   OWNER_LOGOUT
   MODERATION_CASE_DELETED
+  AUTO_MOD_VIOLATION
+  AUTO_MOD_SANCTION
 }
 
 // ─── Modèles ───
@@ -945,6 +947,16 @@ model WelcomeSettings {
   goodbyeMessage         String?  @map("goodbye_message")
   goodbyeEmbed           Boolean  @default(true) @map("goodbye_embed")
   goodbyeEmbedColor      String   @default("#888888") @map("goodbye_embed_color")
+  cardEnabled            Boolean  @default(false) @map("card_enabled")
+  cardBackground         String   @default("COLOR") @map("card_background")
+  cardBgColor            String   @default("#23272a") @map("card_bg_color")
+  cardBgImage            String?  @map("card_bg_image")
+  cardTextColor          String   @default("#ffffff") @map("card_text_color")
+  cardSubtextColor       String   @default("#b9bbbe") @map("card_subtext_color")
+  cardAccentColor        String   @default("#5865f2") @map("card_accent_color")
+  cardBlurBackground     Boolean  @default(false) @map("card_blur_background")
+  cardText               String   @default("Bienvenue sur {server} !") @map("card_text")
+  cardSubtext            String   @default("Tu es le {memberCount}ème membre") @map("card_subtext")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
 

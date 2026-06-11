@@ -243,6 +243,19 @@ export async function guildRoutes(app: FastifyInstance) {
         disabledModules: computeDisabledModules(guild.modulesEnabled),
         memberCount: guild.memberCount, channelCount, roleCount,
         dashboardAccessRoles: guild.settings ? JSON.parse(guild.settings.dashboardAccessRoles || '[]') : [],
+        dashboardModerationAccess: guild.settings ? JSON.parse(guild.settings.dashboardModerationAccess || '[]') : [],
+        dashboardTicketsAccess: guild.settings ? JSON.parse(guild.settings.dashboardTicketsAccess || '[]') : [],
+        dashboardPollsAccess: guild.settings ? JSON.parse(guild.settings.dashboardPollsAccess || '[]') : [],
+        dashboardSuggestionsAccess: guild.settings ? JSON.parse(guild.settings.dashboardSuggestionsAccess || '[]') : [],
+        dashboardGiveawaysAccess: guild.settings ? JSON.parse(guild.settings.dashboardGiveawaysAccess || '[]') : [],
+        dashboardEconomyAccess: guild.settings ? JSON.parse(guild.settings.dashboardEconomyAccess || '[]') : [],
+        dashboardMusicAccess: guild.settings ? JSON.parse(guild.settings.dashboardMusicAccess || '[]') : [],
+        dashboardLevelsAccess: guild.settings ? JSON.parse(guild.settings.dashboardLevelsAccess || '[]') : [],
+        dashboardWelcomeAccess: guild.settings ? JSON.parse(guild.settings.dashboardWelcomeAccess || '[]') : [],
+        dashboardAutorolesAccess: guild.settings ? JSON.parse(guild.settings.dashboardAutorolesAccess || '[]') : [],
+        dashboardLogsAccess: guild.settings ? JSON.parse(guild.settings.dashboardLogsAccess || '[]') : [],
+        dashboardProtectionAccess: guild.settings ? JSON.parse(guild.settings.dashboardProtectionAccess || '[]') : [],
+        dashboardAuditAccess: guild.settings ? JSON.parse(guild.settings.dashboardAuditAccess || '[]') : [],
       };
       reply.send(success({ guild: payload }));
     } catch (err: any) {
@@ -411,7 +424,7 @@ export async function guildRoutes(app: FastifyInstance) {
       // -- welcome --
       if (body.welcome) {
         const w = body.welcome;
-        await prisma.welcomeSettings.upsert({
+        await (prisma.welcomeSettings as any).upsert({
           where: { guildId },
           update: {
             enabled: w.enabled ?? undefined,
@@ -430,6 +443,16 @@ export async function guildRoutes(app: FastifyInstance) {
             goodbyeMessage: w.goodbyeMessage ?? undefined,
             goodbyeEmbed: w.goodbyeEmbed ?? undefined,
             goodbyeEmbedColor: w.goodbyeEmbedColor ?? undefined,
+            cardEnabled: w.cardEnabled ?? undefined,
+            cardBackground: w.cardBackground ?? undefined,
+            cardBgColor: w.cardBgColor ?? undefined,
+            cardBgImage: w.cardBgImage ?? undefined,
+            cardTextColor: w.cardTextColor ?? undefined,
+            cardSubtextColor: w.cardSubtextColor ?? undefined,
+            cardAccentColor: w.cardAccentColor ?? undefined,
+            cardBlurBackground: w.cardBlurBackground ?? undefined,
+            cardText: w.cardText ?? undefined,
+            cardSubtext: w.cardSubtext ?? undefined,
           },
           create: { guildId, ...w },
         });
@@ -513,9 +536,9 @@ export async function guildRoutes(app: FastifyInstance) {
         });
       }
 
-      // -- settings (general guild settings) --
-      if (body.settings) {
-        const s = body.settings;
+      const settingsPayload = body.settings || body.guild;
+      if (settingsPayload) {
+        const s = settingsPayload;
         await prisma.guildSettings.upsert({
           where: { guildId },
           update: {
@@ -527,6 +550,19 @@ export async function guildRoutes(app: FastifyInstance) {
             adminRoleIds: Array.isArray(s.adminRoleIds) ? JSON.stringify(s.adminRoleIds) : undefined,
             muteRoleId: s.muteRoleId ?? undefined,
             dashboardAccessRoles: Array.isArray(s.dashboardAccessRoles) ? JSON.stringify(s.dashboardAccessRoles) : undefined,
+            dashboardModerationAccess: Array.isArray(s.dashboardModerationAccess) ? JSON.stringify(s.dashboardModerationAccess) : undefined,
+            dashboardTicketsAccess: Array.isArray(s.dashboardTicketsAccess) ? JSON.stringify(s.dashboardTicketsAccess) : undefined,
+            dashboardPollsAccess: Array.isArray(s.dashboardPollsAccess) ? JSON.stringify(s.dashboardPollsAccess) : undefined,
+            dashboardSuggestionsAccess: Array.isArray(s.dashboardSuggestionsAccess) ? JSON.stringify(s.dashboardSuggestionsAccess) : undefined,
+            dashboardGiveawaysAccess: Array.isArray(s.dashboardGiveawaysAccess) ? JSON.stringify(s.dashboardGiveawaysAccess) : undefined,
+            dashboardEconomyAccess: Array.isArray(s.dashboardEconomyAccess) ? JSON.stringify(s.dashboardEconomyAccess) : undefined,
+            dashboardMusicAccess: Array.isArray(s.dashboardMusicAccess) ? JSON.stringify(s.dashboardMusicAccess) : undefined,
+            dashboardLevelsAccess: Array.isArray(s.dashboardLevelsAccess) ? JSON.stringify(s.dashboardLevelsAccess) : undefined,
+            dashboardWelcomeAccess: Array.isArray(s.dashboardWelcomeAccess) ? JSON.stringify(s.dashboardWelcomeAccess) : undefined,
+            dashboardAutorolesAccess: Array.isArray(s.dashboardAutorolesAccess) ? JSON.stringify(s.dashboardAutorolesAccess) : undefined,
+            dashboardLogsAccess: Array.isArray(s.dashboardLogsAccess) ? JSON.stringify(s.dashboardLogsAccess) : undefined,
+            dashboardProtectionAccess: Array.isArray(s.dashboardProtectionAccess) ? JSON.stringify(s.dashboardProtectionAccess) : undefined,
+            dashboardAuditAccess: Array.isArray(s.dashboardAuditAccess) ? JSON.stringify(s.dashboardAuditAccess) : undefined,
           },
           create: {
             guildId,
@@ -538,6 +574,19 @@ export async function guildRoutes(app: FastifyInstance) {
             adminRoleIds: Array.isArray(s.adminRoleIds) ? JSON.stringify(s.adminRoleIds) : '[]',
             muteRoleId: s.muteRoleId ?? null,
             dashboardAccessRoles: Array.isArray(s.dashboardAccessRoles) ? JSON.stringify(s.dashboardAccessRoles) : '[]',
+            dashboardModerationAccess: Array.isArray(s.dashboardModerationAccess) ? JSON.stringify(s.dashboardModerationAccess) : '[]',
+            dashboardTicketsAccess: Array.isArray(s.dashboardTicketsAccess) ? JSON.stringify(s.dashboardTicketsAccess) : '[]',
+            dashboardPollsAccess: Array.isArray(s.dashboardPollsAccess) ? JSON.stringify(s.dashboardPollsAccess) : '[]',
+            dashboardSuggestionsAccess: Array.isArray(s.dashboardSuggestionsAccess) ? JSON.stringify(s.dashboardSuggestionsAccess) : '[]',
+            dashboardGiveawaysAccess: Array.isArray(s.dashboardGiveawaysAccess) ? JSON.stringify(s.dashboardGiveawaysAccess) : '[]',
+            dashboardEconomyAccess: Array.isArray(s.dashboardEconomyAccess) ? JSON.stringify(s.dashboardEconomyAccess) : '[]',
+            dashboardMusicAccess: Array.isArray(s.dashboardMusicAccess) ? JSON.stringify(s.dashboardMusicAccess) : '[]',
+            dashboardLevelsAccess: Array.isArray(s.dashboardLevelsAccess) ? JSON.stringify(s.dashboardLevelsAccess) : '[]',
+            dashboardWelcomeAccess: Array.isArray(s.dashboardWelcomeAccess) ? JSON.stringify(s.dashboardWelcomeAccess) : '[]',
+            dashboardAutorolesAccess: Array.isArray(s.dashboardAutorolesAccess) ? JSON.stringify(s.dashboardAutorolesAccess) : '[]',
+            dashboardLogsAccess: Array.isArray(s.dashboardLogsAccess) ? JSON.stringify(s.dashboardLogsAccess) : '[]',
+            dashboardProtectionAccess: Array.isArray(s.dashboardProtectionAccess) ? JSON.stringify(s.dashboardProtectionAccess) : '[]',
+            dashboardAuditAccess: Array.isArray(s.dashboardAuditAccess) ? JSON.stringify(s.dashboardAuditAccess) : '[]',
           },
         });
       }
@@ -611,6 +660,19 @@ export async function guildRoutes(app: FastifyInstance) {
         disabledModules: computeDisabledModules(guild.modulesEnabled),
         memberCount: guild.memberCount, channelCount, roleCount,
         dashboardAccessRoles: guild.settings ? JSON.parse(guild.settings.dashboardAccessRoles || '[]') : [],
+        dashboardModerationAccess: guild.settings ? JSON.parse(guild.settings.dashboardModerationAccess || '[]') : [],
+        dashboardTicketsAccess: guild.settings ? JSON.parse(guild.settings.dashboardTicketsAccess || '[]') : [],
+        dashboardPollsAccess: guild.settings ? JSON.parse(guild.settings.dashboardPollsAccess || '[]') : [],
+        dashboardSuggestionsAccess: guild.settings ? JSON.parse(guild.settings.dashboardSuggestionsAccess || '[]') : [],
+        dashboardGiveawaysAccess: guild.settings ? JSON.parse(guild.settings.dashboardGiveawaysAccess || '[]') : [],
+        dashboardEconomyAccess: guild.settings ? JSON.parse(guild.settings.dashboardEconomyAccess || '[]') : [],
+        dashboardMusicAccess: guild.settings ? JSON.parse(guild.settings.dashboardMusicAccess || '[]') : [],
+        dashboardLevelsAccess: guild.settings ? JSON.parse(guild.settings.dashboardLevelsAccess || '[]') : [],
+        dashboardWelcomeAccess: guild.settings ? JSON.parse(guild.settings.dashboardWelcomeAccess || '[]') : [],
+        dashboardAutorolesAccess: guild.settings ? JSON.parse(guild.settings.dashboardAutorolesAccess || '[]') : [],
+        dashboardLogsAccess: guild.settings ? JSON.parse(guild.settings.dashboardLogsAccess || '[]') : [],
+        dashboardProtectionAccess: guild.settings ? JSON.parse(guild.settings.dashboardProtectionAccess || '[]') : [],
+        dashboardAuditAccess: guild.settings ? JSON.parse(guild.settings.dashboardAuditAccess || '[]') : [],
         suggestionChannelId: guild.settings?.suggestionChannelId ?? null,
       };
       reply.send(success({ guild: payload }));
@@ -2160,21 +2222,20 @@ export async function guildRoutes(app: FastifyInstance) {
         goodbyeChannelId: body.goodbyeChannelId ?? null,
         goodbyeMessage: body.goodbyeMessage ?? null,
         goodbyeEmbed: body.goodbyeEmbed ?? false,
+        cardEnabled: body.cardEnabled ?? false,
+        cardBackground: body.cardBackground ?? 'COLOR',
+        cardBgColor: body.cardBgColor ?? '#23272a',
+        cardBgImage: body.cardBgImage ?? null,
+        cardTextColor: body.cardTextColor ?? '#ffffff',
+        cardSubtextColor: body.cardSubtextColor ?? '#b9bbbe',
+        cardAccentColor: body.cardAccentColor ?? '#5865f2',
+        cardBlurBackground: body.cardBlurBackground ?? false,
+        cardText: body.cardText ?? 'Bienvenue sur {server} !',
+        cardSubtext: body.cardSubtext ?? 'Tu es le {memberCount}ème membre',
       };
       await prisma.welcomeSettings.upsert({
         where: { guildId },
-        update: {
-          enabled: data.enabled,
-          welcomeChannelId: data.welcomeChannelId,
-          welcomeMessage: data.welcomeMessage,
-          welcomeEmbed: data.welcomeEmbed,
-          goodbyeEnabled: data.goodbyeEnabled,
-          goodbyeChannelId: data.goodbyeChannelId,
-          goodbyeMessage: data.goodbyeMessage,
-          goodbyeEmbed: data.goodbyeEmbed,
-          welcomeDM: data.welcomeDM,
-          welcomeDMMessage: data.welcomeDMMessage,
-        },
+        update: data,
         create: { guildId, ...data },
       });
       reply.send(success(null, 'Paramètres de bienvenue mis à jour'));
@@ -2334,6 +2395,50 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.auditLog.count({ where: { guildId } }),
       ]);
       reply.send(success({ entries: logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  // --- Auto-mod history ---
+  app.get('/:guildId/automod/history', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const q = request.query as any;
+      const page = Math.max(1, parseInt(q.page) || 1);
+      const perPage = Math.min(100, Math.max(1, parseInt(q.perPage) || 20));
+      const typeFilter = q.type as string | undefined;
+
+      const where: Record<string, unknown> = { guildId, action: { in: ['AUTO_MOD_VIOLATION', 'AUTO_MOD_SANCTION'] } };
+      if (typeFilter) {
+        where.details = { contains: `"type":"${typeFilter}"` };
+      }
+
+      const [logs, total] = await Promise.all([
+        prisma.auditLog.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * perPage,
+          take: perPage,
+          include: { user: { select: { username: true, avatar: true } } },
+        }),
+        prisma.auditLog.count({ where }),
+      ]);
+
+      const entries = logs.map((log: any) => {
+        let details: Record<string, unknown> = {};
+        try { details = JSON.parse(log.details || '{}'); } catch { details = {}; }
+        return {
+          id: log.id,
+          userId: log.userId,
+          username: log.user?.username || null,
+          action: log.action === 'AUTO_MOD_SANCTION' ? ((details.sanction as string) || 'WARN') : 'DELETE',
+          reason: (details.reason as string) || null,
+          type: (details.type as string) || 'SPAM',
+          channelId: (details.channelId as string) || null,
+          createdAt: log.createdAt,
+        };
+      });
+
+      reply.send(success({ entries, pagination: { page, limit: perPage, total, totalPages: Math.ceil(total / perPage) } }));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
@@ -2909,4 +3014,633 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
+  // ─── Export configuration ───
+  app.get('/:guildId/settings/export', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const guild = await prisma.guild.findUnique({
+        where: { id: guildId },
+        include: {
+          settings: true,
+          modulesEnabled: true,
+          logSettings: true,
+          xpSettings: true,
+          welcomeSettings: true,
+          economySettings: { include: { shopItems: true } },
+          protectionSettings: true,
+          autoroleSettings: { include: { entries: true } },
+          autoModSettings: true,
+          ticketSettings: true,
+        },
+      });
+      if (!guild) return reply.status(404).send(error('Serveur introuvable'));
+
+      const ticketCategories = await prisma.ticketCategory.findMany({ where: { guildId } });
+
+      const exportPayload: Record<string, unknown> = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        guildId: guild.id,
+        guildName: guild.name,
+      };
+
+      if (guild.settings) {
+        const s = guild.settings;
+        exportPayload.settings = {
+          prefix: s.prefix,
+          locale: s.locale,
+          timezone: s.timezone,
+          modLogChannel: s.modLogChannel,
+          modRoleIds: JSON.parse(s.modRoleIds),
+          adminRoleIds: JSON.parse(s.adminRoleIds),
+          muteRoleId: s.muteRoleId,
+          dashboardAccessRoles: JSON.parse(s.dashboardAccessRoles),
+          dashboardModerationAccess: JSON.parse(s.dashboardModerationAccess),
+          dashboardTicketsAccess: JSON.parse(s.dashboardTicketsAccess),
+          dashboardPollsAccess: JSON.parse(s.dashboardPollsAccess),
+          dashboardSuggestionsAccess: JSON.parse(s.dashboardSuggestionsAccess),
+          dashboardGiveawaysAccess: JSON.parse(s.dashboardGiveawaysAccess),
+          dashboardEconomyAccess: JSON.parse(s.dashboardEconomyAccess),
+          dashboardMusicAccess: JSON.parse(s.dashboardMusicAccess),
+          dashboardLevelsAccess: JSON.parse(s.dashboardLevelsAccess),
+          dashboardWelcomeAccess: JSON.parse(s.dashboardWelcomeAccess),
+          dashboardAutorolesAccess: JSON.parse(s.dashboardAutorolesAccess),
+          dashboardLogsAccess: JSON.parse(s.dashboardLogsAccess),
+          dashboardProtectionAccess: JSON.parse(s.dashboardProtectionAccess),
+          dashboardAuditAccess: JSON.parse(s.dashboardAuditAccess),
+          changelogChannel: s.changelogChannel,
+          suggestionChannelId: s.suggestionChannelId,
+          onboardingDone: s.onboardingDone,
+        };
+      }
+
+      if (guild.modulesEnabled) {
+        const m = guild.modulesEnabled;
+        exportPayload.modulesEnabled = {
+          moderation: m.moderation,
+          protection: m.protection,
+          tickets: m.tickets,
+          logs: m.logs,
+          levels: m.levels,
+          economy: m.economy,
+          music: m.music,
+          giveaways: m.giveaways,
+          polls: m.polls,
+          suggestions: m.suggestions,
+          welcome: m.welcome,
+          autoroles: m.autoroles,
+          embeds: m.embeds,
+          minigames: m.minigames,
+          starboard: m.starboard,
+          forms: m.forms,
+          clans: m.clans,
+          notifications: m.notifications,
+        };
+      }
+
+      if (guild.logSettings) {
+        const l = guild.logSettings;
+        exportPayload.logSettings = {
+          logChannelId: l.logChannelId,
+          events: JSON.parse(l.events),
+          ignoredChannels: JSON.parse(l.ignoredChannels),
+          ignoredRoles: JSON.parse(l.ignoredRoles),
+        };
+      }
+
+      if (guild.xpSettings) {
+        const x = guild.xpSettings;
+        exportPayload.xpSettings = {
+          enabled: x.enabled,
+          xpPerMessageMin: x.xpPerMessageMin,
+          xpPerMessageMax: x.xpPerMessageMax,
+          voiceXp: x.voiceXp,
+          messageCooldown: x.messageCooldown,
+          voiceCooldown: x.voiceCooldown,
+          levelFormula: x.levelFormula,
+          maxLevel: x.maxLevel,
+          ignoredChannels: JSON.parse(x.ignoredChannels),
+          ignoredRoles: JSON.parse(x.ignoredRoles),
+          announcementChannelId: x.announcementChannelId,
+          announcementMessage: x.announcementMessage,
+          xpCurve: x.xpCurve,
+          xpMultiplier: x.xpMultiplier,
+          noXpRoles: JSON.parse(x.noXpRoles),
+          noXpChannels: JSON.parse(x.noXpChannels),
+          boosterRoles: JSON.parse(x.boosterRoles),
+          boosterChannels: JSON.parse(x.boosterChannels),
+          xpInThreads: x.xpInThreads,
+          xpInForumPosts: x.xpInForumPosts,
+          xpVocalMessages: x.xpVocalMessages,
+          showOtherLevels: x.showOtherLevels,
+          resetOnLeave: x.resetOnLeave,
+          resetOnBan: x.resetOnBan,
+          doubleXpLongMessages: x.doubleXpLongMessages,
+          onlineLeaderboard: x.onlineLeaderboard,
+          discordLeaderboard: x.discordLeaderboard,
+          levelColor: x.levelColor,
+          rewardAnnounce: x.rewardAnnounce,
+          rewardMessage: x.rewardMessage,
+        };
+      }
+
+      if (guild.welcomeSettings) {
+        const w = guild.welcomeSettings as any;
+        exportPayload.welcomeSettings = {
+          enabled: w.enabled,
+          welcomeChannelId: w.welcomeChannelId,
+          welcomeMessage: w.welcomeMessage,
+          welcomeEmbed: w.welcomeEmbed,
+          welcomeEmbedColor: w.welcomeEmbedColor,
+          welcomeEmbedTitle: w.welcomeEmbedTitle,
+          welcomeEmbedDescription: w.welcomeEmbedDescription,
+          welcomeEmbedFooter: w.welcomeEmbedFooter,
+          welcomeEmbedImage: w.welcomeEmbedImage,
+          welcomeDM: w.welcomeDM,
+          welcomeDMMessage: w.welcomeDMMessage,
+          mentionMember: w.mentionMember,
+          goodbyeEnabled: w.goodbyeEnabled,
+          goodbyeChannelId: w.goodbyeChannelId,
+          goodbyeMessage: w.goodbyeMessage,
+          goodbyeEmbed: w.goodbyeEmbed,
+          goodbyeEmbedColor: w.goodbyeEmbedColor,
+          cardEnabled: w.cardEnabled,
+          cardBackground: w.cardBackground,
+          cardBgColor: w.cardBgColor,
+          cardBgImage: w.cardBgImage,
+          cardTextColor: w.cardTextColor,
+          cardSubtextColor: w.cardSubtextColor,
+          cardAccentColor: w.cardAccentColor,
+          cardBlurBackground: w.cardBlurBackground,
+          cardText: w.cardText,
+          cardSubtext: w.cardSubtext,
+        };
+      }
+
+      if (guild.economySettings) {
+        const e = guild.economySettings;
+        exportPayload.economySettings = {
+          enabled: e.enabled,
+          currencyName: e.currencyName,
+          currencySymbol: e.currencySymbol,
+          dailyAmount: e.dailyAmount,
+          weeklyAmount: e.weeklyAmount,
+          startupBalance: e.startupBalance,
+          workMin: e.workMin,
+          workMax: e.workMax,
+          workCooldown: e.workCooldown,
+          robberyEnabled: e.robberyEnabled,
+          robberyMaxAmount: e.robberyMaxAmount,
+          robberyCooldown: e.robberyCooldown,
+          interestRate: e.interestRate,
+          interestInterval: e.interestInterval,
+          bankCapacity: e.bankCapacity,
+          shopItems: e.shopItems.map((i) => ({
+            id: i.id,
+            name: i.name,
+            description: i.description,
+            price: i.price,
+            type: i.type,
+            roleId: i.roleId,
+            duration: i.duration,
+            effectValue: i.effectValue,
+          })),
+        };
+      }
+
+      if (guild.protectionSettings) {
+        const p = guild.protectionSettings;
+        exportPayload.protectionSettings = {
+          enabled: p.enabled,
+          antiRaid: p.antiRaid,
+          raidThreshold: p.raidThreshold,
+          raidInterval: p.raidInterval,
+          antiSpam: p.antiSpam,
+          spamThreshold: p.spamThreshold,
+          spamInterval: p.spamInterval,
+          antiMassMention: p.antiMassMention,
+          mentionThreshold: p.mentionThreshold,
+          antiLink: p.antiLink,
+          antiAlts: p.antiAlts,
+          altAccountAge: p.altAccountAge,
+          verificationLevel: p.verificationLevel,
+          captchaVerification: p.captchaVerification,
+          verifiedRoleId: p.verifiedRoleId,
+          punishment: p.punishment,
+        };
+      }
+
+      if (guild.autoroleSettings) {
+        const a = guild.autoroleSettings;
+        exportPayload.autoroleSettings = {
+          enabled: a.enabled,
+          onJoin: a.onJoin,
+          onLevelUp: a.onLevelUp,
+          onReaction: a.onReaction,
+          entries: a.entries.map((e) => ({
+            roleId: e.roleId,
+            type: e.type,
+            levelRequired: e.levelRequired,
+            reactionChannelId: e.reactionChannelId,
+            reactionEmoji: e.reactionEmoji,
+          })),
+        };
+      }
+
+      if (guild.autoModSettings) {
+        const am = guild.autoModSettings;
+        exportPayload.autoModSettings = {
+          bannedWords: am.bannedWords,
+          bannedWordsList: JSON.parse(am.bannedWordsList),
+          discordInvites: am.discordInvites,
+          externalLinks: am.externalLinks,
+          excessiveCaps: am.excessiveCaps,
+          capsThreshold: am.capsThreshold,
+          excessiveEmojis: am.excessiveEmojis,
+          emojisThreshold: am.emojisThreshold,
+          excessiveMentions: am.excessiveMentions,
+          mentionsThreshold: am.mentionsThreshold,
+          forbiddenPings: am.forbiddenPings,
+          forbiddenPingRoles: JSON.parse(am.forbiddenPingRoles),
+          messageSpam: am.messageSpam,
+          spamThreshold: am.spamThreshold,
+          spamInterval: am.spamInterval,
+          forbiddenMarkdown: am.forbiddenMarkdown,
+          forbiddenMarkdownList: JSON.parse(am.forbiddenMarkdownList),
+          warnEnabled: am.warnEnabled,
+          muteEnabled: am.muteEnabled,
+          muteDuration: am.muteDuration,
+          kickEnabled: am.kickEnabled,
+          banEnabled: am.banEnabled,
+          autoSanctionThreshold: am.autoSanctionThreshold,
+          autoWarnMuteThreshold: am.autoWarnMuteThreshold,
+          autoWarnBanThreshold: am.autoWarnBanThreshold,
+          autoWarnMuteDuration: am.autoWarnMuteDuration,
+          whitelistRoles: JSON.parse(am.whitelistRoles),
+          whitelistChannels: JSON.parse(am.whitelistChannels),
+          logChannelId: am.logChannelId,
+        };
+      }
+
+      if (guild.ticketSettings) {
+        const t = guild.ticketSettings;
+        exportPayload.ticketSettings = {
+          enabled: t.enabled,
+          categoryId: t.categoryId,
+          logChannelId: t.logChannelId,
+          validationChannelId: t.validationChannelId,
+          transcriptChannelId: t.transcriptChannelId,
+          requireValidation: t.requireValidation,
+          requireOpenReason: t.requireOpenReason,
+          requireCloseReason: t.requireCloseReason,
+          channelFormat: t.channelFormat,
+          moderatorRoles: JSON.parse(t.moderatorRoles),
+          accessRoles: JSON.parse(t.accessRoles),
+          mentionModerators: t.mentionModerators,
+          maxOpenPerUser: t.maxOpenPerUser,
+          autoDelete: t.autoDelete,
+          inactivityAlertHours: t.inactivityAlertHours,
+          welcomeMessageNoReason: t.welcomeMessageNoReason,
+          transcriptFormat: t.transcriptFormat,
+          openMessage: t.openMessage,
+          panelMessage: t.panelMessage,
+          panelButtonText: t.panelButtonText,
+          categories: ticketCategories.map((c) => ({
+            name: c.name,
+            description: c.description,
+            staffRoleIds: JSON.parse(c.staffRoleIds),
+            maxTicketsPerUser: c.maxTicketsPerUser,
+            openingMode: c.openingMode,
+            formId: c.formId,
+            welcomeMessage: c.welcomeMessage,
+            color: c.color,
+            emoji: c.emoji,
+            position: c.position,
+          })),
+        };
+      }
+
+      reply.send(success(exportPayload));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  // ─── Import configuration ───
+  const importModulesEnum = z.enum([
+    'settings', 'modulesEnabled', 'logSettings', 'xpSettings', 'welcomeSettings',
+    'economySettings', 'protectionSettings', 'autoroleSettings', 'autoModSettings', 'ticketSettings',
+  ]);
+  const importSchema = z.object({
+    exportData: z.record(z.unknown()),
+    modules: z.array(importModulesEnum).min(1),
+  });
+
+  app.post('/:guildId/settings/import', {
+    preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema), validateBody(importSchema)],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+      const body = request.body as z.infer<typeof importSchema>;
+      const { exportData, modules } = body;
+
+      if (exportData.version !== '1.0') {
+        return reply.status(400).send(error('Version de configuration incompatible. Attendu: 1.0'));
+      }
+
+      if (exportData.guildId === guildId) {
+        return reply.status(400).send(error('L\'import sur le même serveur n\'est pas supporté. Utilisez les paramètres directement.'));
+      }
+
+      // Check lockout: if the caller removes their own roles from dashboard access
+      const userDiscordId = request.user!.discordId;
+      const guild = await prisma.guild.findUnique({ where: { id: guildId }, select: { ownerId: true } });
+      const isOwner = guild?.ownerId === userDiscordId;
+
+      if (!isOwner && modules.includes('settings')) {
+        const importedSettings = exportData.settings as Record<string, unknown> | undefined;
+        if (importedSettings) {
+          const importedDashboardRoles = importedSettings.dashboardAccessRoles as string[] ?? [];
+          const { getGuildMember, getGuildRoles } = await import('../services/discord');
+          const member = await getGuildMember(guildId, userDiscordId).catch(() => null);
+          if (member) {
+            const roles = await getGuildRoles(guildId).catch(() => [] as any[]);
+            const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
+            const hasPerm = (accessField: string) => {
+              const field = `dashboard${accessField.charAt(0).toUpperCase() + accessField.slice(1)}Access`;
+              const importedField = (importedSettings as any)[field];
+              if (Array.isArray(importedField) && importedField.length > 0) {
+                return importedField.some((r: string) => memberRoleIds.includes(r));
+              }
+              return true; // empty = admins only, caller is not admin, so lockout
+            };
+
+            let permissions = BigInt(0);
+            for (const role of roles) {
+              if (memberRoleIds.includes(role.id)) {
+                permissions |= BigInt(role.permissions ?? 0);
+              }
+            }
+            const ADMINISTRATOR = BigInt(0x8);
+            const isDiscordAdmin = (permissions & ADMINISTRATOR) !== BigInt(0);
+
+            if (!isDiscordAdmin) {
+              const wouldLockout =
+                (!importedDashboardRoles || importedDashboardRoles.length === 0) ||
+                !importedDashboardRoles.some((r: string) => memberRoleIds.includes(r));
+
+              if (wouldLockout) {
+                return reply.status(400).send(error(
+                  'Cet import vous retirerait l\'accès au dashboard (aucun de vos rôles n\'est dans la liste des accès). ' +
+                  'Ajoutez un de vos rôles à "dashboardAccessRoles" dans la config importée ou demandez à un administrateur Discord de le faire.'
+                ));
+              }
+            }
+          }
+        }
+      }
+
+      // Build transaction operations
+      const operations: any[] = [];
+
+      for (const mod of modules) {
+        switch (mod) {
+          case 'settings': {
+            const s = exportData.settings as Record<string, unknown> | undefined;
+            if (s) {
+              const updateData: Record<string, unknown> = {};
+              const createData: Record<string, unknown> = { guildId };
+
+              const scalarFields = ['prefix', 'locale', 'timezone', 'modLogChannel', 'muteRoleId',
+                'changelogChannel', 'suggestionChannelId', 'onboardingDone'];
+              for (const f of scalarFields) {
+                if (s[f] !== undefined) { updateData[f] = s[f]; createData[f] = s[f]; }
+              }
+
+              const arrayFields = ['modRoleIds', 'adminRoleIds', 'dashboardAccessRoles',
+                'dashboardModerationAccess', 'dashboardTicketsAccess', 'dashboardPollsAccess',
+                'dashboardSuggestionsAccess', 'dashboardGiveawaysAccess', 'dashboardEconomyAccess',
+                'dashboardMusicAccess', 'dashboardLevelsAccess', 'dashboardWelcomeAccess',
+                'dashboardAutorolesAccess', 'dashboardLogsAccess', 'dashboardProtectionAccess',
+                'dashboardAuditAccess'];
+              for (const f of arrayFields) {
+                if (Array.isArray(s[f])) {
+                  updateData[f] = JSON.stringify(s[f]);
+                  createData[f] = JSON.stringify(s[f]);
+                }
+              }
+
+              operations.push(
+                (prisma.guildSettings as any).upsert({
+                  where: { guildId },
+                  update: updateData,
+                  create: { guildId, ...createData },
+                })
+              );
+            }
+            break;
+          }
+          case 'modulesEnabled': {
+            const m = exportData.modulesEnabled as Record<string, unknown> | undefined;
+            if (m) {
+              const moduleFields = ['moderation', 'protection', 'tickets', 'logs', 'levels', 'economy',
+                'music', 'giveaways', 'polls', 'suggestions', 'welcome', 'autoroles', 'embeds',
+                'minigames', 'starboard', 'forms', 'clans', 'notifications'];
+              const data: Record<string, boolean> = {};
+              for (const f of moduleFields) {
+                if (typeof m[f] === 'boolean') data[f] = m[f];
+              }
+              if (Object.keys(data).length > 0) {
+                operations.push(
+                  prisma.moduleEnabled.upsert({
+                    where: { guildId },
+                    update: data,
+                    create: { guildId, ...data },
+                  })
+                );
+              }
+            }
+            break;
+          }
+          case 'logSettings': {
+            const ls = exportData.logSettings as Record<string, unknown> | undefined;
+            if (ls) {
+              const data: Record<string, unknown> = {};
+              if (ls.logChannelId !== undefined) data.logChannelId = ls.logChannelId as string | null;
+              if (Array.isArray(ls.events)) data.events = JSON.stringify(ls.events);
+              if (Array.isArray(ls.ignoredChannels)) data.ignoredChannels = JSON.stringify(ls.ignoredChannels);
+              if (Array.isArray(ls.ignoredRoles)) data.ignoredRoles = JSON.stringify(ls.ignoredRoles);
+              operations.push(
+                prisma.logSettings.upsert({
+                  where: { guildId },
+                  update: data,
+                  create: { guildId, ...data },
+                })
+              );
+            }
+            break;
+          }
+          case 'xpSettings': {
+            const x = exportData.xpSettings as Record<string, unknown> | undefined;
+            if (x) {
+              const data: Record<string, unknown> = { ...x };
+              for (const f of ['ignoredChannels', 'ignoredRoles', 'noXpRoles', 'noXpChannels', 'boosterRoles', 'boosterChannels']) {
+                if (Array.isArray(data[f])) data[f] = JSON.stringify(data[f]);
+              }
+              operations.push(
+                prisma.xPSettings.upsert({
+                  where: { guildId },
+                  update: data,
+                  create: { guildId, ...data },
+                })
+              );
+            }
+            break;
+          }
+          case 'welcomeSettings': {
+            const w = exportData.welcomeSettings as Record<string, unknown> | undefined;
+            if (w) {
+              operations.push(
+                prisma.welcomeSettings.upsert({
+                  where: { guildId },
+                  update: w,
+                  create: { guildId, ...w },
+                })
+              );
+            }
+            break;
+          }
+          case 'economySettings': {
+            const ec = exportData.economySettings as Record<string, unknown> | undefined;
+            if (ec) {
+              const { shopItems: shopItemsPayload, ...ecScalar } = ec;
+              const economy = await prisma.economySettings.upsert({
+                where: { guildId },
+                update: ecScalar,
+                create: { guildId, ...ecScalar },
+              });
+              if (Array.isArray(shopItemsPayload)) {
+                operations.push(prisma.shopItem.deleteMany({ where: { economySettingsId: economy.id } }));
+                for (const item of shopItemsPayload) {
+                  operations.push(prisma.shopItem.create({
+                    data: {
+                      economySettingsId: economy.id,
+                      name: (item as any).name,
+                      description: (item as any).description ?? null,
+                      price: (item as any).price,
+                      type: (item as any).type ?? 'ROLE',
+                      roleId: (item as any).roleId ?? null,
+                      duration: (item as any).duration ?? null,
+                      effectValue: (item as any).effectValue ?? null,
+                    },
+                  }));
+                }
+              }
+            }
+            break;
+          }
+          case 'protectionSettings': {
+            const p = exportData.protectionSettings as Record<string, unknown> | undefined;
+            if (p) {
+              operations.push(
+                prisma.protectionSettings.upsert({
+                  where: { guildId },
+                  update: p,
+                  create: { guildId, ...p },
+                })
+              );
+            }
+            break;
+          }
+          case 'autoroleSettings': {
+            const ar = exportData.autoroleSettings as Record<string, unknown> | undefined;
+            if (ar) {
+              const { entries: entriesPayload, ...arScalar } = ar;
+              const settings = await prisma.autoroleSettings.upsert({
+                where: { guildId },
+                update: arScalar,
+                create: { guildId, ...arScalar },
+              });
+              operations.push(prisma.autoroleEntry.deleteMany({ where: { settingsId: settings.id } }));
+              if (Array.isArray(entriesPayload)) {
+                for (const entry of entriesPayload) {
+                  operations.push(prisma.autoroleEntry.create({
+                    data: {
+                      settingsId: settings.id,
+                      guildId,
+                      roleId: (entry as any).roleId,
+                      type: (entry as any).type,
+                      levelRequired: (entry as any).levelRequired ?? null,
+                      reactionChannelId: (entry as any).reactionChannelId ?? null,
+                      reactionEmoji: (entry as any).reactionEmoji ?? null,
+                    },
+                  }));
+                }
+              }
+            }
+            break;
+          }
+          case 'autoModSettings': {
+            const am = exportData.autoModSettings as Record<string, unknown> | undefined;
+            if (am) {
+              const data: Record<string, unknown> = { ...am };
+              const arrayFields = ['bannedWordsList', 'forbiddenPingRoles', 'forbiddenMarkdownList', 'whitelistRoles', 'whitelistChannels'];
+              for (const f of arrayFields) {
+                if (Array.isArray(data[f])) data[f] = JSON.stringify(data[f]);
+              }
+              operations.push(
+                prisma.autoModSettings.upsert({
+                  where: { guildId },
+                  update: data,
+                  create: { guildId, ...data },
+                })
+              );
+            }
+            break;
+          }
+          case 'ticketSettings': {
+            const t = exportData.ticketSettings as Record<string, unknown> | undefined;
+            if (t) {
+              const { categories: categoriesPayload, ...tScalar } = t;
+              const data: Record<string, unknown> = { ...tScalar };
+              if (Array.isArray(data.moderatorRoles)) data.moderatorRoles = JSON.stringify(data.moderatorRoles);
+              if (Array.isArray(data.accessRoles)) data.accessRoles = JSON.stringify(data.accessRoles);
+              operations.push(
+                prisma.ticketSettings.upsert({
+                  where: { guildId },
+                  update: data,
+                  create: { guildId, ...data },
+                })
+              );
+              if (Array.isArray(categoriesPayload)) {
+                operations.push(prisma.ticketCategory.deleteMany({ where: { guildId } }));
+                for (const cat of categoriesPayload) {
+                  operations.push(prisma.ticketCategory.create({
+                    data: {
+                      guildId,
+                      name: (cat as any).name,
+                      description: (cat as any).description ?? null,
+                      staffRoleIds: JSON.stringify((cat as any).staffRoleIds ?? []),
+                      maxTicketsPerUser: (cat as any).maxTicketsPerUser ?? 5,
+                      openingMode: (cat as any).openingMode ?? 'BUTTON',
+                      formId: (cat as any).formId ?? null,
+                      welcomeMessage: (cat as any).welcomeMessage ?? null,
+                      color: (cat as any).color ?? '#5865F2',
+                      emoji: (cat as any).emoji ?? null,
+                      position: (cat as any).position ?? 0,
+                    },
+                  }));
+                }
+              }
+            }
+            break;
+          }
+        }
+      }
+
+      if (operations.length > 0) {
+        await prisma.$transaction(operations);
+      }
+
+      reply.send(success({ importedModules: modules }, 'Configuration importée avec succès. Vérifiez les IDs de rôles et salons.'));
+    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+  });
 }

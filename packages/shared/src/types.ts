@@ -114,7 +114,7 @@ export interface EconomySettings {
   enabled: boolean;
   currencyName: string;
   currencySymbol: string;
-  dailyAmount: number;
+  dailyAmount: number | null;
   weeklyAmount: number;
   workMin: number;
   workMax: number;
@@ -129,13 +129,20 @@ export interface EconomySettings {
   shopItems: ShopItem[];
 }
 
+export type ItemType = 'ROLE' | 'XP_BOOST' | 'ANTI_THEFT' | 'LOTTO_TICKET';
+
 export interface ShopItem {
   id: string;
+  economySettingsId?: string;
   name: string;
-  description: string;
+  description: string | null;
   price: number;
+  type: ItemType;
   roleId: string | null;
-  isStackable: boolean;
+  duration: number | null;
+  effectValue: number | null;
+  isActive?: boolean;
+  position?: number;
 }
 
 export interface MusicSettings {
@@ -161,6 +168,16 @@ export interface WelcomeSettings {
   dmWelcome: boolean;
   dmWelcomeMessage: string | null;
   welcomeImageUrl: string | null;
+  cardEnabled: boolean;
+  cardBackground: 'COLOR' | 'IMAGE' | 'GRADIENT';
+  cardBgColor: string;
+  cardBgImage: string | null;
+  cardTextColor: string;
+  cardSubtextColor: string;
+  cardAccentColor: string;
+  cardBlurBackground: boolean;
+  cardText: string;
+  cardSubtext: string;
 }
 
 export interface AutoroleSettings {

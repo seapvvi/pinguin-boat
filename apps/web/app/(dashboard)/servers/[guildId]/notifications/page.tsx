@@ -2,31 +2,53 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Trash2, Plus, Video, Radio, Palette } from 'lucide-react';
+import { Trash2, Plus, Video, Radio, Palette, Play, Check, AlertTriangle } from 'lucide-react';
 import { Card, Button, Badge, Skeleton, Select, Input, Toggle } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchStreamNotifications, createStreamNotification, updateStreamNotification, deleteStreamNotification } from '@/lib/api';
+import { fetchStreamNotifications, createStreamNotification, updateStreamNotification, deleteStreamNotification, testStreamNotification, fetchGuildRoles } from '@/lib/api';
 import type { StreamNotification } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
-import { DiscordSelect } from '@/components/DiscordSelect';
+import { StreamForm } from '@/components/notifications/StreamForm';
+
+function formatRelativeTime(dateStr: string): string {
+  const now = Date.now();
+  const diff = now - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'à l\'instant';
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `il y a ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `il y a ${days}j`;
+  return new Date(dateStr).toLocaleDateString('fr-FR');
+}
 
 export default function NotificationsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<StreamNotification[]>([]);
-  const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, Partial<StreamNotification>>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testSuccessId, setTestSuccessId] = useState<string | null>(null);
+  const [mentionOptions, setMentionOptions] = useState<{ value: string; label: string }[]>([]);
 
-  const [newPlatform, setNewPlatform] = useState<'TWITCH' | 'YOUTUBE'>('TWITCH');
-  const [newChannelName, setNewChannelName] = useState('');
-  const [newChannelId, setNewChannelId] = useState('');
-  const [newDiscordChannelId, setNewDiscordChannelId] = useState('');
+  useEffect(() => {
+    fetchGuildRoles(guildId).then((res) => {
+      if (res.success && res.data) {
+        setMentionOptions([
+          { value: '', label: 'Personne (aucun rôle)' },
+          ...res.data.roles
+            .filter((r) => String(r.name) !== '@everyone')
+            .map((r) => ({ value: String(r.id), label: String(r.name) })),
+        ]);
+      }
+    }).catch(() => {});
+  }, [guildId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,39 +67,61 @@ export default function NotificationsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleAdd = async () => {
-    if (!newChannelName || !newDiscordChannelId) {
-      setAddError('Veuillez remplir tous les champs requis');
-      return;
-    }
-    setSaving(true);
-    setAddError(null);
+  const handleAdd = async (values: {
+    platform: 'TWITCH' | 'YOUTUBE';
+    channelName: string;
+    channelId: string;
+    discordChannelId: string;
+    customTitle: string;
+    customDescription: string;
+    customColor: string;
+    customFooter: string;
+    mentionRoleId: string | null;
+    pingEveryoneOnLive: boolean;
+  }) => {
     try {
       await createStreamNotification(guildId, {
-        platform: newPlatform,
-        channelName: newChannelName,
-        channelId: newChannelId || undefined,
-        discordChannelId: newDiscordChannelId,
+        platform: values.platform,
+        channelName: values.channelName,
+        channelId: values.channelId || undefined,
+        discordChannelId: values.discordChannelId,
       });
-      setNewChannelName('');
-      setNewChannelId('');
-      setNewDiscordChannelId('');
       setShowAddForm(false);
       await load();
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : 'Erreur lors de l\'ajout');
-    } finally {
-      setSaving(false);
+      throw e;
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette notification ?')) return;
+  const handleDelete = async (id: string, isLive: boolean) => {
+    const msg = isLive
+      ? 'Ce streamer est actuellement en live. Êtes-vous sûr de vouloir supprimer cette notification ?'
+      : 'Êtes-vous sûr de vouloir supprimer cette notification ?';
+    if (!confirm(msg)) return;
     try {
       await deleteStreamNotification(guildId, id);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la suppression');
+    }
+  };
+
+  const handleTest = async (id: string) => {
+    setTestingId(id);
+    setTestSuccessId(null);
+    try {
+      await testStreamNotification(guildId, id);
+      setTestSuccessId(id);
+      setTimeout(() => setTestSuccessId(null), 5000);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      setError(
+        msg.includes('BOT_OFFLINE') || msg.toLowerCase().includes('bot')
+          ? 'Le bot n\'est pas dans ce serveur'
+          : msg || 'Erreur lors du test',
+      );
+    } finally {
+      setTimeout(() => setTestingId(null), 5000);
     }
   };
 
@@ -189,52 +233,12 @@ export default function NotificationsPage() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="space-y-4"
             >
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Plateforme</label>
-                <Select
-                  value={newPlatform}
-                  onChange={(e) => setNewPlatform(e.target.value as 'TWITCH' | 'YOUTUBE')}
-                  options={[
-                    { value: 'TWITCH', label: 'Twitch' },
-                    { value: 'YOUTUBE', label: 'YouTube' },
-                  ]}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Nom du streamer</label>
-                <Input
-                  value={newChannelName}
-                  onChange={(e) => setNewChannelName(e.target.value)}
-                  placeholder={newPlatform === 'TWITCH' ? 'ex: xQc' : 'ex: MrBeast'}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">ID du canal (optionnel)</label>
-                <Input
-                  value={newChannelId}
-                  onChange={(e) => setNewChannelId(e.target.value)}
-                  placeholder={newPlatform === 'TWITCH' ? 'ex: 123456789' : 'ex: UCxxxxxxxxxxxxxxxxxxxxxxx'}
-                />
-              </div>
-
-              <DiscordSelect
-                type="channel"
+              <StreamForm
                 guildId={guildId}
-                label="Salon Discord"
-                value={newDiscordChannelId}
-                onChange={(id) => setNewDiscordChannelId(id)}
-                channelTypes={[0]}
+                onSubmit={handleAdd}
+                onCancel={() => setShowAddForm(false)}
               />
-
-              {addError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded">{addError}</div>}
-
-              <Button onClick={handleAdd} loading={saving} className="w-full">
-                Ajouter la notification
-              </Button>
             </motion.div>
           )}
         </Card>
@@ -256,6 +260,10 @@ export default function NotificationsPage() {
             {notifications.map((notification) => {
               const isExpanded = expandedId === notification.id;
               const vals = editValues[notification.id];
+              const isTesting = testingId === notification.id;
+              const isTestSuccess = testSuccessId === notification.id;
+              const showRoleWarning = vals?.pingEveryoneOnLive && vals?.mentionRoleId;
+
               return (
                 <Card key={notification.id}>
                   <div className="flex items-center justify-between">
@@ -268,16 +276,33 @@ export default function NotificationsPage() {
                           <span className="font-medium text-[var(--text-primary)]">{notification.channelName}</span>
                           <Badge variant="info">{getPlatformLabel(notification.platform)}</Badge>
                           {notification.isLive && (
-                            <Badge variant="success">En live</Badge>
+                            <Badge variant="success">En direct</Badge>
                           )}
                         </div>
                         <div className="text-sm text-[var(--text-secondary)]">
                           Notifications vers #{notification.discordChannelId}
                         </div>
+                        {notification.lastLiveAt && (
+                          <div className="text-xs text-[var(--text-secondary)] mt-0.5">
+                            Dernier live : {formatRelativeTime(notification.lastLiveAt)}
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isTesting}
+                        onClick={() => handleTest(notification.id)}
+                      >
+                        {isTestSuccess ? (
+                          <Check size={16} className="text-green-500" />
+                        ) : (
+                          <Play size={16} />
+                        )}
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -288,7 +313,7 @@ export default function NotificationsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(notification.id)}
+                        onClick={() => handleDelete(notification.id, notification.isLive)}
                       >
                         <Trash2 size={16} className="text-[var(--error)]" />
                       </Button>
@@ -343,13 +368,14 @@ export default function NotificationsPage() {
                           placeholder="Propulsé par Pinguin"
                         />
 
-                        <DiscordSelect
-                          type="role"
-                          guildId={guildId}
-                          label="Rôle à mentionner"
-                          value={vals.mentionRoleId ?? ''}
-                          onChange={(id) => handleEditChange(notification.id, 'mentionRoleId', id)}
-                        />
+                        <div>
+                          <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Rôle à mentionner</label>
+                          <Select
+                            options={mentionOptions}
+                            value={vals.mentionRoleId ?? ''}
+                            onChange={(e) => handleEditChange(notification.id, 'mentionRoleId', e.target.value || null)}
+                          />
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between">
@@ -359,6 +385,20 @@ export default function NotificationsPage() {
                           label="Ping @everyone en live"
                         />
                       </div>
+
+                      {vals.pingEveryoneOnLive && (
+                        <div className="flex items-start gap-2 p-3 rounded-[var(--radius-sm)] bg-amber-500/10 border border-amber-500/20 text-sm text-amber-400">
+                          <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                          <span>Ping @everyone peut irriter les membres. Utilisez avec parcimonie.</span>
+                        </div>
+                      )}
+
+                      {showRoleWarning && (
+                        <div className="flex items-start gap-2 p-3 rounded-[var(--radius-sm)] bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+                          <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                          <span>Vous allez pinger @everyone ET un rôle — c&apos;est redondant.</span>
+                        </div>
+                      )}
 
                       <div className="flex gap-2 justify-end">
                         <Button

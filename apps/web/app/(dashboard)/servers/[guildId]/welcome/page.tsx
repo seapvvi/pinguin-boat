@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { motion } from 'motion/react';
-import { Image, Mail, LogOut, Eye } from 'lucide-react';
+import { Image, Mail, LogOut, Eye, Palette, UserPlus } from 'lucide-react';
 import { Card, Toggle, Input, Button, Badge, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
@@ -10,6 +11,7 @@ import type { WelcomeSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import WelcomeCardEditor from '@/components/welcome/WelcomeCardEditor';
 
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -18,8 +20,7 @@ export default function WelcomePage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<WelcomeSettings | null>(null);
-  // Les couleurs d’embed ne sont pas (actuellement) stockées dans `WelcomeSettings`.
-  // Elles sont donc retirées pour éviter d’envoyer des champs non supportés au backend.
+  const [autoroleCount, setAutoroleCount] = useState(0);
 
   const [welcomePreview, setWelcomePreview] = useState('');
   const [goodbyePreview, setGoodbyePreview] = useState('');
@@ -38,17 +39,26 @@ export default function WelcomePage() {
           dmWelcome: false,
           dmWelcomeMessage: null,
           welcomeImageUrl: null,
-
           goodbyeChannelId: null,
           goodbyeMessage: 'Au revoir {user} !',
           goodbyeEmbed: false,
+          cardEnabled: false,
+          cardBackground: 'COLOR',
+          cardBgColor: '#23272a',
+          cardBgImage: null,
+          cardTextColor: '#ffffff',
+          cardSubtextColor: '#b9bbbe',
+          cardAccentColor: '#5865f2',
+          cardBlurBackground: false,
+          cardText: 'Bienvenue sur {server} !',
+          cardSubtext: 'Tu es le {memberCount}ème membre',
         };
-
 
         const w = (res.data.guild.welcome ?? defaultWelcome) as WelcomeSettings & {
           welcomeDM?: boolean;
           welcomeDMMessage?: string | null;
         };
+
         setLocal({
           ...defaultWelcome,
           ...w,
@@ -58,6 +68,12 @@ export default function WelcomePage() {
 
         setWelcomePreview(((w as WelcomeSettings).welcomeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
         setGoodbyePreview(((w as WelcomeSettings).goodbyeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
+
+        // Compter les autoroles JOIN
+        const autoroles = res.data.guild.autoroles;
+        if (autoroles?.roleIds) {
+          setAutoroleCount(autoroles.roleIds.length);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
@@ -83,6 +99,16 @@ export default function WelcomePage() {
         goodbyeEmbed: local.goodbyeEmbed,
         welcomeDM: local.dmWelcome,
         welcomeDMMessage: local.dmWelcomeMessage,
+        cardEnabled: local.cardEnabled,
+        cardBackground: local.cardBackground,
+        cardBgColor: local.cardBgColor,
+        cardBgImage: local.cardBgImage,
+        cardTextColor: local.cardTextColor,
+        cardSubtextColor: local.cardSubtextColor,
+        cardAccentColor: local.cardAccentColor,
+        cardBlurBackground: local.cardBlurBackground,
+        cardText: local.cardText,
+        cardSubtext: local.cardSubtext,
       });
       await load();
     } catch (e) {
@@ -108,6 +134,10 @@ export default function WelcomePage() {
     setGoodbyePreview(previewReplace(msg));
   };
 
+  const updateCard = (patch: Partial<WelcomeSettings>) => {
+    if (!local) return;
+    setLocal({ ...local, ...patch });
+  };
 
   if (error) {
     return (
@@ -152,7 +182,35 @@ export default function WelcomePage() {
         <ModuleToggle guildId={guildId} moduleKey="welcome" label="Bienvenue" />
       </div>
 
+      {/* Section 1: Carte de bienvenue Canvas */}
+      <Card className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Palette size={18} className="text-[var(--accent)]" />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Carte de bienvenue</h2>
+          </div>
+          <Toggle checked={local.cardEnabled} onChange={(v) => setLocal({ ...local, cardEnabled: v })} />
+        </div>
+        {local.cardEnabled && (
+          <WelcomeCardEditor
+            settings={{
+              cardBackground: local.cardBackground,
+              cardBgColor: local.cardBgColor,
+              cardBgImage: local.cardBgImage,
+              cardTextColor: local.cardTextColor,
+              cardSubtextColor: local.cardSubtextColor,
+              cardAccentColor: local.cardAccentColor,
+              cardBlurBackground: local.cardBlurBackground,
+              cardText: local.cardText,
+              cardSubtext: local.cardSubtext,
+            }}
+            onChange={updateCard}
+          />
+        )}
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Section 2: Bienvenue */}
         <div className="space-y-6">
           <Card>
             <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Bienvenue</h2>
@@ -191,12 +249,6 @@ export default function WelcomePage() {
                 </div>
                 <Toggle checked={local.dmWelcome} onChange={(v) => setLocal({ ...local, dmWelcome: v })} />
               </div>
-              {local.welcomeEmbed && (
-                <div className="text-xs text-[var(--text-secondary)]">
-                  L’édition des paramètres d’embed n’est pas (encore) gérée côté backend pour cette version.
-                </div>
-              )}
-
               <div className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
                 <div className="flex items-center gap-2">
                   <Image size={14} />
@@ -213,6 +265,7 @@ export default function WelcomePage() {
           </Card>
         </div>
 
+        {/* Section 3: Au revoir */}
         <div className="space-y-6">
           <Card>
             <div className="flex items-center gap-2 mb-4">
@@ -242,6 +295,22 @@ export default function WelcomePage() {
                 <Toggle checked={local.goodbyeEmbed} onChange={(v) => setLocal({ ...local, goodbyeEmbed: v })} />
               </div>
             </div>
+          </Card>
+
+          {/* Section 4: Autoroles - Résumé */}
+          <Card>
+            <div className="flex items-center gap-2 mb-4">
+              <UserPlus size={18} className="text-[var(--accent)]" />
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Rôles automatiques</h2>
+            </div>
+            <p className="text-sm text-[var(--text-secondary)] mb-3">
+              {autoroleCount > 0
+                ? `${autoroleCount} rôle(s) attribué(s) à l'arrivée`
+                : 'Aucun rôle attribué à l\'arrivée'}
+            </p>
+            <Link href={`/servers/${guildId}/autoroles`}>
+              <Button variant="secondary" size="sm">Configurer dans Autoroles →</Button>
+            </Link>
           </Card>
 
           <Card>

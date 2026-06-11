@@ -46,7 +46,7 @@ export default function RankCardEditor({ guildId }: Props) {
         const res = await fetchRankCardSettings(guildId);
         if (res.success && res.data?.settings) {
           const s = res.data.settings as Record<string, unknown>;
-          setSettings({
+          const loaded: RankCardPreviewData = {
             backgroundType: (s.backgroundType as RankCardPreviewData['backgroundType']) || 'COLOR',
             backgroundColor: (s.backgroundColor as string) || '#23272a',
             backgroundImage: (s.backgroundImage as string | null) || null,
@@ -58,7 +58,9 @@ export default function RankCardEditor({ guildId }: Props) {
             avatarBorder: (s.avatarBorder as boolean) ?? true,
             avatarBorderColor: (s.avatarBorderColor as string) || '#5865f2',
             fontFamily: (s.fontFamily as string) || 'Sans-serif',
-          });
+          };
+          setSettings(loaded);
+          setPreviewData(loaded);
         }
       } catch {
         // Use defaults

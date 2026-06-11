@@ -1,25 +1,72 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
-import { Save, RotateCcw, LogOut, Trash2, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  Save, RotateCcw, LogOut, Trash2, RefreshCw, Download, Upload,
+  AlertTriangle,
+} from 'lucide-react';
 import { Card, Button, Input, Select, Skeleton, Modal } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { ModulePermissions } from '@/components/settings/ModulePermissions';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
+
+interface DashboardSettings {
+  locale?: string;
+  timezone?: string;
+  modLogChannelId?: string;
+  muteRoleId?: string;
+  dashboardAccessRoles?: string[];
+  dashboardModerationAccess?: string[];
+  dashboardTicketsAccess?: string[];
+  dashboardPollsAccess?: string[];
+  dashboardSuggestionsAccess?: string[];
+  dashboardGiveawaysAccess?: string[];
+  dashboardEconomyAccess?: string[];
+  dashboardMusicAccess?: string[];
+  dashboardLevelsAccess?: string[];
+  dashboardWelcomeAccess?: string[];
+  dashboardAutorolesAccess?: string[];
+  dashboardLogsAccess?: string[];
+  dashboardProtectionAccess?: string[];
+  dashboardAuditAccess?: string[];
+}
+
+const LANGUAGES = [
+  { value: 'fr', label: 'Français', native: 'Français', ready: true },
+  { value: 'en', label: 'English', native: 'English', ready: true },
+  { value: 'es', label: 'Español', native: 'Español', ready: false },
+  { value: 'de', label: 'Deutsch', native: 'Deutsch', ready: false },
+  { value: 'pt', label: 'Português', native: 'Português', ready: false },
+  { value: 'it', label: 'Italiano', native: 'Italiano', ready: false },
+  { value: 'nl', label: 'Nederlands', native: 'Nederlands', ready: false },
+  { value: 'pl', label: 'Polski', native: 'Polski', ready: false },
+  { value: 'ru', label: 'Русский', native: 'Русский', ready: false },
+  { value: 'ja', label: '日本語', native: '日本語', ready: false },
+  { value: 'ko', label: '한국어', native: '한국어', ready: false },
+  { value: 'zh', label: '中文', native: '中文', ready: false },
+];
+
+const IMPORT_MODULES = [
+  { key: 'settings', label: 'Paramètres généraux' },
+  { key: 'modulesEnabled', label: 'Modules activés' },
+  { key: 'logSettings', label: 'Logs' },
+  { key: 'xpSettings', label: 'Niveaux / XP' },
+  { key: 'welcomeSettings', label: 'Bienvenue' },
+  { key: 'economySettings', label: 'Économie' },
+  { key: 'protectionSettings', label: 'Protection' },
+  { key: 'autoroleSettings', label: 'Auto-rôles' },
+  { key: 'autoModSettings', label: 'Auto-modération' },
+  { key: 'ticketSettings', label: 'Tickets' },
+];
 
 export default function GuildSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const router = useRouter();
-  const [settings, setSettings] = useState<{
-    locale?: string;
-    timezone?: string;
-    modLogChannelId?: string;
-    muteRoleId?: string;
-    dashboardAccessRoles?: string[];
-  } | null>(null);
+  const [settings, setSettings] = useState<DashboardSettings | null>(null);
   const [guildName, setGuildName] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,13 +75,46 @@ export default function GuildSettingsPage() {
   const [confirmName, setConfirmName] = useState('');
   const [dangerLoading, setDangerLoading] = useState(false);
 
+  // Export
+  const [exporting, setExporting] = useState(false);
+
+  // Import
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importData, setImportData] = useState<any>(null);
+  const [importModules, setImportModules] = useState<string[]>([]);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importWarning, setImportWarning] = useState('');
+  const [importing, setImporting] = useState(false);
+
   useEffect(() => {
     api.get<Record<string, unknown>>(`/api/guilds/${guildId}`)
       .then((res) => {
         if (res.success && res.data) {
-          const d = res.data as { guild?: { name?: string; locale?: string; timezone?: string; modLogChannelId?: string; muteRoleId?: string; dashboardAccessRoles?: string[] }; name?: string; locale?: string; timezone?: string; modLogChannelId?: string; muteRoleId?: string; dashboardAccessRoles?: string[] };
-          setSettings(d.guild ?? d);
-          setGuildName(d.guild?.name ?? d.name ?? '');
+          const d = res.data as any;
+          const guild = d.guild ?? d;
+          const s: DashboardSettings = {
+            locale: guild.locale ?? guild.settings?.locale ?? 'fr',
+            timezone: guild.timezone ?? guild.settings?.timezone ?? 'Europe/Paris',
+            modLogChannelId: guild.modLogChannelId ?? guild.settings?.modLogChannel ?? '',
+            muteRoleId: guild.muteRoleId ?? guild.settings?.muteRoleId ?? '',
+            dashboardAccessRoles: guild.dashboardAccessRoles ?? [],
+            dashboardModerationAccess: guild.dashboardModerationAccess ?? [],
+            dashboardTicketsAccess: guild.dashboardTicketsAccess ?? [],
+            dashboardPollsAccess: guild.dashboardPollsAccess ?? [],
+            dashboardSuggestionsAccess: guild.dashboardSuggestionsAccess ?? [],
+            dashboardGiveawaysAccess: guild.dashboardGiveawaysAccess ?? [],
+            dashboardEconomyAccess: guild.dashboardEconomyAccess ?? [],
+            dashboardMusicAccess: guild.dashboardMusicAccess ?? [],
+            dashboardLevelsAccess: guild.dashboardLevelsAccess ?? [],
+            dashboardWelcomeAccess: guild.dashboardWelcomeAccess ?? [],
+            dashboardAutorolesAccess: guild.dashboardAutorolesAccess ?? [],
+            dashboardLogsAccess: guild.dashboardLogsAccess ?? [],
+            dashboardProtectionAccess: guild.dashboardProtectionAccess ?? [],
+            dashboardAuditAccess: guild.dashboardAuditAccess ?? [],
+          };
+          setSettings(s);
+          setGuildName(guild.name ?? '');
         }
       })
       .catch(() => {})
@@ -54,6 +134,14 @@ export default function GuildSettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateModulePermission = (module: string, roleIds: string[]) => {
+    setSettings((s) => {
+      if (!s) return s;
+      const field = `dashboard${module.charAt(0).toUpperCase() + module.slice(1)}Access` as keyof DashboardSettings;
+      return { ...s, [field]: roleIds };
+    });
   };
 
   const runDanger = async () => {
@@ -76,6 +164,86 @@ export default function GuildSettingsPage() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get<any>(`/api/guilds/${guildId}/settings/export`);
+      if (res.success && res.data) {
+        const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `guild-config-${guildName.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err: any) {
+      setImportError(err.message || 'Erreur lors de l\'export');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 512_000) {
+      setImportError('Fichier trop volumineux. Maximum: 500 KB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        if (!data.version || !data.guildId || !data.settings) {
+          setImportError('Format de fichier invalide. Utilisez un fichier exporté depuis ce dashboard.');
+          return;
+        }
+        setImportData(data);
+        setImportModules(IMPORT_MODULES.map((m) => m.key));
+        setImportWarning(
+          'Les IDs de rôles et salons dans la config exportée appartiennent au serveur d\'origine. ' +
+          'Ils seront importés tels quels. Vérifiez chaque paramètre après l\'import. ' +
+          'Les données dynamiques (portefeuilles, XP, tickets ouverts) ne sont pas importées.'
+        );
+        setImportError('');
+        setImportModalOpen(true);
+      } catch {
+        setImportError('Fichier JSON invalide');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleImport = async () => {
+    if (!importData || importModules.length === 0) return;
+    setImporting(true);
+    setImportError('');
+    try {
+      const res = await api.post(`/api/guilds/${guildId}/settings/import`, {
+        exportData: importData,
+        modules: importModules,
+      });
+      if (res.success) {
+        setImportModalOpen(false);
+        setImportData(null);
+        setImportModules([]);
+        window.location.reload();
+      }
+    } catch (err: any) {
+      setImportError(err.message || 'Erreur lors de l\'import');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const toggleImportModule = (key: string) => {
+    setImportModules((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
   if (loading) {
     return (
       <div className="p-6 space-y-4">
@@ -85,9 +253,16 @@ export default function GuildSettingsPage() {
     );
   }
 
+  const modulePerms: Record<string, string[]> = {};
+  for (const mod of ['moderation', 'tickets', 'polls', 'suggestions', 'giveaways', 'economy', 'music', 'levels', 'welcome', 'autoroles', 'logs', 'protection', 'audit']) {
+    const field = `dashboard${mod.charAt(0).toUpperCase() + mod.slice(1)}Access` as keyof DashboardSettings;
+    const val = settings?.[field];
+    modulePerms[mod] = Array.isArray(val) ? val : [];
+  }
+
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 max-w-4xl space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Paramètres du serveur</h1>
         <Button onClick={handleSave} loading={saving}>
           {saved ? '✓ Enregistré' : <><Save className="w-4 h-4 mr-2" />Enregistrer</>}
@@ -96,15 +271,22 @@ export default function GuildSettingsPage() {
 
       <Card className="space-y-5 p-4">
         <h2 className="text-lg font-medium text-[var(--text-primary)]">Configuration générale</h2>
-        <Select
-          label="Locale"
-          value={settings?.locale || 'fr'}
-          onChange={(e) => setSettings((s) => ({ ...s, locale: e.target.value }))}
-          options={[
-            { value: 'fr', label: 'Français' },
-            { value: 'en', label: 'English' },
-          ]}
-        />
+
+        <div>
+          <Select
+            label="Langue du serveur"
+            value={settings?.locale || 'fr'}
+            onChange={(e) => setSettings((s) => ({ ...s, locale: e.target.value }))}
+            options={LANGUAGES.map((l) => ({
+              value: l.value,
+              label: l.ready ? `${l.native} (${l.label})` : `${l.native} — Bientôt disponible`,
+            }))}
+          />
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
+            Le bot utilisera cette langue pour ses réponses sur ce serveur.
+          </p>
+        </div>
+
         <Input
           label="Fuseau horaire"
           value={settings?.timezone || 'Europe/Paris'}
@@ -144,17 +326,102 @@ export default function GuildSettingsPage() {
           placeholder="Sélectionner un rôle (optionnel)"
         />
         <p className="text-xs text-[var(--text-secondary)]">
-          Les membres ayant ce rôle pourront accéder à l'intégralité du dashboard de ce serveur, même sans être administrateur Discord.
+          Les membres ayant ce rôle pourront accéder à l&apos;intégralité du dashboard de ce serveur, même sans être administrateur Discord.
         </p>
       </Card>
+
+      {settings && (
+        <ModulePermissions
+          guildId={guildId}
+          values={modulePerms}
+          onChange={updateModulePermission}
+        />
+      )}
+
+      <Card className="space-y-4 p-4">
+        <h2 className="text-lg font-medium text-[var(--text-primary)]">Export / Import de la configuration</h2>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Exportez toute la configuration du serveur en JSON ou importez une configuration depuis un autre serveur.
+        </p>
+
+        {importError && (
+          <div className="flex items-center gap-2 text-sm text-[var(--error)] bg-[var(--error)]/10 rounded-[var(--radius-sm)] px-3 py-2">
+            <AlertTriangle size={14} />
+            {importError}
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleExport} loading={exporting}>
+            <Download className="w-4 h-4 mr-2" /> Exporter la config
+          </Button>
+          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="w-4 h-4 mr-2" /> Importer une config
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+        </div>
+
+        <p className="text-xs text-[var(--text-secondary)]">
+          L&apos;export inclut tous les paramètres mais pas les données dynamiques (portefeuilles, XP, tickets ouverts, logs).
+        </p>
+      </Card>
+
+      <Modal
+        open={importModalOpen}
+        onClose={() => { setImportModalOpen(false); setImportError(''); }}
+        title="Importer la configuration"
+      >
+        {importWarning && (
+          <div className="flex items-start gap-2 text-sm text-[var(--warning)] bg-[var(--warning)]/10 rounded-[var(--radius-sm)] px-3 py-2 mb-4">
+            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{importWarning}</span>
+          </div>
+        )}
+
+        <p className="text-sm text-[var(--text-secondary)] mb-3">
+          Sélectionnez les modules à importer :
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+          {IMPORT_MODULES.map((mod) => (
+            <label
+              key={mod.key}
+              className="flex items-center gap-2 px-3 py-2 text-sm rounded-[var(--radius-sm)] border border-[var(--border-color)] cursor-pointer hover:bg-[var(--bg-surface-alt)] transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={importModules.includes(mod.key)}
+                onChange={() => toggleImportModule(mod.key)}
+                className="accent-[var(--accent)]"
+              />
+              <span className="text-[var(--text-primary)]">{mod.label}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <Button onClick={handleImport} loading={importing} disabled={importModules.length === 0}>
+            <Upload className="w-4 h-4 mr-2" /> Confirmer l&apos;import
+          </Button>
+          <Button variant="secondary" onClick={() => { setImportModalOpen(false); setImportError(''); }}>
+            Annuler
+          </Button>
+        </div>
+      </Modal>
 
       <Card className="space-y-4 p-4">
         <h2 className="text-lg font-medium text-[var(--text-primary)]">Onboarding</h2>
         <p className="text-sm text-[var(--text-secondary)]">
-          Relancez l'onboarding pour reconfigurer rapidement les paramètres essentiels du serveur.
+          Relancez l&apos;onboarding pour reconfigurer rapidement les paramètres essentiels du serveur.
         </p>
         <Button onClick={() => onboarding.openOnboarding()} loading={onboarding.loading}>
-          <RefreshCw className="w-4 h-4 mr-2" /> Relancer l'onboarding
+          <RefreshCw className="w-4 h-4 mr-2" /> Relancer l&apos;onboarding
         </Button>
       </Card>
 

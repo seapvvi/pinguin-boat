@@ -327,6 +327,30 @@ export async function updateRankCardSettings(guildId: string, settings: Record<s
   return api.put<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/levels/rank-card`, settings);
 }
 
+export async function fetchEconomySettings(guildId: string): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.get<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/economy`);
+}
+
+export async function updateEconomySettings(guildId: string, settings: Record<string, unknown>): Promise<APIResponse<{ settings: Record<string, unknown> }>> {
+  return api.put<APIResponse<{ settings: Record<string, unknown> }>>(`/api/guilds/${guildId}/economy`, settings);
+}
+
+export async function fetchShopItems(guildId: string): Promise<APIResponse<{ items: Record<string, unknown>[] }>> {
+  return api.get<APIResponse<{ items: Record<string, unknown>[] }>>(`/api/guilds/${guildId}/economy/shop/items`);
+}
+
+export async function createShopItem(guildId: string, data: Record<string, unknown>): Promise<APIResponse<{ item: Record<string, unknown> }>> {
+  return api.post<APIResponse<{ item: Record<string, unknown> }>>(`/api/guilds/${guildId}/economy/shop/items`, data);
+}
+
+export async function updateShopItem(guildId: string, itemId: string, data: Record<string, unknown>): Promise<APIResponse<{ item: Record<string, unknown> }>> {
+  return api.put<APIResponse<{ item: Record<string, unknown> }>>(`/api/guilds/${guildId}/economy/shop/items/${itemId}`, data);
+}
+
+export async function deleteShopItem(guildId: string, itemId: string): Promise<APIResponse<null>> {
+  return api.delete<APIResponse<null>>(`/api/guilds/${guildId}/economy/shop/items/${itemId}`);
+}
+
 export async function fetchEconomyLeaderboard(
   guildId: string,
   params?: Record<string, string>
@@ -636,4 +660,8 @@ export async function updateStreamNotification(guildId: string, notificationId: 
 
 export async function deleteStreamNotification(guildId: string, notificationId: string): Promise<APIResponse<{ success: boolean }>> {
   return api.delete<APIResponse<{ success: boolean }>>(`/api/guilds/${guildId}/notifications/${notificationId}`);
+}
+
+export async function testStreamNotification(guildId: string, notificationId: string): Promise<APIResponse<null>> {
+  return api.post<APIResponse<null>>(`/api/guilds/${guildId}/notifications/${notificationId}/test`);
 }

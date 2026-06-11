@@ -3,15 +3,19 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Shield, AlertTriangle } from 'lucide-react';
+import { Shield, AlertTriangle, History, Settings2 } from 'lucide-react';
 import { Card, Toggle, Input, Button, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { PermissionGate } from '@/components/PermissionGate';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { RuleBuilder } from '@/components/automod/RuleBuilder';
+import { MultiSelect } from '@/components/automod/MultiSelect';
+import { AutoModHistory } from '@/components/automod/AutoModHistory';
+import { settingsToRules, rulesToSettings } from '@/lib/automod-rules';
 
-type AutoModSettings = Record<string, unknown>;
+type Tab = 'rules' | 'whitelist' | 'sanctions' | 'history';
 
 function parseList(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.map(String);
@@ -28,7 +32,7 @@ function parseList(raw: unknown): string[] {
 
 export default function AutoModPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [settings, setSettings] = useState<AutoModSettings | null>(null);
+  const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -36,12 +40,13 @@ export default function AutoModPage() {
   const [bannedWordsText, setBannedWordsText] = useState('');
   const [forbiddenPingRolesText, setForbiddenPingRolesText] = useState('');
   const [forbiddenMarkdownListText, setForbiddenMarkdownListText] = useState('');
+  const [tab, setTab] = useState<Tab>('rules');
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<{ data: AutoModSettings }>(`/api/guilds/${guildId}/automod`);
+      const res = await api.get<{ data: Record<string, unknown> }>(`/api/guilds/${guildId}/automod`);
       if (res?.data) {
         setSettings(res.data);
         setBannedWordsText(parseList(res.data.bannedWordsList).join(', '));
@@ -56,8 +61,6 @@ export default function AutoModPage() {
   };
 
   useEffect(() => { load(); }, [guildId]);
-
-
 
   const update = (key: string, value: unknown) => {
     if (!settings) return;
@@ -106,7 +109,17 @@ export default function AutoModPage() {
     );
   }
 
-  const bool = (k: string) => !!settings[k];
+  const whitelistRoles = parseList(settings.whitelistRoles);
+  const whitelistChannels = parseList(settings.whitelistChannels);
+
+  const rules = settingsToRules(settings);
+
+  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
+    { key: 'rules', label: 'Règles', icon: <Settings2 size={16} /> },
+    { key: 'whitelist', label: 'Exemptions', icon: <Shield size={16} /> },
+    { key: 'sanctions', label: 'Sanctions', icon: <AlertTriangle size={16} /> },
+    { key: 'history', label: 'Historique', icon: <History size={16} /> },
+  ];
 
   return (
     <PermissionGate permission="manageMessages">
@@ -124,130 +137,149 @@ export default function AutoModPage() {
         </p>
       </div>
 
-      <Card className="p-4 space-y-4">
-        <h2 className="font-medium text-[var(--text-primary)]">Détection d&apos;infractions</h2>
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Mots interdits</span>
-          <Toggle checked={bool('bannedWords')} onChange={(v) => update('bannedWords', v)} />
-        </div>
-        {bool('bannedWords') && (
-          <Input
-            label="Liste (séparés par des virgules)"
-            value={bannedWordsText}
-            onChange={(e) => setBannedWordsText(e.target.value)}
+      <div className="flex gap-1 border-b border-[var(--border-color)]">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer bg-transparent ${
+              tab === t.key
+                ? 'border-[var(--accent)] text-[var(--accent)]'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'rules' && (
+        <Card className="p-4">
+          <RuleBuilder
+            rules={rules}
+            onChange={(updatedRules) => {
+              const patch = rulesToSettings(updatedRules);
+              setSettings({ ...settings, ...patch });
+            }}
           />
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Invitations Discord</span>
-          <Toggle checked={bool('discordInvites')} onChange={(v) => update('discordInvites', v)} />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Liens externes</span>
-          <Toggle checked={bool('externalLinks')} onChange={(v) => update('externalLinks', v)} />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Majuscules excessives</span>
-          <Toggle checked={bool('excessiveCaps')} onChange={(v) => update('excessiveCaps', v)} />
-        </div>
-        {bool('excessiveCaps') && (
-          <Input
-            label="Seuil (%)"
-            type="number"
-            value={String(settings.capsThreshold ?? 70)}
-            onChange={(e) => update('capsThreshold', parseInt(e.target.value) || 70)}
+        </Card>
+      )}
+
+      {tab === 'whitelist' && (
+        <Card className="p-4 space-y-6">
+          <div>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
+              Ces rôles et salons sont exemptés de toutes les règles d&apos;auto-modération.
+              Les administrateurs sont toujours exemptés automatiquement.
+            </p>
+          </div>
+          <MultiSelect
+            type="role"
+            guildId={guildId}
+            value={whitelistRoles}
+            onChange={(ids) => update('whitelistRoles', JSON.stringify(ids))}
+            label="Rôles exemptés"
+            adminWarning
           />
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Spam de messages</span>
-          <Toggle checked={bool('messageSpam')} onChange={(v) => update('messageSpam', v)} />
-        </div>
-        {bool('messageSpam') && (
-          <div className="grid grid-cols-2 gap-3">
+          <MultiSelect
+            type="channel"
+            guildId={guildId}
+            value={whitelistChannels}
+            onChange={(ids) => update('whitelistChannels', JSON.stringify(ids))}
+            label="Salons exemptés"
+          />
+        </Card>
+      )}
+
+      {tab === 'sanctions' && (
+        <Card className="p-4 space-y-4">
+          <div className="space-y-4">
             <Input
-              label="Messages max"
+              label="Seuil d'infractions avant sanction"
               type="number"
-              value={String(settings.spamThreshold ?? 5)}
-              onChange={(e) => update('spamThreshold', parseInt(e.target.value) || 5)}
+              min={1}
+              value={String(settings.autoSanctionThreshold ?? 3)}
+              onChange={(e) => update('autoSanctionThreshold', Math.max(1, parseInt(e.target.value) || 3))}
             />
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Avertissement</span>
+              <Toggle checked={!!settings.warnEnabled} onChange={(v) => update('warnEnabled', v)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Mute</span>
+              <Toggle checked={!!settings.muteEnabled} onChange={(v) => update('muteEnabled', v)} />
+            </div>
+            {!!settings.muteEnabled && (
+              <Input
+                label="Durée mute (minutes)"
+                type="number"
+                min={1}
+                value={String(settings.muteDuration ?? 10)}
+                onChange={(e) => update('muteDuration', parseInt(e.target.value) || 10)}
+              />
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Expulsion</span>
+              <Toggle checked={!!settings.kickEnabled} onChange={(v) => update('kickEnabled', v)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Bannissement</span>
+              <Toggle checked={!!settings.banEnabled} onChange={(v) => update('banEnabled', v)} />
+            </div>
+          </div>
+
+          <hr className="border-[var(--border-color)]" />
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-[var(--text-primary)]">Escalade automatique des avertissements</h3>
             <Input
-              label="Intervalle (s)"
+              label="Seuil d'avertissements → mute"
               type="number"
-              value={String(settings.spamInterval ?? 5)}
-              onChange={(e) => update('spamInterval', parseInt(e.target.value) || 5)}
+              min={1}
+              value={settings.autoWarnMuteThreshold != null ? String(settings.autoWarnMuteThreshold) : ''}
+              onChange={(e) => update('autoWarnMuteThreshold', e.target.value ? parseInt(e.target.value) : null)}
+              placeholder="Désactivé"
+            />
+            {settings.autoWarnMuteThreshold != null && (
+              <Input
+                label="Durée du mute automatique (minutes)"
+                type="number"
+                min={1}
+                value={String(settings.autoWarnMuteDuration ?? 60)}
+                onChange={(e) => update('autoWarnMuteDuration', parseInt(e.target.value) || 60)}
+              />
+            )}
+            <Input
+              label="Seuil d'avertissements → bannissement"
+              type="number"
+              min={1}
+              value={settings.autoWarnBanThreshold != null ? String(settings.autoWarnBanThreshold) : ''}
+              onChange={(e) => update('autoWarnBanThreshold', e.target.value ? parseInt(e.target.value) : null)}
+              placeholder="Désactivé"
             />
           </div>
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Pings de rôles interdits</span>
-          <Toggle checked={bool('forbiddenPings')} onChange={(v) => update('forbiddenPings', v)} />
-        </div>
-        {bool('forbiddenPings') && (
-          <Input
-            label="Liste des rôles (IDs, séparés par des virgules)"
-            value={forbiddenPingRolesText}
-            onChange={(e) => setForbiddenPingRolesText(e.target.value)}
-          />
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Markdown interdit</span>
-          <Toggle checked={bool('forbiddenMarkdown')} onChange={(v) => update('forbiddenMarkdown', v)} />
-        </div>
-        {bool('forbiddenMarkdown') && (
-          <Input
-            label="Liste des patterns (séparés par des virgules)"
-            value={forbiddenMarkdownListText}
-            onChange={(e) => setForbiddenMarkdownListText(e.target.value)}
-            placeholder="||spoiler||, ```"
-          />
-        )}
-      </Card>
 
-      <Card className="p-4 space-y-4">
-        <h2 className="font-medium text-[var(--text-primary)] flex items-center gap-2">
-          <AlertTriangle size={16} /> Sanctions automatiques
-        </h2>
-        <Input
-          label="Seuil d'infractions avant sanction"
-          type="number"
-          value={String(settings.autoSanctionThreshold ?? 3)}
-          onChange={(e) => update('autoSanctionThreshold', parseInt(e.target.value) || 3)}
-        />
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Avertissement</span>
-          <Toggle checked={bool('warnEnabled')} onChange={(v) => update('warnEnabled', v)} />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Mute</span>
-          <Toggle checked={bool('muteEnabled')} onChange={(v) => update('muteEnabled', v)} />
-        </div>
-        {bool('muteEnabled') && (
-          <Input
-            label="Durée mute (minutes)"
-            type="number"
-            value={String(settings.muteDuration ?? 10)}
-            onChange={(e) => update('muteDuration', parseInt(e.target.value) || 10)}
+          <DiscordSelect
+            type="channel"
+            guildId={guildId}
+            label="Salon de logs"
+            value={String(settings.logChannelId ?? '')}
+            onChange={(id) => update('logChannelId', id || null)}
           />
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Expulsion</span>
-          <Toggle checked={bool('kickEnabled')} onChange={(v) => update('kickEnabled', v)} />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Bannissement</span>
-          <Toggle checked={bool('banEnabled')} onChange={(v) => update('banEnabled', v)} />
-        </div>
-        <DiscordSelect
-          type="channel"
-          guildId={guildId}
-          label="Salon de logs"
-          value={String(settings.logChannelId ?? '')}
-          onChange={(id) => update('logChannelId', id || null)}
-        />
-      </Card>
+        </Card>
+      )}
 
-      <Button onClick={handleSave} disabled={saving}>
-        {saving ? 'Enregistrement…' : saved ? '✓ Enregistré' : 'Enregistrer'}
-      </Button>
+      {tab === 'history' && (
+        <AutoModHistory guildId={guildId} />
+      )}
+
+      {tab !== 'history' && (
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? 'Enregistrement…' : saved ? '✓ Enregistré' : 'Enregistrer'}
+        </Button>
+      )}
     </motion.div>
     </PermissionGate>
   );

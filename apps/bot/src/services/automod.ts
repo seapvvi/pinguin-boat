@@ -64,8 +64,8 @@ function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-async function applySanction(message: Message, settings: any, count: number): Promise<void> {
-  if (!message.member) return;
+async function applySanction(message: Message, settings: any, count: number): Promise<string> {
+  if (!message.member) return 'NONE';
   const reason = `Auto-modération (${count} infractions)`;
 
   let sanction: 'ban' | 'kick' | 'mute' | 'warn' = 'warn';
@@ -76,16 +76,16 @@ async function applySanction(message: Message, settings: any, count: number): Pr
 
   if (sanction === 'ban') {
     await message.member.ban({ reason }).catch(() => {});
-    return;
+    return 'BAN';
   }
   if (sanction === 'kick') {
     await message.member.kick(reason).catch(() => {});
-    return;
+    return 'KICK';
   }
   if (sanction === 'mute') {
     const minutes = Math.max(Number(settings.muteDuration) || 10, 1);
     await message.member.timeout(minutes * 60 * 1000, reason).catch(() => {});
-    return;
+    return 'MUTE';
   }
 
   await prisma.moderationCase.create({
@@ -98,6 +98,7 @@ async function applySanction(message: Message, settings: any, count: number): Pr
     },
   }).catch(() => {});
   await message.author.send(`⚠️ **Avertissement** sur **${message.guild!.name}** : ${reason}`).catch(() => {});
+  return 'WARN';
 }
 
 export async function checkAutoMod(message: Message): Promise<boolean> {
@@ -247,9 +248,26 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
   const count = (infractions.get(infKey) ?? 0) + 1;
   infractions.set(infKey, count);
 
+  await prisma.auditLog.create({
+    data: {
+      guildId: message.guild.id,
+      userId: message.author.id,
+      action: 'AUTO_MOD_VIOLATION',
+      details: JSON.stringify({ reason, type: violationType(reason), channelId: message.channel.id }),
+    },
+  }).catch(() => {});
+
   const threshold = Math.max(settings.autoSanctionThreshold ?? 3, 1);
   if (count >= threshold) {
-    await applySanction(message, settings, count);
+    const sanction = await applySanction(message, settings, count);
+    await prisma.auditLog.create({
+      data: {
+        guildId: message.guild.id,
+        userId: message.author.id,
+        action: 'AUTO_MOD_SANCTION',
+        details: JSON.stringify({ reason, type: violationType(reason), channelId: message.channel.id, count, sanction }),
+      },
+    }).catch(() => {});
     infractions.set(infKey, 0);
   }
 
@@ -266,6 +284,21 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
   }
 
   return true;
+}
+
+function violationType(reason: string): string {
+  const map: Record<string, string> = {
+    'Mot interdit': 'BANNED_WORDS',
+    'Invitation Discord': 'LINKS',
+    'Lien externe': 'LINKS',
+    'Majuscules excessives': 'CAPS',
+    'Emojis excessifs': 'EMOJIS',
+    'Mentions excessives': 'MENTIONS',
+    'Spam': 'SPAM',
+    'Ping interdit': 'MENTIONS',
+    'Markdown interdit': 'BANNED_WORDS',
+  }
+  return map[reason] ?? 'SPAM'
 }
 
 export function invalidateAutoModCache(guildId: string): void {

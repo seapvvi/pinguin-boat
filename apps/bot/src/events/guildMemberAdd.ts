@@ -1,10 +1,11 @@
-import { GuildMember, Client, EmbedBuilder } from 'discord.js';
+import { GuildMember, Client, AttachmentBuilder, EmbedBuilder } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { logger } from '@pinguin/shared';
 import { handleMemberJoin } from '../services/protection';
 import { isModuleEnabled } from '../guards/module';
 import { sendGuildLog } from '../services/logs';
 import { findUsedInvite, getCachedInvites, setGuildInvites } from '../services/invite-cache';
+import { generateCard } from '../services/WelcomeCardService';
 import type { InviteData } from '../services/invite-cache';
 
 export async function execute(member: GuildMember, client: Client): Promise<void> {
@@ -117,7 +118,17 @@ export async function execute(member: GuildMember, client: Client): Promise<void
         const channel = member.guild.channels.cache.get(welcome.welcomeChannelId);
         if (channel?.isTextBased()) {
           const mention = welcome.mentionMember !== false ? `${member} ` : '';
-          if (welcome.welcomeEmbed) {
+
+          // Carte de bienvenue Canvas
+          if (welcome.cardEnabled) {
+            try {
+              const cardBuffer = await generateCard(member, welcome);
+              const attachment = new AttachmentBuilder(cardBuffer, { name: 'welcome.png' });
+              await channel.send({ content: mention || undefined, files: [attachment] }).catch((err) => logger.warn(`[guildMemberAdd] Échec envoi carte bienvenue dans ${channel.id} pour ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
+            } catch (err) {
+              logger.warn(`[guildMemberAdd] Échec génération carte bienvenue pour ${member.id}`, { err: err instanceof Error ? err.message : String(err) });
+            }
+          } else if (welcome.welcomeEmbed) {
             const embed = new EmbedBuilder()
               .setColor((welcome.welcomeEmbedColor || '#00FF00') as `#${string}`);
 

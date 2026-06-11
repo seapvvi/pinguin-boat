@@ -93,7 +93,6 @@ const categoryDefs: CategoryDef[] = [
       { label: 'Protection', icon: <Swords size={18} />, href: '/protection', guildPage: true },
       { label: 'Tickets', icon: <Ticket size={18} />, href: '/tickets', guildPage: true },
       { label: 'Logs', icon: <ScrollText size={18} />, href: '/logs', guildPage: true },
-      { label: 'Audit', icon: <FileText size={18} />, href: '/audit', guildPage: true },
       { label: 'Blacklist', icon: <Ban size={18} />, href: '/blacklist', guildPage: true },
       { label: 'Notifications', icon: <Bell size={18} />, href: '/notifications', guildPage: true },
     ],

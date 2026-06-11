@@ -99,3 +99,10 @@ export async function botEmergencyMode(guildId: string, enable: boolean): Promis
     body: { enable },
   });
 }
+
+export async function sendTestNotification(guildId: string, notificationId: string): Promise<void> {
+  await botFetch(`/internal/guilds/${guildId}/send-test-notification`, {
+    method: 'POST',
+    body: { notificationId },
+  });
+}
