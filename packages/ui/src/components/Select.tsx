@@ -150,48 +150,50 @@ export function Select({
           </svg>
         </button>
 
-        <AnimatePresence>
-          {open && typeof document !== 'undefined' &&
-            createPortal(
-              <motion.div
-                ref={dropdownRef}
-                key="dropdown"
-                initial={{ opacity: 0, scaleY: 0.92, transformOrigin: 'top' }}
-                animate={{ opacity: 1, scaleY: 1, transformOrigin: 'top' }}
-                exit={{ opacity: 0, scaleY: 0.92, transformOrigin: 'top' }}
-                transition={{ ...SPRING_SNAPPY, duration: 0.14 }}
-                style={{
-                  transformOrigin: 'top',
-                  ...dropdownStyle,
-                  maxHeight: 220,
-                  background: 'var(--bg-surface-alt)',
-                  border: '1px solid var(--border-color)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                  borderRadius: 0,
-                  overflowY: 'auto',
-                }}
-              >
-                {options.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="option"
-                    aria-selected={opt.value === value}
-                    onClick={() => handleSelect(opt.value)}
-                    className={cn(
-                      'w-full text-left text-sm px-3 py-2 transition-colors duration-150 border-0',
-                      opt.value === value
-                        ? 'text-[var(--accent-primary)]'
-                        : 'text-[var(--text-primary)] hover:bg-[var(--bg-surface)]',
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </motion.div>,
-              document.body,
-            )}
-        </AnimatePresence>
+        {typeof document !== 'undefined' &&
+          createPortal(
+            <AnimatePresence>
+              {open && (
+                <motion.div
+                  ref={dropdownRef}
+                  key="dropdown"
+                  initial={{ opacity: 0, scaleY: 0.92, transformOrigin: 'top' }}
+                  animate={{ opacity: 1, scaleY: 1, transformOrigin: 'top' }}
+                  exit={{ opacity: 0, scaleY: 0.92, transformOrigin: 'top' }}
+                  transition={{ ...SPRING_SNAPPY, duration: 0.14 }}
+                  style={{
+                    transformOrigin: 'top',
+                    ...dropdownStyle,
+                    maxHeight: 220,
+                    background: 'var(--bg-surface-alt)',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                    borderRadius: 0,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {options.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="option"
+                      aria-selected={opt.value === value}
+                      onClick={() => handleSelect(opt.value)}
+                      className={cn(
+                        'w-full text-left text-sm px-3 py-2 transition-colors duration-150 border-0',
+                        opt.value === value
+                          ? 'text-[var(--accent-primary)]'
+                          : 'text-[var(--text-primary)] hover:bg-[var(--bg-surface)]',
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>,
+            document.body,
+          )}
       </div>
 
       {error && <span className="text-xs text-[var(--error)] mt-1">{error}</span>}

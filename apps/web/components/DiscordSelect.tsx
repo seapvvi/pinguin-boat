@@ -28,13 +28,17 @@ export function DiscordSelect({
   const [options, setOptions] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const channelsKey = channelTypes.join(',');
+
   useEffect(() => {
     if (!guildId) return;
+    let cancelled = false;
     setLoading(true);
     const load = async () => {
       try {
         if (type === 'channel') {
           const res = await fetchGuildChannels(guildId);
+          if (cancelled) return;
           if (res.success && res.data) {
             const mapped = res.data.channels
                 .filter((c) => channelTypes.includes(Number(c.type)))
@@ -43,10 +47,13 @@ export function DiscordSelect({
                   label: `#${String(c.name)}`,
                 }));
             setOptions(mapped);
-            if (!value && mapped.length > 0) onChange(mapped[0].value);
+            if (!value && mapped.length > 0) {
+              onChange(mapped[0].value);
+            }
           }
         } else {
           const res = await fetchGuildRoles(guildId);
+          if (cancelled) return;
           if (res.success && res.data) {
             const mapped = res.data.roles
                 .filter((r) => String(r.name) !== '@everyone')
@@ -55,17 +62,20 @@ export function DiscordSelect({
                   label: String(r.name),
                 }));
             setOptions(mapped);
-            if (!value && mapped.length > 0) onChange(mapped[0].value);
+            if (!value && mapped.length > 0) {
+              onChange(mapped[0].value);
+            }
           }
         }
       } catch {
-        setOptions([]);
+        if (!cancelled) setOptions([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
-  }, [guildId, type, channelTypes.join(','), value, onChange]);
+    return () => { cancelled = true; };
+  }, [guildId, type, channelsKey]);
 
   return (
     <Select
