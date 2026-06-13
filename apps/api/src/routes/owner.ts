@@ -16,7 +16,7 @@ const config = getConfig();
 const ownerPre = { preHandler: [authenticate, requireOwner] };
 
 export async function ownerRoutes(app: FastifyInstance) {
-  app.post('/verify-password', { preHandler: [authenticate, requireOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/verify-password', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const body = request.body as { password?: string };
       const expected = config.OWNER_PASSWORD;
