@@ -248,7 +248,6 @@ export default function GiveawaysPage() {
           </SectionCard>
         </ModuleGrid>
 
-        <div className="mt-6">
           <SectionCard title="Historique" icon={<History size={16} />}>
             {loading ? (
               <div className="space-y-3">
@@ -285,7 +284,6 @@ export default function GiveawaysPage() {
               </div>
             )}
           </SectionCard>
-        </div>
       </PageLayout>
 
       <Modal open={statsOpen} onClose={() => { setStatsOpen(false); setStatsData(null); }} title="Statistiques du giveaway">

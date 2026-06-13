@@ -134,7 +134,7 @@ export default function AutoModPage() {
           />
         </SectionCard>
 
-        <div className="mt-6">
+        <div>
           <ModuleGrid>
             <SectionCard title="Sanctions" icon={<AlertTriangle size={16} />} expandable>
               <div className="space-y-4">
@@ -255,7 +255,7 @@ export default function AutoModPage() {
           </ModuleGrid>
         </div>
 
-        <div className="mt-6">
+        <div>
           <SectionCard
             title="Exemptions"
             description="Ces rôles et salons sont exemptés de toutes les règles d'auto-modération. Les administrateurs sont toujours exemptés automatiquement."
@@ -280,11 +280,10 @@ export default function AutoModPage() {
           </SectionCard>
         </div>
 
-        <div className="mt-6">
+        <div>
           <AutoModHistory guildId={guildId} />
         </div>
       </PageLayout>
     </PermissionGate>
   );
 }
-

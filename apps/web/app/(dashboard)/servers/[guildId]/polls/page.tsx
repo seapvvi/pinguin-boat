@@ -196,7 +196,6 @@ export default function PollsPage() {
           </div>
         </SectionCard>
 
-        <div className="mt-6">
           <SectionCard title="Sondages actifs" icon={<Clock size={16} />}>
             {loading ? (
               <div className="space-y-3">
@@ -250,9 +249,7 @@ export default function PollsPage() {
               </div>
             )}
           </SectionCard>
-        </div>
 
-        <div className="mt-6">
           <SectionCard title="Sondages terminés" icon={<CheckCircle size={16} />}>
             {endedPolls.length === 0 ? (
               <span className="text-xs text-[var(--text-secondary)]">Aucun sondage terminé.</span>
@@ -279,7 +276,6 @@ export default function PollsPage() {
               </div>
             )}
           </SectionCard>
-        </div>
       </PageLayout>
 
       <Modal open={!!selectedPoll} onClose={() => setSelectedPoll(null)} title="Résultats du sondage">

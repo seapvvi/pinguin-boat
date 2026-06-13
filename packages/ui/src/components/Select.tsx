@@ -39,6 +39,7 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
@@ -61,7 +62,12 @@ export function Select({
     if (!open) return;
 
     const handleClick = (e: MouseEvent) => {
-      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+      if (
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     };
@@ -148,6 +154,7 @@ export function Select({
           {open && typeof document !== 'undefined' &&
             createPortal(
               <motion.div
+                ref={dropdownRef}
                 key="dropdown"
                 initial={{ opacity: 0, scaleY: 0.92, transformOrigin: 'top' }}
                 animate={{ opacity: 1, scaleY: 1, transformOrigin: 'top' }}

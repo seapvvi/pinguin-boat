@@ -224,7 +224,6 @@ export default function SuggestionsPage() {
           </SectionCard>
         </ModuleGrid>
 
-        <div className="mt-6">
           <SectionCard title="Suggestions récentes" icon={<Lightbulb size={16} />}>
             {loading ? (
               <div className="space-y-3">
@@ -251,7 +250,6 @@ export default function SuggestionsPage() {
               </>
             )}
           </SectionCard>
-        </div>
       </PageLayout>
 
       <Modal open={!!selectedSuggestion} onClose={() => setSelectedSuggestion(null)} title="Réponse à la suggestion">

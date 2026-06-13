@@ -173,7 +173,6 @@ export default function AutorolesPage() {
           )}
         </SectionCard>
 
-        <div className="mt-6">
           <ModuleGrid>
             <SectionCard
               title="Rôles bots"
@@ -240,19 +239,14 @@ export default function AutorolesPage() {
               )}
             </SectionCard>
           </ModuleGrid>
-        </div>
 
-        <div className="mt-6">
           <SectionCard title="Paramètres" icon={<Hash size={16} />}>
             <Input label="Délai (secondes)" type="number" value={String(local.delay)} onChange={(e) => setLocal({ ...local, delay: Number(e.target.value) })} />
           </SectionCard>
-        </div>
 
-        <div className="mt-6">
           <SectionCard title="Rôles par réaction" icon={<Hash size={16} />} expandable defaultExpanded={false}>
             <span className="text-xs text-[var(--text-secondary)]">Fonctionnalité à venir.</span>
           </SectionCard>
-        </div>
       </PageLayout>
 
       <Modal open={rewardModal} onClose={() => setRewardModal(false)} title="Ajouter un rôle par niveau">

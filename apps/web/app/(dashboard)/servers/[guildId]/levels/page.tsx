@@ -240,13 +240,10 @@ export default function LevelsPage() {
           </SectionCard>
         </ModuleGrid>
 
-        <div className="mt-6">
           <SectionCard title="Carte de rang" icon={<Medal size={16} />}>
             <RankCardEditor guildId={guildId} />
           </SectionCard>
-        </div>
 
-        <div className="mt-6">
           <SectionCard title="Récompenses de rôles" icon={<Award size={16} />}>
             {(local.roleRewards ?? []).length === 0 ? (
               <span className="text-xs text-[var(--text-secondary)]">Aucune récompense définie.</span>
@@ -283,9 +280,7 @@ export default function LevelsPage() {
               </Button>
             </div>
           </SectionCard>
-        </div>
 
-        <div className="mt-6">
           <SectionCard
             title="Classement"
             icon={<Trophy size={16} />}
@@ -333,8 +328,7 @@ export default function LevelsPage() {
             ) : (
               <Table columns={lbColumns} data={lbTab === 'guild' ? leaderboard : globalLb} keyExtractor={(e) => e.userId} />
             )}
-          </SectionCard>
-        </div>
+            </SectionCard>
       </PageLayout>
 
       <Modal open={rewardModal} onClose={() => setRewardModal(false)} title="Ajouter un palier">

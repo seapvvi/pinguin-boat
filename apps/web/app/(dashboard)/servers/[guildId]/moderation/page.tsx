@@ -296,9 +296,8 @@ export default function ModerationPage() {
             </SectionCard>
           </ModuleGrid>
 
-          <div className="mt-6">
-            <SectionCard
-              title="Historique des sanctions"
+          <SectionCard
+            title="Historique des sanctions"
               description={`Page ${page} / ${totalPages}`}
               headerAction={
                 totalPages > 1 ? (
@@ -338,7 +337,6 @@ export default function ModerationPage() {
                 </>
               )}
             </SectionCard>
-          </div>
         </PageLayout>
 
         <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Nouveau cas de modération">

@@ -209,8 +209,7 @@ export default function WelcomePage() {
             )}
           </SectionCard>
 
-          <div className="mt-6">
-            <ModuleGrid>
+          <ModuleGrid>
               <SectionCard
                 title="Canal de bienvenue"
                 icon={<LogIn size={16} />}
@@ -323,10 +322,8 @@ export default function WelcomePage() {
                 </div>
               </SectionCard>
             </ModuleGrid>
-          </div>
 
-          <div className="mt-6">
-            <SectionCard
+          <SectionCard
               title="Autorôle à l'arrivée"
               icon={<UserPlus size={16} />}
             >
@@ -339,7 +336,6 @@ export default function WelcomePage() {
                 <Button variant="secondary" size="sm">Configurer dans Autorôles →</Button>
               </Link>
             </SectionCard>
-          </div>
         </PageLayout>
       </PermissionGate>
     </motion.div>

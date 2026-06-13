@@ -185,8 +185,7 @@ export default function LogsPage() {
             />
           </SectionCard>
 
-          <div className="mt-6">
-            <ModuleGrid>
+          <ModuleGrid>
               {eventCategories.map((cat) => {
                 const catEnabled = cat.events.some((e) => (local.enabledEvents ?? []).includes(e.value));
                 return (
@@ -276,7 +275,6 @@ export default function LogsPage() {
                 </div>
               </SectionCard>
             </ModuleGrid>
-          </div>
         </PageLayout>
       </PermissionGate>
     </motion.div>

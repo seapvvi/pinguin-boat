@@ -195,8 +195,7 @@ export default function ProtectionPage() {
             </SectionCard>
           </ModuleGrid>
 
-          <div className="mt-6">
-            <SectionCard
+          <SectionCard
               title="Mode urgence"
               icon={<AlertTriangle size={16} />}
               description="Verrouille le serveur en cas d'attaque"
@@ -232,7 +231,6 @@ export default function ProtectionPage() {
                 </Button>
               </div>
             </SectionCard>
-          </div>
         </PageLayout>
       </PermissionGate>
     </motion.div>

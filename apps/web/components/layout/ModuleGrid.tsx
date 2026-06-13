@@ -13,6 +13,7 @@ export function ModuleGrid({ children }: ModuleGridProps) {
       initial="hidden"
       animate="visible"
       className={[
+        'grid',
         'grid-cols-1',
         'lg:grid-cols-2',
         'gap-5',
