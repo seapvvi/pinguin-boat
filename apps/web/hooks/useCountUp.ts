@@ -4,7 +4,7 @@ import { useReducedMotion } from './useReducedMotion';
 export function useCountUp(target: number, duration = 800): number {
   const reduced = useReducedMotion();
   const [value, setValue] = useState(reduced ? target : 0);
-  const frameRef = useRef<number>();
+  const frameRef = useRef<number>(0);
 
   useEffect(() => {
     if (reduced) { setValue(target); return; }

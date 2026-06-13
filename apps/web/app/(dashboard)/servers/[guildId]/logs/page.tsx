@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   MessageSquare, Users, Hash, Activity
 } from 'lucide-react';
-import { Button, Skeleton, Toggle } from '@pinguin/ui';
+import { Button, Toggle } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import type { LogSettings } from '@pinguin/shared';

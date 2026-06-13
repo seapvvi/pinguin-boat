@@ -7,7 +7,7 @@ import {
   Clock, FileText, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, Badge, Skeleton, EmptyState, ErrorMessage, Input, Modal } from '@pinguin/ui';
+import { Button, Badge, EmptyState, ErrorMessage, Input, Modal } from '@pinguin/ui';
 import {
   fetchFormSettings, updateFormSettings,
   createFormTemplate, updateFormTemplate, deleteFormTemplate,

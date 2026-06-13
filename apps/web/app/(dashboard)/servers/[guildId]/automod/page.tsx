@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Shield, AlertTriangle } from 'lucide-react';
 import { Toggle, Input, Button } from '@pinguin/ui';
-import { ErrorMessage, Skeleton } from '@pinguin/ui';
+import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { PermissionGate } from '@/components/PermissionGate';

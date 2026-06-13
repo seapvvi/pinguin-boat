@@ -6,7 +6,7 @@ import {
   Plus, X, Eye, Trophy, Award, Zap, Bell, Medal
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Toggle, Input, Button, Badge, Modal, Skeleton, Table, EmptyState, Select } from '@pinguin/ui';
+import { Toggle, Input, Button, Badge, Modal, Table, EmptyState, Select } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, fetchXPLeaderboard, updateGuildSettings } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';

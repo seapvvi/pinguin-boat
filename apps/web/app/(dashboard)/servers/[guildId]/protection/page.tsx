@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Swords, MessageSquare, Hash, Users, Sliders, AlertTriangle } from 'lucide-react';
-import { Toggle, Input, Select, Button, Skeleton } from '@pinguin/ui';
+import { Toggle, Input, Select, Button } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
 import type { ProtectionSettings } from '@pinguin/shared';
