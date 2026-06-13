@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Shield, Ticket, Wallet, Trophy, DoorOpen, UserPlus, ScrollText,
-  Swords, FileText, Gift, Vote, Lightbulb, Music2, ChevronDown, X,
+  Swords, FileText, Gift, Vote, Lightbulb, Music2, ChevronDown,
 } from 'lucide-react';
-import { Card, Button } from '@pinguin/ui';
+import { Card } from '@pinguin/ui';
 import { fetchGuildRoles } from '@/lib/api';
 
 interface ModulePermissionsProps {
@@ -78,6 +78,7 @@ function RoleMultiSelect({
       <button
         type="button"
         onClick={() => setOpen(!open)}
+        aria-label={label}
         className="w-full flex items-center justify-between px-3 py-2 text-sm text-left text-[var(--text-primary)] border border-[var(--border-color)] rounded-[var(--radius-sm)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-colors"
       >
         <span className="truncate flex-1">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Radio, Video, Palette, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
-import { Card, Button, Select, Input, Toggle } from '@pinguin/ui';
+import { Button, Select, Input, Toggle } from '@pinguin/ui';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { fetchGuildRoles } from '@/lib/api';
 
@@ -99,7 +99,6 @@ export function StreamForm({ guildId, initialValues, onSubmit, onCancel, submitL
     fields: [],
   };
 
-  const isLoading = !initialValues;
   const showEveryoneWarning = values.pingEveryoneOnLive;
   const showRoleWarning = values.pingEveryoneOnLive && values.mentionRoleId;
   const mentionOptions = [

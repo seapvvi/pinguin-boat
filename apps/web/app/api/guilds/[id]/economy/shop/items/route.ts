@@ -73,10 +73,6 @@ export async function POST(
       });
     }
 
-    const count = await prisma.shopItem.count({
-      where: { economySettingsId: settings.id },
-    });
-
     const item = await prisma.shopItem.create({
       data: {
         economySettingsId: settings.id,

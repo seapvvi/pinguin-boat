@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Banknote, ShoppingCart, BarChart3, Settings, Plus, X, GripVertical, ToggleLeft
+  Banknote, ShoppingCart, BarChart3, Settings, Plus, X, GripVertical
 } from 'lucide-react';
 import { Card, Toggle, Input, Button, Table, Skeleton, EmptyState, Badge } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';

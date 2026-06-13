@@ -11,8 +11,6 @@ export interface AutoModRule {
   actionDuration?: number
 }
 
-const ACTION_PRIORITY: RuleAction[] = ['BAN', 'KICK', 'MUTE', 'WARN']
-
 function resolveAction(settings: Record<string, unknown>): RuleAction {
   if (settings.banEnabled) return 'BAN'
   if (settings.kickEnabled) return 'KICK'
