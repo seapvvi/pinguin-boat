@@ -16,7 +16,11 @@ export const permissions = true;
 export const module = 'moderation';
 
 export async function execute(interaction: ChatInputCommandInteraction, client: Client): Promise<void> {
-  await interaction.deferReply();
+  try {
+    await interaction.deferReply();
+  } catch {
+    return;
+  }
 
   const user = interaction.options.get('user')?.user!;
   const reason = interaction.options.get('reason')?.value as string;

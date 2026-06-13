@@ -55,7 +55,19 @@ async function main() {
 
   app.setErrorHandler((error: FastifyError, _request, reply) => {
     app.log.error(error);
-    reply.status(error.statusCode || 500).send({
+    const statusCode = error.statusCode || 500;
+
+    if (statusCode === 429) {
+      const retryAfter = reply.getHeader('retry-after');
+      reply.send({
+        success: false,
+        error: error.message || 'Trop de requêtes',
+        retryAfter: retryAfter ? Number(retryAfter) : null,
+      });
+      return;
+    }
+
+    reply.status(statusCode).send({
       success: false,
       error: error.message || 'Erreur interne du serveur',
     });

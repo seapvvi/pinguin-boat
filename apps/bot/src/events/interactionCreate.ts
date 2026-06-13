@@ -130,12 +130,12 @@ export async function execute(interaction: Interaction, client: Client): Promise
       await interaction.followUp({
         embeds: [errorEmbed('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.')],
         ephemeral: true,
-      });
+      }).catch(() => {});
     } else {
       await interaction.reply({
         embeds: [errorEmbed('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.')],
         ephemeral: true,
-      });
+      }).catch(() => {});
     }
   }
 }

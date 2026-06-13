@@ -169,6 +169,19 @@ async function apiFetch<T = APIResponse<unknown>>(endpoint: string, options: Fet
 
   const response = await fetch(url, fetchOptions);
 
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 10;
+    await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
+    const retryResponse = await fetch(url, fetchOptions);
+    if (!retryResponse.ok) {
+      const errorData = await retryResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || `Erreur API: ${retryResponse.status}`);
+    }
+    const retryData = await retryResponse.json();
+    return retryData;
+  }
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Erreur API: ${response.status}`);
