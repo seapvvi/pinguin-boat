@@ -20,7 +20,8 @@ export function PageLayout({ title, description, actions, children }: PageLayout
         </div>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
-      <div className="mt-6">{children}</div>
+      <div className="mt-6 flex flex-col gap-6">{children}</div>
+
     </div>
   );
 }
