@@ -13,7 +13,7 @@ import { LogEventType } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
-import { useBackgroundRefresh, useAutoSave } from '@/lib/hooks';
+import { useAutoSave } from '@/lib/hooks';
 import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';

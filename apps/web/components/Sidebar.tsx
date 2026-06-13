@@ -36,7 +36,6 @@ import {
   ClipboardList,
   Gamepad2,
   Bell,
-  Ban,
   Mail,
   Terminal,
 } from 'lucide-react';
