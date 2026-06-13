@@ -16,7 +16,7 @@ const envSchema = z.object({
   DISCORD_PUBLIC_KEY: z.string().min(1),
 
   // Database
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.string().trim().url(),
 
   // Session
   SESSION_SECRET: z.string().min(64),
