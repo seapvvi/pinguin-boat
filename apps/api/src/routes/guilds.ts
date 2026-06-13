@@ -3643,4 +3643,56 @@ export async function guildRoutes(app: FastifyInstance) {
       reply.send(success({ importedModules: modules }, 'Configuration importée avec succès. Vérifiez les IDs de rôles et salons.'));
     } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
   });
+
+  app.get('/:guildId/invites/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId } = request.params as any;
+
+      const leaderboard = await prisma.$queryRaw<Array<{
+        inviter_id: string;
+        total_invites: bigint;
+        fake_invites: bigint;
+        left_invites: bigint;
+        net_invites: bigint;
+      }>>`
+        SELECT
+          inviter_id,
+          COUNT(*) as total_invites,
+          SUM(CASE WHEN is_fake = true THEN 1 ELSE 0 END) as fake_invites,
+          SUM(CASE WHEN has_left = true THEN 1 ELSE 0 END) as left_invites,
+          COUNT(*) - SUM(CASE WHEN is_fake = true THEN 1 ELSE 0 END) - SUM(CASE WHEN has_left = true THEN 1 ELSE 0 END) as net_invites
+        FROM invite_tracks
+        WHERE guild_id = ${guildId}
+        GROUP BY inviter_id
+        ORDER BY net_invites DESC
+        LIMIT 50
+      `;
+
+      const inviterIds = leaderboard.map(e => e.inviter_id);
+      const users = await prisma.user.findMany({
+        where: { discordId: { in: inviterIds } },
+        select: { discordId: true, username: true, avatar: true },
+      });
+
+      const userMap = new Map(users.map(u => [u.discordId, u]));
+
+      const entries = leaderboard.map((entry, index) => {
+        const user = userMap.get(entry.inviter_id);
+        return {
+          rank: index + 1,
+          userId: entry.inviter_id,
+          username: user?.username ?? 'Inconnu',
+          avatar: user?.avatar,
+          totalInvites: Number(entry.total_invites),
+          fakeInvites: Number(entry.fake_invites),
+          leftInvites: Number(entry.left_invites),
+          netInvites: Number(entry.net_invites),
+        };
+      });
+
+      reply.send(success({ leaderboard: entries }));
+    } catch (err: any) {
+      reply.status(500).send(error(sanitizeError(err)));
+    }
+  });
 }
