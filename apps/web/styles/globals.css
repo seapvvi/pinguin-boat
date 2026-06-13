@@ -210,3 +210,30 @@
     transition: color 0.15s ease, opacity 0.15s ease;
   }
 }
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+/* Respect prefers-reduced-motion global */
+@media (prefers-reduced-motion: reduce) {
+  /* Stoppe TOUTES les animations sauf opacity */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* EXCEPTION : les transitions opacity importantes restent */
+  .motion-safe-opacity {
+    transition-duration: 150ms !important;
+  }
+}
+

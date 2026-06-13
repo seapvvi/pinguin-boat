@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'motion/react';
+import { containerVariants } from '@/lib/motion';
 
 interface ModuleGridProps {
   children: React.ReactNode;
@@ -6,18 +8,20 @@ interface ModuleGridProps {
 
 export function ModuleGrid({ children }: ModuleGridProps) {
   return (
-    <div
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
       className={[
-        'grid',
         'grid-cols-1',
         'lg:grid-cols-2',
         'gap-5',
         'w-full',
         'items-start',
       ].join(' ')}
-    >
+>
       {children}
-    </div>
+    </motion.div>
   );
 }
 

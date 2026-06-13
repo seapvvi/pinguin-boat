@@ -2,6 +2,13 @@
 import { motion } from 'motion/react';
 import { cn } from '../utils/cn';
 
+const SPRING_BOUNCY = {
+  type: 'spring' as const,
+  stiffness: 400,
+  damping: 22,
+  mass: 0.9,
+};
+
 interface ToggleProps {
   checked: boolean;
   onChange: (value: boolean) => void;
@@ -24,7 +31,7 @@ export function Toggle({ checked, onChange, disabled = false, label, size = 'md'
       className={cn(
         'inline-flex items-center gap-2 select-none',
         disabled && 'opacity-40 pointer-events-none',
-        !disabled && 'cursor-pointer'
+        !disabled && 'cursor-pointer',
       )}
       onClick={(e) => {
         if (!disabled) {
@@ -33,44 +40,50 @@ export function Toggle({ checked, onChange, disabled = false, label, size = 'md'
         }
       }}
     >
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        tabIndex={0}
-        className={cn(
-          'relative shrink-0',
-          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-          'focus-visible:outline-[var(--accent-primary)]'
-        )}
-        style={{
-          width: trackW,
-          height: trackH,
-          borderRadius: 0,
-          border: checked ? '2px solid var(--accent-primary)' : '2px solid var(--border-color-strong)',
-          backgroundColor: checked ? 'var(--accent-primary)' : 'transparent',
-          transition: 'background-color 150ms ease, border-color 150ms ease',
-          padding: 0,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          boxSizing: 'content-box'
-        }}
+      <motion.div
+        animate={checked ? { scale: [1, 1.06, 1] } : { scale: 1 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        style={{ display: 'inline-flex' }}
       >
-        <motion.span
-          animate={{ x: checked ? thumbOn : thumbOff }}
-          initial={false}
-          transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-label={label}
+          tabIndex={0}
+          className={cn(
+            'relative shrink-0',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+            'focus-visible:outline-[var(--accent-primary)]',
+          )}
           style={{
-            position: 'absolute',
-            top: padding,
-            left: 0,
-            width: thumbSize,
-            height: thumbSize,
+            width: trackW,
+            height: trackH,
             borderRadius: 0,
-            backgroundColor: checked ? '#ffffff' : 'var(--text-primary)'
+            border: checked ? '2px solid var(--accent-primary)' : '2px solid var(--border-color-strong)',
+            backgroundColor: checked ? 'var(--accent-primary)' : 'transparent',
+            transition: 'background-color 150ms ease, border-color 150ms ease',
+            padding: 0,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            boxSizing: 'content-box',
           }}
-        />
-      </button>
+        >
+          <motion.span
+            animate={{ x: checked ? thumbOn : thumbOff }}
+            initial={false}
+            transition={SPRING_BOUNCY}
+            style={{
+              position: 'absolute',
+              top: padding,
+              left: 0,
+              width: thumbSize,
+              height: thumbSize,
+              borderRadius: 0,
+              backgroundColor: checked ? '#ffffff' : 'var(--text-primary)',
+            }}
+          />
+        </button>
+      </motion.div>
 
       {label && <span className="text-sm text-[var(--text-primary)]">{label}</span>}
     </label>

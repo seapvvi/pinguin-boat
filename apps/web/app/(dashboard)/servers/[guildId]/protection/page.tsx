@@ -10,6 +10,7 @@ import type { ProtectionSettings } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
@@ -79,13 +80,7 @@ export default function ProtectionPage() {
   }
 
   if (loading || !local) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full" />
-        ))}
-      </motion.div>
-    );
+    return <SkeletonPage rows={3} />;
   }
 
   return (

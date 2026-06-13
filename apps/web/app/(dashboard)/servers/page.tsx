@@ -6,6 +6,7 @@ import { Input, Badge, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuilds, api } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
+import { useConfetti } from '@/hooks/useConfetti';
 import type { GuildItemDTO } from '@pinguin/shared';
 
 export default function ServersPage() {
@@ -15,6 +16,7 @@ export default function ServersPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { fire } = useConfetti();
 
   const load = async () => {
     setLoading(true);
@@ -118,21 +120,22 @@ export default function ServersPage() {
                   Gérer
                 </a>
               ) : (
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    api.get<{ data: { url: string } }>(`/api/bot/invite?guild_id=${g.id}`).then((res) => {
-                      const u = (res as { data?: { url: string } }).data?.url;
-                      if (u) window.open(u, '_blank');
-                    });
-                  }}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border text-[var(--text-primary)] border-[var(--border-color)] hover:bg-[var(--bg-surface-alt)] no-underline"
-                >
-                  <Plus size={12} /> Inviter
-                </a>
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      fire('invite');
+                      api.get<{ data: { url: string } }>(`/api/bot/invite?guild_id=${g.id}`).then((res) => {
+                        const u = (res as { data?: { url: string } }).data?.url;
+                        if (u) window.open(u, '_blank');
+                      });
+                    }}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded-[var(--radius-sm)] transition-colors duration-150 border text-[var(--text-primary)] border-[var(--border-color)] hover:bg-[var(--bg-surface-alt)] no-underline"
+                  >
+                    <Plus size={12} /> Inviter
+                  </a>
               )}
             </div>
           ))}

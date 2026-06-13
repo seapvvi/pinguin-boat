@@ -7,14 +7,15 @@ import {
   Gamepad2, Star, ClipboardList, Users,
   Hash, Clock, Command,
 } from 'lucide-react';
-import { Skeleton, Badge, Toggle } from '@pinguin/ui';
-import { EmptyState } from '@pinguin/ui';
-import { ErrorMessage } from '@pinguin/ui';
+import { Badge, Toggle } from '@pinguin/ui';
+import { EmptyState, ErrorMessage } from '@pinguin/ui';
+import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { fetchGuildSettings, fetchModCases, updateGuildSettings, fetchAuditLogs } from '@/lib/api';
 import { formatNumber, formatDate } from '@/lib/utils';
 import type { GuildConfig, ModCase } from '@pinguin/shared';
 import { ModuleName } from '@pinguin/shared';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { useCountUp } from '@/hooks/useCountUp';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
 
@@ -31,6 +32,23 @@ export default function GuildOverviewPage() {
   const [recentActivity, setRecentActivity] = useState<{ id?: string; action?: string; createdAt?: string }[]>([]);
 
   const onboarding = useOnboarding(guildId);
+
+  const modules = [
+    { key: ModuleName.MODERATION, label: 'Modération', icon: <Shield size={16} /> },
+    { key: ModuleName.PROTECTION, label: 'Protection', icon: <Scale size={16} /> },
+    { key: ModuleName.TICKETS, label: 'Tickets', icon: <MessageSquare size={16} /> },
+    { key: ModuleName.LOGS, label: 'Logs', icon: <Terminal size={16} /> },
+    { key: ModuleName.LEVELS, label: 'Niveaux', icon: <Activity size={16} /> },
+    { key: ModuleName.ECONOMY, label: 'Économie', icon: <Activity size={16} /> },
+    { key: ModuleName.MUSIC, label: 'Musique', icon: <Music size={16} /> },
+    { key: ModuleName.GIVEAWAYS, label: 'Giveaways', icon: <Gift size={16} /> },
+    { key: ModuleName.MINIGAMES, label: 'Minijeux', icon: <Gamepad2 size={16} /> },
+    { key: ModuleName.STARBOARD, label: 'Starboard', icon: <Star size={16} /> },
+    { key: ModuleName.FORMS, label: 'Formulaires', icon: <ClipboardList size={16} /> },
+    { key: ModuleName.CLANS, label: 'Clans', icon: <Users size={16} /> },
+  ];
+
+  const skeletonRows = modules.length > 4 ? 3 : modules.length <= 2 ? 1 : 2;
 
   const load = async () => {
     setLoading(true);
@@ -56,7 +74,9 @@ export default function GuildOverviewPage() {
     }
   };
 
-  useEffect(() => { load(); }, [guildId]);
+  useEffect(() => {
+    load();
+  }, [guildId]);
 
   useEffect(() => {
     if (!loading && config) {
@@ -91,42 +111,28 @@ export default function GuildOverviewPage() {
     );
   }
 
-  const modules = [
-    { key: ModuleName.MODERATION, label: 'Modération', icon: <Shield size={16} /> },
-    { key: ModuleName.PROTECTION, label: 'Protection', icon: <Scale size={16} /> },
-    { key: ModuleName.TICKETS, label: 'Tickets', icon: <MessageSquare size={16} /> },
-    { key: ModuleName.LOGS, label: 'Logs', icon: <Terminal size={16} /> },
-    { key: ModuleName.LEVELS, label: 'Niveaux', icon: <Activity size={16} /> },
-    { key: ModuleName.ECONOMY, label: 'Économie', icon: <Activity size={16} /> },
-    { key: ModuleName.MUSIC, label: 'Musique', icon: <Music size={16} /> },
-    { key: ModuleName.GIVEAWAYS, label: 'Giveaways', icon: <Gift size={16} /> },
-    { key: ModuleName.MINIGAMES, label: 'Minijeux', icon: <Gamepad2 size={16} /> },
-    { key: ModuleName.STARBOARD, label: 'Starboard', icon: <Star size={16} /> },
-    { key: ModuleName.FORMS, label: 'Formulaires', icon: <ClipboardList size={16} /> },
-    { key: ModuleName.CLANS, label: 'Clans', icon: <Users size={16} /> },
-  ];
+  if (loading) {
+    return <SkeletonPage rows={skeletonRows} />;
+  }
 
-  const statCards = loading
-    ? Array.from({ length: 4 }).map((_, i) => (
-        <SectionCard key={i} title="">
-          <Skeleton className="h-12 w-16 mx-auto" />
-          <Skeleton className="h-4 w-20 mx-auto mt-2" />
-        </SectionCard>
-      ))
-    : [
-        { icon: <Users size={24} />, value: formatNumber(memberCount || 0), label: 'Membres' },
-        { icon: <Hash size={24} />, value: formatNumber(channelCount || 0), label: 'Salons' },
-        { icon: <Command size={24} />, value: formatNumber(cases.length), label: 'Cas de modération' },
-        { icon: <Clock size={24} />, value: recentActivity.length > 0 ? 'Récente' : '—', label: 'Activité' },
-      ].map((stat, i) => (
-        <SectionCard key={i} title="">
-          <div className="flex flex-col items-center py-4">
-            <span className="text-[var(--text-secondary)] mb-2">{stat.icon}</span>
-            <span className="text-3xl font-bold text-[var(--text-primary)]">{stat.value}</span>
-            <span className="text-sm text-[var(--text-secondary)] mt-1">{stat.label}</span>
-          </div>
-        </SectionCard>
-      ));
+  const animatedMembers = useCountUp(memberCount || 0, 700);
+  const animatedChannels = useCountUp(channelCount || 0, 700);
+  const animatedCases = useCountUp(cases.length || 0, 700);
+
+  const statCards = [
+    { icon: <Users size={24} />, value: formatNumber(animatedMembers), label: 'Membres' },
+    { icon: <Hash size={24} />, value: formatNumber(animatedChannels), label: 'Salons' },
+    { icon: <Command size={24} />, value: formatNumber(animatedCases), label: 'Cas de modération' },
+    { icon: <Clock size={24} />, value: recentActivity.length > 0 ? 'Récente' : '—', label: 'Activité' },
+  ].map((stat, i) => (
+    <SectionCard key={i} title="">
+      <div className="flex flex-col items-center py-4">
+        <span className="text-[var(--text-secondary)] mb-2">{stat.icon}</span>
+        <span className="text-3xl font-bold text-[var(--text-primary)]">{stat.value}</span>
+        <span className="text-sm text-[var(--text-secondary)] mt-1">{stat.label}</span>
+      </div>
+    </SectionCard>
+  ));
 
   return (
     <PageLayout title="Aperçu du serveur" description={`ID: ${guildId}`}>
@@ -136,56 +142,50 @@ export default function GuildOverviewPage() {
 
       <ModuleGrid>
         <SectionCard title="Modules actifs">
-          {toggleError && <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 p-2 mb-3">{toggleError}</div>}
-          {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {modules.map((mod) => {
-                const enabled = isModuleEnabled(mod.key);
-                return (
-                  <div key={mod.key} className="flex items-center justify-between py-2 px-3 bg-[var(--bg-surface-alt)]">
-                    <div className="flex items-center gap-2">
-                      {mod.icon}
-                      <span className="text-sm text-[var(--text-primary)]">{mod.label}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={enabled ? 'success' : 'error'}>{enabled ? 'Activé' : 'Désactivé'}</Badge>
-                      <Toggle
-                        checked={enabled}
-                        onChange={(v) => handleModuleToggle(mod.key, v)}
-                        disabled={toggling === mod.key}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          {toggleError && (
+            <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 p-2 mb-3">{toggleError}</div>
           )}
+
+          <div className="space-y-2">
+            {modules.map((mod) => {
+              const enabled = isModuleEnabled(mod.key);
+              return (
+                <div key={mod.key} className="flex items-center justify-between py-2 px-3 bg-[var(--bg-surface-alt)]">
+                  <div className="flex items-center gap-2">
+                    {mod.icon}
+                    <span className="text-sm text-[var(--text-primary)]">{mod.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={enabled ? 'success' : 'error'}>{enabled ? 'Activé' : 'Désactivé'}</Badge>
+                    <Toggle
+                      checked={enabled}
+                      onChange={(v) => handleModuleToggle(mod.key, v)}
+                      disabled={toggling === mod.key}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </SectionCard>
 
         <SectionCard title="Activité récente">
-          {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : recentActivity.length === 0 ? (
+          {recentActivity.length === 0 ? (
             <p className="text-xs text-[var(--text-secondary)]">Aucune activité récente.</p>
           ) : (
             <div className="space-y-2">
               {recentActivity.map((act, i: number) => (
-                <div key={act.id ?? i} className="flex items-center justify-between py-2 px-3 bg-[var(--bg-surface-alt)]">
+                <div
+                  key={act.id ?? i}
+                  className="flex items-center justify-between py-2 px-3 bg-[var(--bg-surface-alt)]"
+                >
                   <div className="flex items-center gap-2">
                     <Activity size={14} className="text-[var(--text-secondary)]" />
                     <span className="text-sm text-[var(--text-primary)]">{act.action ?? 'Action'}</span>
                   </div>
-                  <span className="text-xs text-[var(--text-secondary)]">{act.createdAt ? formatDate(act.createdAt) : ''}</span>
+                  <span className="text-xs text-[var(--text-secondary)]">
+                    {act.createdAt ? formatDate(act.createdAt) : ''}
+                  </span>
                 </div>
               ))}
             </div>
@@ -194,13 +194,7 @@ export default function GuildOverviewPage() {
       </ModuleGrid>
 
       <SectionCard title="Cas de modération récents">
-        {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full" />
-            ))}
-          </div>
-        ) : cases.length === 0 ? (
+        {cases.length === 0 ? (
           <EmptyState title="Aucun cas" description="Aucune modération récente." />
         ) : (
           <div>
@@ -211,7 +205,10 @@ export default function GuildOverviewPage() {
               <span>Date</span>
             </div>
             {cases.map((c) => (
-              <div key={c.id} className="grid grid-cols-4 gap-4 items-center py-2 px-3 bg-[var(--bg-surface-alt)] mt-1">
+              <div
+                key={c.id}
+                className="grid grid-cols-4 gap-4 items-center py-2 px-3 bg-[var(--bg-surface-alt)] mt-1"
+              >
                 <span className="text-sm text-[var(--text-primary)] font-mono">{c.userId.slice(0, 8)}…</span>
                 <Badge variant={c.type === 'BAN' || c.type === 'KICK' ? 'error' : 'warning'}>{c.type}</Badge>
                 <span className="text-xs text-[var(--text-secondary)] truncate">{c.reason}</span>
@@ -238,3 +235,4 @@ export default function GuildOverviewPage() {
     </PageLayout>
   );
 }
+

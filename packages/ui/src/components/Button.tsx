@@ -54,8 +54,15 @@ export function Button({
     : { type: (props as any).type ?? ('button' as const), disabled: disabled || loading };
 
   return (
-    <Tag
-      whileTap={asChild ? undefined : { scale: 0.97 }}
+      <Tag
+      whileTap={
+        asChild
+          ? undefined
+          : variant === 'primary'
+            ? { scale: 0.94, y: 1, transition: { duration: 0.08 } }
+            : { scale: 0.94, transition: { duration: 0.08 } }
+      }
+      whileHover={variant === 'ghost' || asChild ? undefined : { scale: 1.02, transition: { duration: 0.12 } }}
       transition={{ duration: 0.12, ease: 'easeInOut' }}
       {...extraProps}
       className={cn(

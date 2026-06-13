@@ -16,6 +16,7 @@ import { ModerationCaseType } from '@pinguin/shared';
 import { Trash2, Info, RotateCcw } from 'lucide-react';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
+import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
@@ -239,6 +240,10 @@ export default function ModerationPage() {
         <ErrorMessage title="Erreur" message={error} onRetry={() => load(page)} />
       </motion.div>
     );
+  }
+
+  if (loading) {
+    return <SkeletonPage rows={2} />;
   }
 
   return (

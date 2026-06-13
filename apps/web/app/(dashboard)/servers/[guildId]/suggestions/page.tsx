@@ -14,6 +14,7 @@ import type { Suggestion } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
@@ -166,6 +167,10 @@ export default function SuggestionsPage() {
         <ErrorMessage title="Erreur" message={error} onRetry={() => load(page)} />
       </motion.div>
     );
+  }
+
+  if (loading) {
+    return <SkeletonPage rows={1} />;
   }
 
   return (

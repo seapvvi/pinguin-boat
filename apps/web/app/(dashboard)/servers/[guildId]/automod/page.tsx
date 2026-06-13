@@ -1,11 +1,10 @@
 'use client';
-
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Shield, AlertTriangle } from 'lucide-react';
-import { Toggle, Input, Button, Skeleton } from '@pinguin/ui';
-import { ErrorMessage } from '@pinguin/ui';
+import { Toggle, Input, Button } from '@pinguin/ui';
+import { ErrorMessage, Skeleton } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -17,6 +16,7 @@ import { settingsToRules, rulesToSettings } from '@/lib/automod-rules';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
+import { SkeletonPage } from '@/components/layout/SkeletonPage';
 
 function parseList(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.map(String);
@@ -60,7 +60,9 @@ export default function AutoModPage() {
     }
   };
 
-  useEffect(() => { load(); }, [guildId]);
+  useEffect(() => {
+    load();
+  }, [guildId]);
 
   const update = (key: string, value: unknown) => {
     if (!settings) return;
@@ -100,13 +102,7 @@ export default function AutoModPage() {
   }
 
   if (loading || !settings) {
-    return (
-      <motion.div className="space-y-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full" />
-        ))}
-      </motion.div>
-    );
+    return <SkeletonPage rows={3} />;
   }
 
   const whitelistRoles = parseList(settings.whitelistRoles);
@@ -128,10 +124,7 @@ export default function AutoModPage() {
           <ModuleToggle guildId={guildId} moduleKey="automod" label="Auto-Modération" />
         </div>
 
-        <SectionCard
-          title="Filtres actifs"
-          description="Configurez les règles de détection automatique"
-        >
+        <SectionCard title="Filtres actifs" description="Configurez les règles de détection automatique">
           <RuleBuilder
             rules={rules}
             onChange={(updatedRules) => {
@@ -143,18 +136,16 @@ export default function AutoModPage() {
 
         <div className="mt-6">
           <ModuleGrid>
-            <SectionCard
-              title="Sanctions"
-              icon={<AlertTriangle size={16} />}
-              expandable
-            >
+            <SectionCard title="Sanctions" icon={<AlertTriangle size={16} />} expandable>
               <div className="space-y-4">
                 <Input
                   label="Seuil d'infractions avant sanction"
                   type="number"
                   min={1}
                   value={String(settings.autoSanctionThreshold ?? 3)}
-                  onChange={(e) => update('autoSanctionThreshold', Math.max(1, parseInt(e.target.value) || 3))}
+                  onChange={(e) =>
+                    update('autoSanctionThreshold', Math.max(1, parseInt(e.target.value) || 3))
+                  }
                 />
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[var(--text-primary)]">Avertissement</span>
@@ -184,14 +175,21 @@ export default function AutoModPage() {
               </div>
 
               <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Escalade automatique des avertissements</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">
+                  Escalade automatique des avertissements
+                </h3>
                 <div className="space-y-4">
                   <Input
                     label="Seuil d'avertissements → mute"
                     type="number"
                     min={1}
                     value={settings.autoWarnMuteThreshold != null ? String(settings.autoWarnMuteThreshold) : ''}
-                    onChange={(e) => update('autoWarnMuteThreshold', e.target.value ? parseInt(e.target.value) : null)}
+                    onChange={(e) =>
+                      update(
+                        'autoWarnMuteThreshold',
+                        e.target.value ? parseInt(e.target.value) : null,
+                      )
+                    }
                     placeholder="Désactivé"
                   />
                   {settings.autoWarnMuteThreshold != null && (
@@ -208,7 +206,12 @@ export default function AutoModPage() {
                     type="number"
                     min={1}
                     value={settings.autoWarnBanThreshold != null ? String(settings.autoWarnBanThreshold) : ''}
-                    onChange={(e) => update('autoWarnBanThreshold', e.target.value ? parseInt(e.target.value) : null)}
+                    onChange={(e) =>
+                      update(
+                        'autoWarnBanThreshold',
+                        e.target.value ? parseInt(e.target.value) : null,
+                      )
+                    }
                     placeholder="Désactivé"
                   />
                 </div>
@@ -225,11 +228,7 @@ export default function AutoModPage() {
               </div>
             </SectionCard>
 
-            <SectionCard
-              title="Mots & comportements"
-              icon={<Shield size={16} />}
-              expandable
-            >
+            <SectionCard title="Mots & comportements" icon={<Shield size={16} />} expandable>
               <div className="space-y-4">
                 <Input
                   label="Mots interdits"
@@ -288,3 +287,4 @@ export default function AutoModPage() {
     </PermissionGate>
   );
 }
+

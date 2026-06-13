@@ -14,6 +14,7 @@ import { useBackgroundRefresh } from '@/lib/hooks';
 import { formatDate } from '@/lib/utils';
 import type { APIResponse, Giveaway } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
@@ -174,6 +175,10 @@ export default function GiveawaysPage() {
         <ErrorMessage title="Erreur" message={error} onRetry={() => load(page)} />
       </motion.div>
     );
+  }
+
+  if (loading) {
+    return <SkeletonPage rows={2} />;
   }
 
   return (

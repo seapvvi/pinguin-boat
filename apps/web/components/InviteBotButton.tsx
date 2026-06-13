@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useConfetti } from '@/hooks/useConfetti';
 
 interface InviteBotButtonProps {
   guildId?: string;
@@ -12,6 +13,7 @@ interface InviteBotButtonProps {
 
 export function InviteBotButton({ guildId, className, children }: InviteBotButtonProps) {
   const [url, setUrl] = useState<string | null>(null);
+  const { fire } = useConfetti();
 
   useEffect(() => {
     const q = guildId ? `?guild_id=${guildId}` : '';
@@ -36,6 +38,7 @@ export function InviteBotButton({ guildId, className, children }: InviteBotButto
       href={url}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={() => fire('invite')}
       className={
         className ??
         'inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-sm)] border bg-[var(--accent)] text-[var(--bg-primary)] border-[var(--accent)] hover:opacity-90 no-underline'

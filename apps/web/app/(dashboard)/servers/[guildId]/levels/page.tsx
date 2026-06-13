@@ -14,6 +14,7 @@ import type { GuildConfig, LevelSettings, LeaderboardEntry, RoleReward } from '@
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { api } from '@/lib/api';
 import RankCardEditor from '@/components/levels/RankCardEditor';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -153,13 +154,7 @@ export default function LevelsPage() {
   }
 
   if (loading || !local) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
-      </motion.div>
-    );
+    return <SkeletonPage rows={3} />;
   }
 
   return (

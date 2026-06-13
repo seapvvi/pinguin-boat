@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import OwnerPopupListener from './OwnerPopupListener';
 import { getUser, logout as authLogout, type User } from '@/lib/auth';
+import { useConfetti } from '@/hooks/useConfetti';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -17,6 +18,7 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { fire } = useConfetti();
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) setSidebarOpen(false);
@@ -142,6 +144,7 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
             href="https://discord.gg/EJHhcYkXMQ"
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => fire('discord')}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '4px 10px',

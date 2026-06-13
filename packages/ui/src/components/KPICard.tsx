@@ -3,6 +3,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../utils/cn';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { useCountUp } from '../hooks/useCountUp';
 
 interface KPICardProps {
   icon: React.ReactNode;
@@ -16,6 +17,8 @@ interface KPICardProps {
 }
 
 export function KPICard({ icon, label, value, trend, className }: KPICardProps) {
+  const animatedValue = useCountUp(typeof value === 'number' ? value : 0, 700);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -42,7 +45,7 @@ export function KPICard({ icon, label, value, trend, className }: KPICardProps) 
         )}
       </div>
       <span className="block text-2xl font-semibold text-[var(--text-primary)] tracking-tight mb-1">
-        {value}
+        {typeof value === 'number' ? animatedValue.toLocaleString() : value}
       </span>
       <span className="block text-xs text-[var(--text-secondary)]">{label}</span>
     </motion.div>

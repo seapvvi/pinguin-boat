@@ -14,6 +14,7 @@ import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { useBackgroundRefresh, useAutoSave } from '@/lib/hooks';
+import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
@@ -153,13 +154,7 @@ export default function LogsPage() {
   }
 
   if (loading || !local) {
-    return (
-      <motion.div className="space-y-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
-      </motion.div>
-    );
+    return <SkeletonPage rows={3} />;
   }
 
   return (

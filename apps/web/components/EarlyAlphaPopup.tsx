@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@pinguin/ui';
 import { getUser } from '@/lib/auth';
+import { useConfetti } from '@/hooks/useConfetti';
 
 const DISCORD_URL = 'https://discord.gg/EJHhcYkXMQ';
 const STORAGE_PREFIX = 'pinguin-alpha-seen-';
@@ -12,6 +13,7 @@ export function EarlyAlphaPopup() {
   const [open, setOpen] = useState(false);
   const [countdown, setCountdown] = useState(WAIT_SECONDS);
   const [ready, setReady] = useState(false);
+  const { fire } = useConfetti();
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +74,7 @@ export function EarlyAlphaPopup() {
           Rejoignez notre serveur Discord pour reporter des bugs et faire des suggestions :
         </p>
         <div className="flex flex-col sm:flex-row gap-2 mb-4">
-          <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="flex-1">
+          <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="flex-1" onClick={() => fire('discord')}>
             <Button className="w-full">Rejoindre le Discord</Button>
           </a>
           <Button variant="secondary" className="flex-1" onClick={close} disabled={!ready}>

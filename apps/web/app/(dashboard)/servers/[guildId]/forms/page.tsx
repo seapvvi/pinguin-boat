@@ -16,6 +16,7 @@ import {
 import { formatDate } from '@/lib/utils';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
 
 interface FormField {
@@ -285,9 +286,7 @@ export default function FormsPage() {
       )}
 
       {loading ? (
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
-        </div>
+        <SkeletonPage rows={2} />
       ) : (
         <>
           <SectionCard title="Configuration">

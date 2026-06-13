@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useConfetti } from '@/hooks/useConfetti';
 import { motion } from 'motion/react';
 import {
   Heart, ExternalLink, Palette, MessageCircle, Star, Rocket,
@@ -34,6 +36,8 @@ export default function SupportPage() {
   const [donors, setDonors] = useState<Donor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPopup, setShowPopup] = useState(false);
+  const reduced = useReducedMotion();
+  const { fire } = useConfetti();
 
   useEffect(() => {
     api.get<{ data?: { donors?: Donor[] }; donors?: Donor[] }>('/api/donors')
@@ -54,9 +58,19 @@ export default function SupportPage() {
           et me permettent de consacrer plus de temps au développement de nouvelles fonctionnalités.
           Chaque contribution compte, même la plus petite. Merci du fond du cœur.
         </p>
-        <Button onClick={() => setShowPopup(true)}>
-          <ExternalLink size={14} /> Faire un don
-        </Button>
+        <motion.div
+          animate={reduced ? {} : { scale: [1, 1.03, 1] }}
+          transition={{
+            duration: 2.5,
+            repeat: Infinity,
+            repeatDelay: 4,
+            ease: 'easeInOut',
+          }}
+        >
+          <Button onClick={() => { fire('donate'); setShowPopup(true); }}>
+            <ExternalLink size={14} /> Faire un don
+          </Button>
+        </motion.div>
         {showPopup && <KofiPopup onClose={() => setShowPopup(false)} />}
         <p className="text-xs text-[var(--text-secondary)]">
           Tout don de 5€ ou plus débloque immédiatement tous les avantages ci-dessous.
