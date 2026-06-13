@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, Eye, XCircle, CheckCircle,
   Clock, FileText, ArrowUp, ArrowDown,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button, Badge, Skeleton, EmptyState, ErrorMessage, Input, Modal } from '@pinguin/ui';
 import {
   fetchFormSettings, updateFormSettings,
@@ -135,9 +136,12 @@ export default function FormsPage() {
         channelId: channelId || null,
         logChannel: logChannel || null,
       });
+      toast.success('Configuration enregistrée');
       await load();
     } catch (e: any) {
-      setError(e?.message || 'Erreur');
+      const msg = e?.message || 'Erreur';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -173,17 +177,21 @@ export default function FormsPage() {
           description: templateForm.description || null,
           fields,
         });
+        toast.success('Formulaire modifié');
       } else {
         await createFormTemplate(guildId, {
           name: templateForm.name,
           description: templateForm.description || undefined,
           fields: fields as unknown as Record<string, unknown>[],
         });
+        toast.success('Formulaire créé');
       }
       setShowTemplateModal(false);
       await load();
     } catch (e: any) {
-      setError(e?.message || 'Erreur');
+      const msg = e?.message || 'Erreur';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setTemplateSaving(false);
     }
@@ -193,17 +201,23 @@ export default function FormsPage() {
     if (!confirm('Supprimer ce formulaire ?')) return;
     try {
       await deleteFormTemplate(guildId, id);
+      toast.success('Formulaire supprimé');
       await load();
     } catch (e: any) {
-      setError(e?.message || 'Erreur');
+      const msg = e?.message || 'Erreur';
+      setError(msg);
+      toast.error(msg);
     }
   };
 
   const handleToggleTemplate = async (t: Template) => {
     try {
       await updateFormTemplate(guildId, t.id, { enabled: !t.enabled });
+      toast.success(t.enabled ? 'Formulaire désactivé' : 'Formulaire activé');
       await load();
-    } catch { }
+    } catch (e: any) {
+      toast.error(e?.message || 'Erreur');
+    }
   };
 
   const handleSubmissionAction = async (submissionId: string, status: 'approved' | 'rejected') => {
@@ -304,30 +318,31 @@ export default function FormsPage() {
             </p>
           </SectionCard>
 
-          <div className="flex gap-2 border-b border-[var(--border-color)] mb-4">
-            <button
-              onClick={() => setTab('templates')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                tab === 'templates'
-                  ? 'border-[var(--accent)] text-[var(--text-primary)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <FileText size={14} className="inline mr-1.5" />
-              Modèles ({templates.length})
-            </button>
-            <button
-              onClick={() => setTab('submissions')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                tab === 'submissions'
-                  ? 'border-[var(--accent)] text-[var(--text-primary)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <ClipboardList size={14} className="inline mr-1.5" />
-              Réponses ({submissions.length})
-            </button>
-          </div>
+          <div className="mt-8">
+            <div className="flex gap-2 border-b border-[var(--border-color)] mb-4">
+              <button
+                onClick={() => setTab('templates')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  tab === 'templates'
+                    ? 'border-[var(--accent)] text-[var(--text-primary)]'
+                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                <FileText size={14} className="inline mr-1.5" />
+                Modèles ({templates.length})
+              </button>
+              <button
+                onClick={() => setTab('submissions')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  tab === 'submissions'
+                    ? 'border-[var(--accent)] text-[var(--text-primary)]'
+                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                <ClipboardList size={14} className="inline mr-1.5" />
+                Réponses ({submissions.length})
+              </button>
+            </div>
 
           {tab === 'templates' && (
             <div>
@@ -438,6 +453,7 @@ export default function FormsPage() {
               )}
             </div>
           )}
+          </div>
 
           {showTemplateModal && (
             <Modal

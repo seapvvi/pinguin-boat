@@ -41,7 +41,7 @@ export function SectionCard({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           {headerAction}
           {expandable && (
             <button
@@ -66,8 +66,9 @@ export function SectionCard({
             initial={expandable ? { opacity: 0, height: 0 } : undefined}
             animate={expandable ? { opacity: 1, height: 'auto' } : undefined}
             exit={expandable ? { opacity: 0, height: 0 } : undefined}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            className="px-5 pb-5 overflow-hidden"
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            style={{ overflow: 'hidden' }}
+            className="px-5 py-4"
           >
             {children}
           </motion.div>

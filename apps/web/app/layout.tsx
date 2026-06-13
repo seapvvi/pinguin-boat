@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { JetBrains_Mono } from 'next/font/google';
 import '../styles/globals.css';
 import { Providers } from './providers';
+import { ToasterProvider } from '@/components/ToasterProvider';
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -41,7 +42,10 @@ document.head.appendChild(s);
 }catch(e){}})();` }} />
       </head>
       <body style={{ fontFamily: 'var(--font-jetbrains), monospace' }}>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <ToasterProvider />
+        </Providers>
       </body>
     </html>
   );

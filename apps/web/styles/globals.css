@@ -50,9 +50,14 @@
     --accent-twitch: #9146ff;
     --accent-youtube: #ef4444;
     --accent-live: #22c55e;
+    --accent-live-hover: #16a34a;
     --accent-primary: #3b82f6;
+    --accent-primary-hover: #2563eb;
     --accent-warning: #f59e0b;
     --accent-danger: #ef4444;
+    --accent-danger-hover: #dc2626;
+    --border-color-strong: color-mix(in srgb, var(--text-primary) 45%, transparent);
+    --bg-surface-alt-hover: color-mix(in srgb, var(--text-primary) 10%, transparent);
 
     /* Labels uppercase */
     --label-tracking: 0.08em;
@@ -123,6 +128,25 @@
 }
 
 @layer components {
+  *:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+
+  button:focus-visible,
+  [role="switch"]:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+
+  [role="button"],
+  [role="switch"],
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+
   /* Boutons interactifs globaux — hover thème-aware */
   button:not([disabled]),
   [role="button"]:not([disabled]) {

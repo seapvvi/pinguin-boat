@@ -184,7 +184,14 @@ export default function RankCardEditor({ guildId }: Props) {
       <div className="lg:w-[620px] flex-shrink-0">
         <div className="sticky top-4">
           <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Aperçu</h2>
-          <RankCardPreview data={previewData} width={600} height={200} />
+          <RankCardPreview data={{
+            ...previewData,
+            username: previewData.username ?? 'Jean#1234',
+            level: previewData.level ?? 15,
+            currentXp: previewData.currentXp ?? 2400,
+            requiredXp: previewData.requiredXp ?? 3000,
+            rank: previewData.rank ?? 5,
+          }} width={600} height={200} />
           <p className="text-xs text-[var(--text-secondary)] mt-2 text-center">
             Aperçu avec données fictives
           </p>

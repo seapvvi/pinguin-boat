@@ -1,50 +1,64 @@
 'use client';
-import React from 'react';
+import { motion } from 'motion/react';
 import { cn } from '../utils/cn';
 
 interface ToggleProps {
   checked: boolean;
-  onChange: (checked: boolean) => void;
+  onChange: (value: boolean) => void;
   disabled?: boolean;
-  className?: string;
   label?: string;
+  size?: 'sm' | 'md';
 }
 
-export function Toggle({ checked, onChange, disabled = false, className, label }: ToggleProps) {
+export function Toggle({ checked, onChange, disabled = false, label, size = 'md' }: ToggleProps) {
+  const trackW = size === 'sm' ? 28 : 36;
+  const trackH = size === 'sm' ? 16 : 20;
+  const thumbSize = size === 'sm' ? 10 : 14;
+  const thumbOff = 3;
+  const thumbOn = trackW - thumbSize - thumbOff;
+
   return (
     <label
       className={cn(
         'inline-flex items-center gap-2 cursor-pointer select-none',
-        disabled && 'opacity-40 cursor-not-allowed',
-        className,
+        disabled && 'opacity-40 cursor-not-allowed pointer-events-none'
       )}
     >
       <button
         type="button"
         role="switch"
         aria-checked={checked}
-        disabled={disabled}
+        aria-label={label}
         onClick={() => !disabled && onChange(!checked)}
-        className={cn(
-          'relative inline-flex shrink-0 items-center transition-colors duration-150',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] focus-visible:ring-offset-2',
-          checked ? 'bg-[var(--accent-primary)]' : 'bg-[var(--bg-surface-alt)]',
-        )}
-        style={{ width: 32, height: 18, borderRadius: 0 }}
+        className="relative shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-primary)]"
+        style={{
+          width: trackW,
+          height: trackH,
+          borderRadius: 0,
+          border: `2px solid ${checked ? 'var(--accent-primary)' : 'var(--border-color-strong, #555)'}`,
+          backgroundColor: checked ? 'var(--accent-primary)' : 'transparent',
+          transition: 'background-color 150ms ease, border-color 150ms ease',
+          padding: 0,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
       >
-        <span
-          className={cn(
-            'absolute top-0.5 left-0.5 bg-white transition-transform duration-150',
-          )}
+        <motion.span
+          animate={{ x: checked ? thumbOn : thumbOff }}
+          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
           style={{
-            width: 14,
-            height: 14,
+            position: 'absolute',
+            top: '50%',
+            y: '-50%',
+            width: thumbSize,
+            height: thumbSize,
             borderRadius: 0,
-            transform: checked ? 'translateX(14px)' : 'translateX(0)',
+            backgroundColor: checked ? 'white' : 'var(--text-secondary)',
           }}
         />
       </button>
-      {label && <span className="text-sm text-[var(--text-primary)]">{label}</span>}
+      {label && (
+        <span className="text-sm text-[var(--text-primary)]">{label}</span>
+      )}
     </label>
   );
 }

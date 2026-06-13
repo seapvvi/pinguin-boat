@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Toggle, Skeleton } from '@pinguin/ui';
 import { fetchGuildSettings, toggleModule as apiToggleModule } from '@/lib/api';
 
@@ -31,13 +32,17 @@ export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleT
   const normalizedModuleKey = moduleKey.trim().toLowerCase();
 
   const handleToggle = async (value: boolean) => {
+    setEnabled(value);
     setToggling(true);
     setError(null);
     try {
       await apiToggleModule(guildId, normalizedModuleKey, value);
-      setEnabled(value);
+      toast.success(value ? `${label} activé` : `${label} désactivé`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la mise à jour');
+      setEnabled(!value);
+      const msg = e instanceof Error ? e.message : 'Erreur lors de la mise à jour';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setToggling(false);
     }

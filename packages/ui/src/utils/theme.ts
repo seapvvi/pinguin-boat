@@ -10,6 +10,8 @@ export function generateThemeCSSVariables(theme: ThemeConfig): string {
     --bg-sidebar-active: ${c.sidebarActive};
     --bg-header: ${c.header};
     --border-color: ${c.border};
+    --border-color-strong: color-mix(in srgb, ${c.text} 45%, transparent);
+    --bg-surface-alt-hover: color-mix(in srgb, ${c.text} 10%, transparent);
     --text-primary: ${c.text};
     --text-secondary: ${c.textSecondary};
     --accent: ${c.accent};

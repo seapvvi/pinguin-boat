@@ -10,20 +10,26 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
+  asChild?: boolean;
   children: React.ReactNode;
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    'bg-[var(--accent-primary)] text-white hover:brightness-110 border border-[var(--accent-primary)]',
+    'bg-[var(--accent-primary)] text-white border border-[var(--accent-primary)] ' +
+    'hover:bg-[var(--accent-primary-hover)] hover:border-[var(--accent-primary-hover)]',
   secondary:
-    'bg-transparent text-[var(--text-primary)] hover:bg-[var(--bg-surface-alt)] border border-[var(--border-color)]',
+    'bg-[var(--bg-surface-alt)] text-[var(--text-primary)] border border-[var(--border-color)] ' +
+    'hover:bg-[var(--bg-surface-alt-hover)] hover:border-[var(--border-color-strong)]',
   ghost:
-    'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-alt)] border border-transparent',
+    'bg-transparent text-[var(--text-secondary)] border border-transparent ' +
+    'hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-alt-hover)] hover:border-[var(--border-color)]',
   danger:
-    'bg-[var(--accent-danger)] text-white hover:brightness-110 border border-[var(--accent-danger)]',
+    'bg-[var(--accent-danger)] text-white border border-[var(--accent-danger)] ' +
+    'hover:bg-[var(--accent-danger-hover)] hover:border-[var(--accent-danger-hover)]',
   success:
-    'bg-[var(--accent-live)] text-white hover:brightness-110 border border-[var(--accent-live)]',
+    'bg-[var(--accent-live)] text-white border border-[var(--accent-live)] ' +
+    'hover:bg-[var(--accent-live-hover)] hover:border-[var(--accent-live-hover)]',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -37,30 +43,35 @@ export function Button({
   size = 'md',
   loading = false,
   disabled = false,
+  asChild = false,
   className,
   children,
   ...props
 }: ButtonProps) {
+  const Tag = asChild ? motion.span : motion.button;
+  const extraProps = asChild
+    ? {}
+    : { type: (props as any).type ?? ('button' as const), disabled: disabled || loading };
+
   return (
-    <motion.button
-      type="button"
-      whileTap={{ scale: 0.97 }}
+    <Tag
+      whileTap={asChild ? undefined : { scale: 0.97 }}
       transition={{ duration: 0.12, ease: 'easeInOut' }}
-      disabled={disabled || loading}
+      {...extraProps}
       className={cn(
-        'inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150 ease-in-out cursor-pointer select-none',
-        'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+        'inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150 ease-in-out cursor-pointer select-none whitespace-nowrap',
+        !asChild && 'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
         'relative',
         variantStyles[variant],
         sizeStyles[size],
         className,
       )}
-      style={{ borderRadius: 0 }}
+      style={{ borderRadius: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
       {...(props as any)}
     >
       {loading && (
         <svg
-          className="absolute animate-spin"
+          className="absolute animate-spin top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
           width={size === 'sm' ? 12 : size === 'lg' ? 18 : 14}
           height={size === 'sm' ? 12 : size === 'lg' ? 18 : 14}
           viewBox="0 0 24 24"
@@ -75,7 +86,7 @@ export function Button({
           />
         </svg>
       )}
-      <span className={cn(loading && 'invisible')}>{children}</span>
-    </motion.button>
+      <span className={cn('flex items-center gap-2 whitespace-nowrap', loading && 'invisible')}>{children}</span>
+    </Tag>
   );
 }

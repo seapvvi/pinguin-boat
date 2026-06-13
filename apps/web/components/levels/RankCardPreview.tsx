@@ -206,11 +206,13 @@ export default function RankCardPreview({ data, width = 600, height = 200 }: Pro
   }, [data, width, height]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
-      style={{ width, height, borderRadius: 'var(--radius)', border: '1px solid var(--border-color)' }}
-    />
+    <div style={{ position: 'relative', overflow: 'hidden' }}>
+      <canvas
+        ref={canvasRef}
+        width={width}
+        height={height}
+        style={{ width, height, borderRadius: 'var(--radius)', border: '1px solid var(--border-color)' }}
+      />
+    </div>
   );
 }
