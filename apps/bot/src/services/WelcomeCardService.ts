@@ -1,5 +1,5 @@
 import { GuildMember } from 'discord.js';
-import { createCanvas, loadImage, registerFont } from '@napi-rs/canvas';
+import { createCanvas, loadImage, SKRSContext2D } from '@napi-rs/canvas';
 
 interface CardSettings {
   cardBackground: string;
@@ -17,7 +17,7 @@ const WIDTH = 700;
 const HEIGHT = 250;
 
 function roundRect(
-  ctx: CanvasRenderingContext2D,
+  ctx: SKRSContext2D,
   x: number,
   y: number,
   w: number,
@@ -47,7 +47,7 @@ function replaceCardVars(text: string, member: GuildMember): string {
     .replace(/\{count\}/gi, String(member.guild.memberCount));
 }
 
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+function wrapText(ctx: SKRSContext2D, text: string, maxWidth: number): string[] {
   const words = text.split(' ');
   const lines: string[] = [];
   let current = '';
