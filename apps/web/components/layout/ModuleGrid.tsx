@@ -6,7 +6,7 @@ interface ModuleGridProps {
 
 export function ModuleGrid({ children }: ModuleGridProps) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full items-start">
       {children}
     </div>
   );

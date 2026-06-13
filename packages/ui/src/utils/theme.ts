@@ -16,6 +16,9 @@ export function generateThemeCSSVariables(theme: ThemeConfig): string {
     --text-secondary: ${c.textSecondary};
     --accent: ${c.accent};
     --accent-hover: ${c.accentHover};
+    --accent-primary: ${c.accent};
+    --accent-primary-hover: ${c.accentHover};
+    --thumb-checked: ${theme.isDark ? '#ffffff' : c.background};
     --success: ${c.success};
     --warning: ${c.warning};
     --error: ${c.error};
