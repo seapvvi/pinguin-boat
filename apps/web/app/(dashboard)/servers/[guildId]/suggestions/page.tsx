@@ -4,7 +4,8 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   Lightbulb, ThumbsUp, ThumbsDown, Check, X,
-  ChevronLeft, ChevronRight, MessageSquare, Send, Trash2
+  ChevronLeft, ChevronRight, MessageSquare, Send, Trash2,
+  Settings, BarChart
 } from 'lucide-react';
 import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
@@ -13,6 +14,9 @@ import type { Suggestion } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionCard } from '@/components/layout/SectionCard';
+import { ModuleGrid } from '@/components/layout/ModuleGrid';
 
 const statusLabels: Record<string, string> = {
   PENDING: 'En attente',
@@ -125,6 +129,13 @@ export default function SuggestionsPage() {
     }
   };
 
+  const stats = {
+    total: suggestions.length,
+    pending: suggestions.filter((s) => s.status === 'PENDING').length,
+    approved: suggestions.filter((s) => s.status === 'APPROVED' || s.status === 'IMPLEMENTED').length,
+    rejected: suggestions.filter((s) => s.status === 'REJECTED').length,
+  };
+
   const columns: Column<Suggestion>[] = [
     { key: 'content', label: 'Suggestion', render: (s) => <span className="text-sm truncate max-w-[250px] block">{s.content}</span> },
     { key: 'authorId', label: 'Auteur', render: (s) => <span className="font-mono text-xs">{s.authorId.slice(0, 8)}…</span> },
@@ -159,62 +170,89 @@ export default function SuggestionsPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Suggestions</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les suggestions des membres.</p>
+      <PageLayout
+        title="Suggestions"
+        description="Gérez les suggestions des membres."
+      >
+        <div className="mb-4">
+          <ModuleToggle guildId={guildId} moduleKey="suggestions" label="Suggestions" />
         </div>
-      </div>
 
-      <div className="mb-4">
-        <ModuleToggle guildId={guildId} moduleKey="suggestions" label="Suggestions" />
-      </div>
+        <ModuleGrid>
+          <SectionCard title="Configuration" icon={<Settings size={16} />}>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Envoyer une suggestion</label>
+                <textarea
+                  value={sendContent}
+                  onChange={(e) => setSendContent(e.target.value)}
+                  placeholder="Votre suggestion..."
+                  className="w-full px-3 py-2 text-sm border border-[var(--border-color)] bg-transparent min-h-[80px]"
+                />
+              </div>
+              <DiscordSelect type="channel" guildId={guildId} label="Salon" value={sendChannelId} onChange={setSendChannelId} />
+              <Button loading={sending} onClick={handleSend} disabled={!sendContent.trim() || !sendChannelId}>
+                <Send size={14} className="mr-1" /> Envoyer sur Discord
+              </Button>
+            </div>
+          </SectionCard>
 
-      <Card className="p-4 mb-6 space-y-3">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Envoyer une suggestion</h2>
-        <textarea
-          value={sendContent}
-          onChange={(e) => setSendContent(e.target.value)}
-          placeholder="Votre suggestion..."
-          className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-[var(--radius-sm)] bg-transparent min-h-[80px]"
-        />
-        <DiscordSelect type="channel" guildId={guildId} label="Salon" value={sendChannelId} onChange={setSendChannelId} />
-        <Button loading={sending} onClick={handleSend} disabled={!sendContent.trim() || !sendChannelId}>
-          <Send size={14} className="mr-1" /> Envoyer sur Discord
-        </Button>
-      </Card>
-
-      <Card padding={false}>
-        {loading ? (
-          <div className="p-5 space-y-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
-        ) : suggestions.length === 0 ? (
-          <EmptyState title="Aucune suggestion" description="Aucune suggestion pour le moment." icon={<Lightbulb size={32} />} />
-        ) : (
-          <>
-            <Table columns={columns} data={suggestions} keyExtractor={(s) => s.id} />
-            <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border-color)]">
-              <span className="text-xs text-[var(--text-secondary)]">Page {page} / {totalPages}</span>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  <ChevronLeft size={14} /> Précédent
-                </Button>
-                <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Suivant <ChevronRight size={14} />
-                </Button>
+          <SectionCard title="Statistiques" icon={<BarChart size={16} />}>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-[var(--bg-surface-alt)] text-center">
+                <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</div>
+                <div className="text-xs text-[var(--text-secondary)] tracking-wide uppercase mt-1">Total</div>
+              </div>
+              <div className="p-3 bg-[var(--bg-surface-alt)] text-center">
+                <div className="text-2xl font-bold text-[var(--warning)]">{stats.pending}</div>
+                <div className="text-xs text-[var(--text-secondary)] tracking-wide uppercase mt-1">En attente</div>
+              </div>
+              <div className="p-3 bg-[var(--bg-surface-alt)] text-center">
+                <div className="text-2xl font-bold text-[var(--success)]">{stats.approved}</div>
+                <div className="text-xs text-[var(--text-secondary)] tracking-wide uppercase mt-1">Approuvées</div>
+              </div>
+              <div className="p-3 bg-[var(--bg-surface-alt)] text-center">
+                <div className="text-2xl font-bold text-[var(--error)]">{stats.rejected}</div>
+                <div className="text-xs text-[var(--text-secondary)] tracking-wide uppercase mt-1">Refusées</div>
               </div>
             </div>
-          </>
-        )}
-      </Card>
+          </SectionCard>
+        </ModuleGrid>
+
+        <div className="mt-6">
+          <SectionCard title="Suggestions récentes" icon={<Lightbulb size={16} />}>
+            {loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : suggestions.length === 0 ? (
+              <EmptyState title="Aucune suggestion" description="Aucune suggestion pour le moment." icon={<Lightbulb size={32} />} />
+            ) : (
+              <>
+                <Table columns={columns} data={suggestions} keyExtractor={(s) => s.id} />
+                <div className="flex items-center justify-between pt-3 border-t border-[var(--border-color)] mt-3">
+                  <span className="text-xs text-[var(--text-secondary)]">Page {page} / {totalPages}</span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                      <ChevronLeft size={14} /> Précédent
+                    </Button>
+                    <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                      Suivant <ChevronRight size={14} />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </SectionCard>
+        </div>
+      </PageLayout>
 
       <Modal open={!!selectedSuggestion} onClose={() => setSelectedSuggestion(null)} title="Réponse à la suggestion">
         {selectedSuggestion && (
           <div className="space-y-4">
-            <p className="text-sm text-[var(--text-primary)] bg-[var(--bg-surface-alt)] p-3 rounded-[var(--radius-sm)]">
+            <p className="text-sm text-[var(--text-primary)] bg-[var(--bg-surface-alt)] p-3">
               {selectedSuggestion.content}
             </p>
             <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
@@ -223,13 +261,13 @@ export default function SuggestionsPage() {
               <Badge variant={statusVariants[selectedSuggestion.status]}>{statusLabels[selectedSuggestion.status]}</Badge>
             </div>
             {selectedSuggestion.staffResponse && (
-              <div className="p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
+              <div className="p-3 bg-[var(--bg-surface-alt)]">
                 <span className="text-xs text-[var(--text-secondary)]">Réponse du staff:</span>
                 <p className="text-sm text-[var(--text-primary)] mt-1">{selectedSuggestion.staffResponse.response}</p>
               </div>
             )}
             <Input label="Votre réponse" value={staffResponse} onChange={(e) => setStaffResponse(e.target.value)} placeholder="Réponse du staff" />
-            {actionError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded">{actionError}</div>}
+            {actionError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2">{actionError}</div>}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setSelectedSuggestion(null)}>Annuler</Button>
               <Button variant="success" disabled={!staffResponse.trim() || submitting} onClick={() => handleAction(selectedSuggestion.id, 'APPROVED')} loading={submitting}>

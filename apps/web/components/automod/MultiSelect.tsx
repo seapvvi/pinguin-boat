@@ -64,13 +64,14 @@ export function MultiSelect({ type, guildId, value, onChange, label, adminWarnin
 
   return (
     <div className="relative">
-      <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-1.5">
+      <label className="block text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-1.5">
         {label}
       </label>
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2 text-sm text-left text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none focus:border-[var(--accent)] cursor-pointer"
+        className="w-full flex items-center justify-between text-sm text-left text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] outline-none focus:outline-2 focus:outline-[var(--accent-primary)] focus:outline-offset-0 cursor-pointer"
+        style={{ height: 'var(--input-height)', paddingLeft: 'var(--input-padding-x)', paddingRight: 'var(--input-padding-x)', borderRadius: 0 }}
       >
         <span className={value.length === 0 ? 'text-[var(--text-secondary)]' : ''}>
           {value.length === 0
@@ -86,7 +87,7 @@ export function MultiSelect({ type, guildId, value, onChange, label, adminWarnin
       </button>
 
       {open && (
-        <div className="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius-sm)] shadow-lg">
+        <div className="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto bg-[var(--bg-surface)] border border-[var(--border-color)]">
           {loading ? (
             <div className="p-3 text-sm text-[var(--text-secondary)]">Chargement…</div>
           ) : items.length === 0 ? (

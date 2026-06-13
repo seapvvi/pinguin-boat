@@ -146,7 +146,8 @@ export function AutoModHistory({ guildId }: Props) {
             type="button"
             disabled={page <= 1}
             onClick={() => setPage(p => Math.max(1, p - 1))}
-            className="px-3 py-1 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius-sm)] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            className="px-3 py-1 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            style={{ borderRadius: 0 }}
           >
             Précédent
           </button>
@@ -157,7 +158,8 @@ export function AutoModHistory({ guildId }: Props) {
             type="button"
             disabled={page >= totalPages}
             onClick={() => setPage(p => p + 1)}
-            className="px-3 py-1 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius-sm)] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            className="px-3 py-1 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            style={{ borderRadius: 0 }}
           >
             Suivant
           </button>

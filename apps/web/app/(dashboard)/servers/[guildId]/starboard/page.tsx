@@ -1,9 +1,9 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Star, Settings, ChevronLeft, ChevronRight,
+  Star, Settings, ChevronLeft, ChevronRight, BarChart3, MessageSquare
 } from 'lucide-react';
 import { Card, Button, Skeleton, EmptyState, ErrorMessage, Input, Toggle } from '@pinguin/ui';
 import {
@@ -12,6 +12,9 @@ import {
 import { formatDate } from '@/lib/utils';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionCard } from '@/components/layout/SectionCard';
+import { ModuleGrid } from '@/components/layout/ModuleGrid';
 
 interface StarboardEntry {
   id: string;
@@ -41,8 +44,6 @@ export default function StarboardPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [entriesLoading, setEntriesLoading] = useState(true);
-
-  const [tab, setTab] = useState<'settings' | 'entries'>('settings');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,6 +108,22 @@ export default function StarboardPage() {
     }
   };
 
+  const statsThisMonth = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEntries = entries.filter(e => new Date(e.createdAt) >= startOfMonth);
+    const topContributors = Object.entries(
+      monthEntries.reduce<Record<string, { username: string; count: number; avatar: string | null }>>((acc, e) => {
+        if (!acc[e.authorId]) acc[e.authorId] = { username: e.author.username, count: 0, avatar: e.author.avatar };
+        acc[e.authorId].count++;
+        return acc;
+      }, {})
+    )
+      .sort(([, a], [, b]) => b.count - a.count)
+      .slice(0, 5);
+    return { total: monthEntries.length, topContributors };
+  }, [entries]);
+
   if (error && !settings) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
@@ -116,86 +133,73 @@ export default function StarboardPage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Starboard</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Mettez en avant les meilleurs messages de votre serveur.</p>
-        </div>
-        <ModuleToggle guildId={guildId} moduleKey="starboard" label="Starboard" />
-      </div>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <PageLayout
+        title="Starboard"
+        description="Mettez en avant les meilleurs messages de votre serveur."
+      >
+        {error && (
+          <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 px-3 py-2 mb-4">{error}</div>
+        )}
 
-      {error && (
-        <div className="rounded-[var(--radius-sm)] border border-[var(--error)] bg-[var(--error)]/10 p-3 text-sm text-[var(--error)]">
-          {error}
+        <div className="mb-4">
+          <ModuleToggle guildId={guildId} moduleKey="starboard" label="Starboard" />
         </div>
-      )}
 
-      {loading ? (
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-[var(--radius)]" />)}
-        </div>
-      ) : (
-        <>
-          {/* Tabs */}
-          <div className="flex gap-2 border-b border-[var(--border-color)]">
-            <button
-              onClick={() => setTab('settings')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                tab === 'settings'
-                  ? 'border-[var(--accent)] text-[var(--text-primary)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <Settings size={14} className="inline mr-1.5" />
-              Configuration
-            </button>
-            <button
-              onClick={() => setTab('entries')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                tab === 'entries'
-                  ? 'border-[var(--accent)] text-[var(--text-primary)]'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <Star size={14} className="inline mr-1.5" />
-              Messages ({entries.length})
-            </button>
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
           </div>
+        ) : (
+          <div className="space-y-6">
+            <ModuleGrid>
+              <SectionCard title="Configuration" icon={<Settings size={16} />}>
+                <div className="space-y-4">
+                  <DiscordSelect guildId={guildId} type="channel" value={channelId} onChange={setChannelId} placeholder="Sélectionner un salon" label="Salon du starboard" />
+                  <Input label="Emoji de réaction" value={starEmoji} onChange={(e) => setStarEmoji(e.target.value)} placeholder="⭐" />
+                  <Input label="Seuil de réactions" type="number" value={String(minStars)} onChange={(e) => setMinStars(parseInt(e.target.value) || 1)} min={1} max={50} />
+                  <div className="flex items-center gap-3 pt-2">
+                    <Toggle checked={selfStar} onChange={setSelfStar} />
+                    <label className="text-sm text-[var(--text-primary)]">Autoriser l'auto-star</label>
+                  </div>
+                  <div className="pt-2">
+                    <Button variant="primary" size="sm" loading={saving} onClick={handleSave}>
+                      Sauvegarder
+                    </Button>
+                  </div>
+                </div>
+              </SectionCard>
 
-          {tab === 'settings' && (
-            <Card className="p-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-[var(--text-secondary)] mb-1">Salon du starboard</label>
-                  <DiscordSelect guildId={guildId} type="channel" value={channelId} onChange={setChannelId} placeholder="Sélectionner un salon" />
+              <SectionCard title="Statistiques" icon={<BarChart3 size={16} />}>
+                <div className="space-y-4">
+                  <div className="p-3 bg-[var(--bg-surface-alt)] text-center">
+                    <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wide">Messages starboardés ce mois</p>
+                    <p className="text-2xl font-bold text-[var(--accent)] mt-1">{statsThisMonth.total}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase mb-2">Top contributeurs</p>
+                    {statsThisMonth.topContributors.length === 0 ? (
+                      <p className="text-xs text-[var(--text-secondary)]">Aucun contributeur ce mois.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {statsThisMonth.topContributors.map(([id, c], i) => (
+                          <div key={id} className="flex items-center gap-2 text-sm">
+                            <span className="text-xs font-bold text-[var(--text-secondary)] w-4">#{i + 1}</span>
+                            <span className="text-[var(--text-primary)] truncate">{c.username}</span>
+                            <span className="text-xs font-mono text-[var(--accent)] ml-auto">{c.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-[var(--text-secondary)] mb-1">Emoji de réaction</label>
-                  <Input value={starEmoji} onChange={(e) => setStarEmoji(e.target.value)} placeholder="\u2B50" />
-                </div>
-                <div>
-                  <label className="block text-xs text-[var(--text-secondary)] mb-1">Nombre minimum de {starEmoji}</label>
-                  <Input type="number" value={String(minStars)} onChange={(e) => setMinStars(parseInt(e.target.value) || 1)} min={1} max={50} />
-                </div>
-                <div className="flex items-center gap-3 pt-4">
-                  <Toggle checked={selfStar} onChange={setSelfStar} />
-                  <label className="text-sm text-[var(--text-primary)]">Autoriser l&apos;auto-star</label>
-                </div>
-              </div>
-              <div className="pt-2">
-                <Button variant="primary" size="sm" loading={saving} onClick={handleSave}>
-                  Sauvegarder
-                </Button>
-              </div>
-            </Card>
-          )}
+              </SectionCard>
+            </ModuleGrid>
 
-          {tab === 'entries' && (
-            <div className="space-y-4">
+            <SectionCard title="Messages récents" icon={<MessageSquare size={16} />}>
               {entriesLoading ? (
                 <div className="space-y-3">
-                  {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-[var(--radius)]" />)}
+                  {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
                 </div>
               ) : entries.length === 0 ? (
                 <EmptyState
@@ -207,41 +211,39 @@ export default function StarboardPage() {
                 <>
                   <div className="space-y-3">
                     {entries.map((entry) => (
-                      <Card key={entry.id} className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex items-center gap-1 px-2 py-1 bg-[var(--bg-surface-alt)] rounded-[var(--radius-sm)] text-sm font-semibold shrink-0">
-                            <span>{starEmoji}</span>
-                            <span className="text-[var(--text-primary)]">{entry.starCount}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="w-5 h-5 rounded-full bg-[var(--bg-surface-alt)] flex items-center justify-center text-[10px] font-semibold text-[var(--text-secondary)]">
-                                {entry.author.username?.charAt(0)?.toUpperCase() ?? '?'}
-                              </div>
-                              <span className="text-sm font-medium text-[var(--text-primary)]">{entry.author.username}</span>
-                              <span className="text-xs text-[var(--text-secondary)]">{formatDate(entry.createdAt)}</span>
-                            </div>
-                            <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap break-words">
-                              {entry.content || <span className="italic">Pas de contenu textuel</span>}
-                            </p>
-                            {entry.attachment && (
-                              <div className="mt-2">
-                                <img
-                                  src={entry.attachment}
-                                  alt="Attachment"
-                                  className="max-w-xs max-h-48 rounded-[var(--radius-sm)] object-cover"
-                                  loading="lazy"
-                                />
-                              </div>
-                            )}
-                          </div>
+                      <div key={entry.id} className="flex items-start gap-3 p-4 border border-[var(--border-color)] bg-[var(--bg-surface)]">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-[var(--bg-surface-alt)] text-sm font-semibold shrink-0">
+                          <span>{starEmoji}</span>
+                          <span className="text-[var(--text-primary)]">{entry.starCount}</span>
                         </div>
-                      </Card>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-5 h-5 bg-[var(--bg-surface-alt)] flex items-center justify-center text-[10px] font-semibold text-[var(--text-secondary)]">
+                              {entry.author.username?.charAt(0)?.toUpperCase() ?? '?'}
+                            </div>
+                            <span className="text-sm font-medium text-[var(--text-primary)]">{entry.author.username}</span>
+                            <span className="text-xs text-[var(--text-secondary)]">{formatDate(entry.createdAt)}</span>
+                          </div>
+                          <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap break-words">
+                            {entry.content || <span className="italic">Pas de contenu textuel</span>}
+                          </p>
+                          {entry.attachment && (
+                            <div className="mt-2">
+                              <img
+                                src={entry.attachment}
+                                alt="Attachment"
+                                className="max-w-xs max-h-48 object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     ))}
                   </div>
 
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-4 pt-2">
+                    <div className="flex items-center justify-center gap-4 pt-4">
                       <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
                         <ChevronLeft size={14} />
                       </Button>
@@ -253,10 +255,10 @@ export default function StarboardPage() {
                   )}
                 </>
               )}
-            </div>
-          )}
-        </>
-      )}
+            </SectionCard>
+          </div>
+        )}
+      </PageLayout>
     </motion.div>
   );
 }

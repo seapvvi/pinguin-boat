@@ -30,7 +30,7 @@ export function Select({
       {label && (
         <label
           htmlFor={selectId}
-          className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase"
+          className="text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-1.5 block"
         >
           {label}
         </label>
@@ -39,12 +39,18 @@ export function Select({
         <select
           id={selectId}
           className={cn(
-            'w-full appearance-none px-3 py-2 pr-8 text-sm text-[var(--text-primary)] border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none transition-colors duration-150',
+            'w-full appearance-none text-sm text-[var(--text-primary)] border border-[var(--border-color)] transition-colors duration-150',
             'bg-[var(--bg-surface)] [color-scheme:dark]',
-            'focus:border-[var(--accent)]',
-            error && 'border-[var(--error)] focus:border-[var(--error)]',
+            'outline-none focus:outline-2 focus:outline-[var(--accent-primary)] focus:outline-offset-0',
+            error && 'border-[var(--error)]',
             className,
           )}
+          style={{
+            height: 'var(--input-height)',
+            paddingLeft: 'var(--input-padding-x)',
+            paddingRight: '2.25rem',
+            borderRadius: 0,
+          }}
           {...props}
         >
           {placeholder && (
@@ -59,7 +65,7 @@ export function Select({
           ))}
         </select>
         <svg
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+          className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
           width="12"
           height="12"
           viewBox="0 0 12 12"
@@ -74,7 +80,7 @@ export function Select({
           />
         </svg>
       </div>
-      {error && <span className="text-xs text-[var(--error)]">{error}</span>}
+      {error && <span className="text-xs text-[var(--error)] mt-1">{error}</span>}
     </div>
   );
 }

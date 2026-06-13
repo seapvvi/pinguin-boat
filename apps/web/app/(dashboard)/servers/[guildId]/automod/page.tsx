@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Shield, AlertTriangle, History, Settings2 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Skeleton } from '@pinguin/ui';
+import { Shield, AlertTriangle } from 'lucide-react';
+import { Toggle, Input, Button, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
@@ -14,8 +14,9 @@ import { RuleBuilder } from '@/components/automod/RuleBuilder';
 import { MultiSelect } from '@/components/automod/MultiSelect';
 import { AutoModHistory } from '@/components/automod/AutoModHistory';
 import { settingsToRules, rulesToSettings } from '@/lib/automod-rules';
-
-type Tab = 'rules' | 'whitelist' | 'sanctions' | 'history';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionCard } from '@/components/layout/SectionCard';
+import { ModuleGrid } from '@/components/layout/ModuleGrid';
 
 function parseList(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.map(String);
@@ -40,7 +41,6 @@ export default function AutoModPage() {
   const [bannedWordsText, setBannedWordsText] = useState('');
   const [forbiddenPingRolesText, setForbiddenPingRolesText] = useState('');
   const [forbiddenMarkdownListText, setForbiddenMarkdownListText] = useState('');
-  const [tab, setTab] = useState<Tab>('rules');
 
   const load = async () => {
     setLoading(true);
@@ -103,7 +103,7 @@ export default function AutoModPage() {
     return (
       <motion.div className="space-y-4">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-[var(--radius)]" />
+          <Skeleton key={i} className="h-20 w-full" />
         ))}
       </motion.div>
     );
@@ -111,52 +111,27 @@ export default function AutoModPage() {
 
   const whitelistRoles = parseList(settings.whitelistRoles);
   const whitelistChannels = parseList(settings.whitelistChannels);
-
   const rules = settingsToRules(settings);
-
-  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'rules', label: 'Règles', icon: <Settings2 size={16} /> },
-    { key: 'whitelist', label: 'Exemptions', icon: <Shield size={16} /> },
-    { key: 'sanctions', label: 'Sanctions', icon: <AlertTriangle size={16} /> },
-    { key: 'history', label: 'Historique', icon: <History size={16} /> },
-  ];
 
   return (
     <PermissionGate permission="manageMessages">
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-3xl">
-      <div className="mb-4">
-        <ModuleToggle guildId={guildId} moduleKey="automod" label="Auto-Modération" />
-      </div>
+      <PageLayout
+        title="Auto-Modération"
+        description="Détections automatiques et sanctions sur les messages."
+        actions={
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? 'Enregistrement…' : saved ? '✓ Enregistré' : 'Enregistrer'}
+          </Button>
+        }
+      >
+        <div className="mb-4">
+          <ModuleToggle guildId={guildId} moduleKey="automod" label="Auto-Modération" />
+        </div>
 
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
-          <Shield size={22} /> Auto-Modération
-        </h1>
-        <p className="text-sm text-[var(--text-secondary)] mt-1">
-          Détections automatiques et sanctions sur les messages.
-        </p>
-      </div>
-
-      <div className="flex gap-1 border-b border-[var(--border-color)]">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer bg-transparent ${
-              tab === t.key
-                ? 'border-[var(--accent)] text-[var(--accent)]'
-                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'rules' && (
-        <Card className="p-4">
+        <SectionCard
+          title="Filtres actifs"
+          description="Configurez les règles de détection automatique"
+        >
           <RuleBuilder
             rules={rules}
             onChange={(updatedRules) => {
@@ -164,123 +139,152 @@ export default function AutoModPage() {
               setSettings({ ...settings, ...patch });
             }}
           />
-        </Card>
-      )}
+        </SectionCard>
 
-      {tab === 'whitelist' && (
-        <Card className="p-4 space-y-6">
-          <div>
-            <p className="text-sm text-[var(--text-secondary)] mb-4">
-              Ces rôles et salons sont exemptés de toutes les règles d&apos;auto-modération.
-              Les administrateurs sont toujours exemptés automatiquement.
-            </p>
-          </div>
-          <MultiSelect
-            type="role"
-            guildId={guildId}
-            value={whitelistRoles}
-            onChange={(ids) => update('whitelistRoles', JSON.stringify(ids))}
-            label="Rôles exemptés"
-            adminWarning
-          />
-          <MultiSelect
-            type="channel"
-            guildId={guildId}
-            value={whitelistChannels}
-            onChange={(ids) => update('whitelistChannels', JSON.stringify(ids))}
-            label="Salons exemptés"
-          />
-        </Card>
-      )}
+        <div className="mt-6">
+          <ModuleGrid>
+            <SectionCard
+              title="Sanctions"
+              icon={<AlertTriangle size={16} />}
+              expandable
+            >
+              <div className="space-y-4">
+                <Input
+                  label="Seuil d'infractions avant sanction"
+                  type="number"
+                  min={1}
+                  value={String(settings.autoSanctionThreshold ?? 3)}
+                  onChange={(e) => update('autoSanctionThreshold', Math.max(1, parseInt(e.target.value) || 3))}
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-primary)]">Avertissement</span>
+                  <Toggle checked={!!settings.warnEnabled} onChange={(v) => update('warnEnabled', v)} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-primary)]">Mute</span>
+                  <Toggle checked={!!settings.muteEnabled} onChange={(v) => update('muteEnabled', v)} />
+                </div>
+                {!!settings.muteEnabled && (
+                  <Input
+                    label="Durée mute (minutes)"
+                    type="number"
+                    min={1}
+                    value={String(settings.muteDuration ?? 10)}
+                    onChange={(e) => update('muteDuration', parseInt(e.target.value) || 10)}
+                  />
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-primary)]">Expulsion</span>
+                  <Toggle checked={!!settings.kickEnabled} onChange={(v) => update('kickEnabled', v)} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-primary)]">Bannissement</span>
+                  <Toggle checked={!!settings.banEnabled} onChange={(v) => update('banEnabled', v)} />
+                </div>
+              </div>
 
-      {tab === 'sanctions' && (
-        <Card className="p-4 space-y-4">
-          <div className="space-y-4">
-            <Input
-              label="Seuil d'infractions avant sanction"
-              type="number"
-              min={1}
-              value={String(settings.autoSanctionThreshold ?? 3)}
-              onChange={(e) => update('autoSanctionThreshold', Math.max(1, parseInt(e.target.value) || 3))}
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Avertissement</span>
-              <Toggle checked={!!settings.warnEnabled} onChange={(v) => update('warnEnabled', v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Mute</span>
-              <Toggle checked={!!settings.muteEnabled} onChange={(v) => update('muteEnabled', v)} />
-            </div>
-            {!!settings.muteEnabled && (
-              <Input
-                label="Durée mute (minutes)"
-                type="number"
-                min={1}
-                value={String(settings.muteDuration ?? 10)}
-                onChange={(e) => update('muteDuration', parseInt(e.target.value) || 10)}
+              <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Escalade automatique des avertissements</h3>
+                <div className="space-y-4">
+                  <Input
+                    label="Seuil d'avertissements → mute"
+                    type="number"
+                    min={1}
+                    value={settings.autoWarnMuteThreshold != null ? String(settings.autoWarnMuteThreshold) : ''}
+                    onChange={(e) => update('autoWarnMuteThreshold', e.target.value ? parseInt(e.target.value) : null)}
+                    placeholder="Désactivé"
+                  />
+                  {settings.autoWarnMuteThreshold != null && (
+                    <Input
+                      label="Durée du mute automatique (minutes)"
+                      type="number"
+                      min={1}
+                      value={String(settings.autoWarnMuteDuration ?? 60)}
+                      onChange={(e) => update('autoWarnMuteDuration', parseInt(e.target.value) || 60)}
+                    />
+                  )}
+                  <Input
+                    label="Seuil d'avertissements → bannissement"
+                    type="number"
+                    min={1}
+                    value={settings.autoWarnBanThreshold != null ? String(settings.autoWarnBanThreshold) : ''}
+                    onChange={(e) => update('autoWarnBanThreshold', e.target.value ? parseInt(e.target.value) : null)}
+                    placeholder="Désactivé"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+                <DiscordSelect
+                  type="channel"
+                  guildId={guildId}
+                  label="Salon de logs"
+                  value={String(settings.logChannelId ?? '')}
+                  onChange={(id) => update('logChannelId', id || null)}
+                />
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Mots & comportements"
+              icon={<Shield size={16} />}
+              expandable
+            >
+              <div className="space-y-4">
+                <Input
+                  label="Mots interdits"
+                  value={bannedWordsText}
+                  onChange={(e) => setBannedWordsText(e.target.value)}
+                  placeholder="séparés par des virgules"
+                  helperText="Liste de mots interdits dans les messages"
+                />
+                <Input
+                  label="Rôles interdits de ping"
+                  value={forbiddenPingRolesText}
+                  onChange={(e) => setForbiddenPingRolesText(e.target.value)}
+                  placeholder="IDs de rôles séparés par des virgules"
+                />
+                <Input
+                  label="Markdown interdit"
+                  value={forbiddenMarkdownListText}
+                  onChange={(e) => setForbiddenMarkdownListText(e.target.value)}
+                  placeholder="séparés par des virgules"
+                  helperText="Types de formatage markdown à bloquer"
+                />
+              </div>
+            </SectionCard>
+          </ModuleGrid>
+        </div>
+
+        <div className="mt-6">
+          <SectionCard
+            title="Exemptions"
+            description="Ces rôles et salons sont exemptés de toutes les règles d'auto-modération. Les administrateurs sont toujours exemptés automatiquement."
+          >
+            <ModuleGrid>
+              <MultiSelect
+                type="role"
+                guildId={guildId}
+                value={whitelistRoles}
+                onChange={(ids) => update('whitelistRoles', JSON.stringify(ids))}
+                label="Rôles exemptés"
+                adminWarning
               />
-            )}
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Expulsion</span>
-              <Toggle checked={!!settings.kickEnabled} onChange={(v) => update('kickEnabled', v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Bannissement</span>
-              <Toggle checked={!!settings.banEnabled} onChange={(v) => update('banEnabled', v)} />
-            </div>
-          </div>
-
-          <hr className="border-[var(--border-color)]" />
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-[var(--text-primary)]">Escalade automatique des avertissements</h3>
-            <Input
-              label="Seuil d'avertissements → mute"
-              type="number"
-              min={1}
-              value={settings.autoWarnMuteThreshold != null ? String(settings.autoWarnMuteThreshold) : ''}
-              onChange={(e) => update('autoWarnMuteThreshold', e.target.value ? parseInt(e.target.value) : null)}
-              placeholder="Désactivé"
-            />
-            {settings.autoWarnMuteThreshold != null && (
-              <Input
-                label="Durée du mute automatique (minutes)"
-                type="number"
-                min={1}
-                value={String(settings.autoWarnMuteDuration ?? 60)}
-                onChange={(e) => update('autoWarnMuteDuration', parseInt(e.target.value) || 60)}
+              <MultiSelect
+                type="channel"
+                guildId={guildId}
+                value={whitelistChannels}
+                onChange={(ids) => update('whitelistChannels', JSON.stringify(ids))}
+                label="Salons exemptés"
               />
-            )}
-            <Input
-              label="Seuil d'avertissements → bannissement"
-              type="number"
-              min={1}
-              value={settings.autoWarnBanThreshold != null ? String(settings.autoWarnBanThreshold) : ''}
-              onChange={(e) => update('autoWarnBanThreshold', e.target.value ? parseInt(e.target.value) : null)}
-              placeholder="Désactivé"
-            />
-          </div>
+            </ModuleGrid>
+          </SectionCard>
+        </div>
 
-          <DiscordSelect
-            type="channel"
-            guildId={guildId}
-            label="Salon de logs"
-            value={String(settings.logChannelId ?? '')}
-            onChange={(id) => update('logChannelId', id || null)}
-          />
-        </Card>
-      )}
-
-      {tab === 'history' && (
-        <AutoModHistory guildId={guildId} />
-      )}
-
-      {tab !== 'history' && (
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Enregistrement…' : saved ? '✓ Enregistré' : 'Enregistrer'}
-        </Button>
-      )}
-    </motion.div>
+        <div className="mt-6">
+          <AutoModHistory guildId={guildId} />
+        </div>
+      </PageLayout>
     </PermissionGate>
   );
 }

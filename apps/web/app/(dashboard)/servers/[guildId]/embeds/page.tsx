@@ -1,17 +1,17 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { motion } from 'motion/react';
 import {
   FileText, Plus, Send, Edit2, Trash2, Save,
 } from 'lucide-react';
-import { Card, Input, Button, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Input, Button, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api, fetchGuildChannels } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { EmbedData } from '@pinguin/db';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import EmbedEditor from '@/components/embeds/EmbedEditor';
+import { PageLayout, SectionCard } from '@/components/layout';
 
 interface SavedEmbed extends EmbedData {
   id: string;
@@ -43,7 +43,6 @@ export default function EmbedsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
-  // Send modal
   const [sendOpen, setSendOpen] = useState(false);
   const [sendEmbedId, setSendEmbedId] = useState<string | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -196,137 +195,132 @@ export default function EmbedsPage() {
 
   if (error && loading) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <PageLayout title="Éditeur d'embeds">
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
-      </motion.div>
+      </PageLayout>
     );
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Éditeur d&apos;embeds</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Créez, modifiez et envoyez des embeds personnalisés.</p>
-        </div>
-      </div>
-
+    <PageLayout
+      title="Éditeur d'embeds"
+      description="Créez, modifiez et envoyez des embeds personnalisés."
+    >
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="embeds" label="Embeds" />
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Liste des templates à gauche */}
-        <div className="lg:w-80 flex-shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Templates</h2>
-            <Button variant="ghost" size="sm" onClick={openNew}>
-              <Plus size={14} /> Nouveau
-            </Button>
-          </div>
-
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 rounded-[var(--radius-sm)]" />
-              ))}
-            </div>
-          ) : embeds.length === 0 ? (
-            <EmptyState title="Aucun template" description="Créez votre premier embed." icon={<FileText size={24} />} />
-          ) : (
-            <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-              {embeds.map((embed) => (
-                <Card
-                  key={embed.id}
-                  hover
-                  className={`cursor-pointer transition-colors ${editingId === embed.id ? 'ring-1 ring-[var(--accent)]' : ''}`}
-                  onClick={() => openEdit(embed)}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-1 self-stretch rounded flex-shrink-0" style={{ backgroundColor: embed.color }} />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate">{embed.name}</h3>
-                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                        {embed.fields.length} champ{embed.fields.length > 1 ? 's' : ''}
-                      </p>
-                      <p className="text-[10px] text-[var(--text-secondary)] mt-1">{formatDate(embed.createdAt)}</p>
-                    </div>
-                    <div className="flex items-center gap-0.5 flex-shrink-0">
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(embed); }}>
-                        <Edit2 size={12} />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openSend(embed.id); }}>
-                        <Send size={12} />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(embed.id); }}>
-                        <Trash2 size={12} />
-                      </Button>
+      <div className="flex flex-col md:flex-row gap-6">
+        <div className="w-full md:w-[40%] flex-shrink-0">
+          <SectionCard
+            title="Templates"
+            headerAction={
+              <Button variant="ghost" size="sm" onClick={openNew}>
+                <Plus size={14} /> Nouveau
+              </Button>
+            }
+          >
+            {loading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full" />
+                ))}
+              </div>
+            ) : embeds.length === 0 ? (
+              <EmptyState title="Aucun template" description="Créez votre premier embed." icon={<FileText size={24} />} />
+            ) : (
+              <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+                {embeds.map((embed) => (
+                  <div
+                    key={embed.id}
+                    className={`cursor-pointer transition-colors border border-[var(--border-color)] bg-[var(--bg-surface)] ${editingId === embed.id ? 'border-[var(--accent)]' : ''}`}
+                    onClick={() => openEdit(embed)}
+                  >
+                    <div className="flex items-start gap-3 p-3">
+                      <div className="w-1 self-stretch flex-shrink-0" style={{ backgroundColor: embed.color }} />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate">{embed.name}</h3>
+                        <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                          {embed.fields.length} champ{embed.fields.length > 1 ? 's' : ''}
+                        </p>
+                        <p className="text-[10px] text-[var(--text-secondary)] mt-1">{formatDate(embed.createdAt)}</p>
+                      </div>
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(embed); }}>
+                          <Edit2 size={12} />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openSend(embed.id); }}>
+                          <Send size={12} />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(embed.id); }}>
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </SectionCard>
         </div>
 
-        {/* Éditeur à droite */}
         <div className="flex-1 min-w-0">
-          {(isCreating || editingId) ? (
-            <div className="space-y-4">
-              {/* Barre d'outils */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Nom du template"
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    className="text-sm font-semibold"
-                  />
+          <SectionCard title={isCreating || editingId ? (editingId ? 'Modifier le template' : 'Nouveau template') : 'Éditeur'}>
+            {(isCreating || editingId) ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Nom du template"
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      className="text-sm font-semibold"
+                    />
+                  </div>
+                  <Button onClick={handleSave} loading={submitting} disabled={!templateName.trim()}>
+                    <Save size={14} /> {editingId ? 'Mettre à jour' : 'Créer'}
+                  </Button>
+                  <Button variant="secondary" onClick={resetEditor}>Annuler</Button>
                 </div>
-                <Button onClick={handleSave} loading={submitting} disabled={!templateName.trim()}>
-                  <Save size={14} /> {editingId ? 'Mettre à jour' : 'Créer'}
-                </Button>
-                <Button variant="secondary" onClick={resetEditor}>Annuler</Button>
-              </div>
 
-              {error && (
-                <div className="p-3 rounded-[var(--radius-sm)] bg-red-500/10 border border-red-500/30 text-sm text-red-400">
-                  {error}
+                {error && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 text-sm text-red-400">
+                    {error}
+                  </div>
+                )}
+
+                <EmbedEditor value={embedData} onChange={setEmbedData} />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-64 border border-dashed border-[var(--border-color)]">
+                <div className="text-center">
+                  <FileText size={40} className="mx-auto mb-3 text-[var(--text-secondary)]" />
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Sélectionnez un template ou créez-en un nouveau
+                  </p>
+                  <Button className="mt-4" onClick={openNew}>
+                    <Plus size={14} /> Nouveau template
+                  </Button>
                 </div>
-              )}
-
-              <EmbedEditor value={embedData} onChange={setEmbedData} />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-64 border border-dashed border-[var(--border-color)] rounded-[var(--radius)]">
-              <div className="text-center">
-                <FileText size={40} className="mx-auto mb-3 text-[var(--text-secondary)]" />
-                <p className="text-sm text-[var(--text-secondary)]">
-                  Sélectionnez un template ou créez-en un nouveau
-                </p>
-                <Button className="mt-4" onClick={openNew}>
-                  <Plus size={14} /> Nouveau template
-                </Button>
               </div>
-            </div>
-          )}
+            )}
+          </SectionCard>
         </div>
       </div>
 
-      {/* Modal d'envoi */}
       <Modal open={sendOpen} onClose={() => setSendOpen(false)} title="Envoyer l'embed">
         <div className="space-y-4">
           <div>
             <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Salon de destination</label>
             {channelsLoading ? (
-              <Skeleton className="h-10 rounded-[var(--radius-sm)]" />
+              <Skeleton className="h-10" />
             ) : channels.length === 0 ? (
               <p className="text-sm text-[var(--text-secondary)]">Aucun salon texte disponible</p>
             ) : (
               <select
                 value={selectedChannel}
                 onChange={(e) => setSelectedChannel(e.target.value)}
-                className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none focus:border-[var(--accent)] transition-colors"
+                className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] outline-none focus:border-[var(--accent)] transition-colors"
               >
                 <option value="">-- Choisir un salon --</option>
                 {channels.map((ch) => (
@@ -345,6 +339,6 @@ export default function EmbedsPage() {
           </div>
         </div>
       </Modal>
-    </motion.div>
+    </PageLayout>
   );
 }

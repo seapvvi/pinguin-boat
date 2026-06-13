@@ -22,9 +22,10 @@ export function KPICard({ icon, label, value, trend, className }: KPICardProps) 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
       className={cn(
-        'bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius)] p-5',
+        'bg-[var(--bg-surface)] border border-[var(--border-color)] p-5',
         className,
       )}
+      style={{ borderRadius: 0 }}
     >
       <div className="flex items-start justify-between mb-3">
         <span className="text-[var(--text-secondary)]">{icon}</span>

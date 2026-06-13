@@ -27,7 +27,7 @@ export function Input({
       {label && (
         <label
           htmlFor={inputId}
-          className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase"
+          className="text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-1.5 block"
         >
           {label}
         </label>
@@ -35,20 +35,27 @@ export function Input({
       <input
         id={inputId}
         className={cn(
-          'w-full px-3 py-2 text-sm text-[var(--text-primary)] rounded-[var(--radius-sm)] outline-none transition-colors duration-150',
+          'w-full text-sm text-[var(--text-primary)] transition-colors duration-150',
           'placeholder:text-[var(--text-secondary)] placeholder:text-sm',
+          'outline-none focus:outline-2 focus:outline-[var(--accent-primary)] focus:outline-offset-0',
           inputVariant === 'default' &&
-            'bg-transparent border border-[var(--border-color)] focus:border-[var(--accent)]',
+            'bg-transparent border border-[var(--border-color)]',
           inputVariant === 'filled' &&
-            'bg-[var(--bg-surface-alt)] border border-transparent focus:border-[var(--border-color)]',
-          error && 'border-[var(--error)] focus:border-[var(--error)]',
+            'bg-[var(--bg-surface-alt)] border border-transparent',
+          error && 'border-[var(--error)]',
           className,
         )}
+        style={{
+          height: 'var(--input-height)',
+          paddingLeft: 'var(--input-padding-x)',
+          paddingRight: 'var(--input-padding-x)',
+          borderRadius: 0,
+        }}
         {...props}
       />
-      {error && <span className="text-xs text-[var(--error)]">{error}</span>}
+      {error && <span className="text-xs text-[var(--error)] mt-1">{error}</span>}
       {helperText && !error && (
-        <span className="text-xs text-[var(--text-secondary)]">{helperText}</span>
+        <span className="text-[11px] text-[var(--text-secondary)] mt-1">{helperText}</span>
       )}
     </div>
   );

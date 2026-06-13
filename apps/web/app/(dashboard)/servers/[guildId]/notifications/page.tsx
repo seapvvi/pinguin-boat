@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { motion } from 'motion/react';
 import { Trash2, Plus, Video, Radio, Palette, Play, Check, AlertTriangle } from 'lucide-react';
 import { Card, Button, Badge, Skeleton, Select, Input, Toggle } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
@@ -10,6 +9,7 @@ import type { StreamNotification } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { StreamForm } from '@/components/notifications/StreamForm';
+import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
 
 function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
@@ -185,39 +185,39 @@ export default function NotificationsPage() {
 
   if (error) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <PageLayout title="Notifications de stream">
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
-      </motion.div>
+      </PageLayout>
     );
   }
 
   if (loading) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-[var(--radius)]" />
-        ))}
-      </motion.div>
+      <PageLayout title="Notifications de stream">
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+      </PageLayout>
     );
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Notifications de stream</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les notifications de live Twitch et YouTube.</p>
-        </div>
-      </div>
-
+    <PageLayout
+      title="Notifications de stream"
+      description="Gérez les notifications de live Twitch et YouTube."
+    >
       <PermissionGate permission="manageGuild">
         <div className="mb-4">
           <ModuleToggle guildId={guildId} moduleKey="notifications" label="Notifications" />
         </div>
 
-        <Card className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Ajouter un streamer</h2>
+        <SectionCard
+          title="Ajouter un streamer"
+          expandable
+          defaultExpanded={false}
+          headerAction={
             <Button
               variant="ghost"
               size="sm"
@@ -226,25 +226,19 @@ export default function NotificationsPage() {
               <Plus size={16} className={showAddForm ? 'rotate-45' : ''} />
               {showAddForm ? 'Fermer' : 'Ajouter'}
             </Button>
-          </div>
-
+          }
+        >
           {showAddForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              <StreamForm
-                guildId={guildId}
-                onSubmit={handleAdd}
-                onCancel={() => setShowAddForm(false)}
-              />
-            </motion.div>
+            <StreamForm
+              guildId={guildId}
+              onSubmit={handleAdd}
+              onCancel={() => setShowAddForm(false)}
+            />
           )}
-        </Card>
+        </SectionCard>
 
         {notifications.length === 0 ? (
-          <Card>
+          <div className="border border-[var(--border-color)] bg-[var(--bg-surface)]">
             <div className="text-center py-12">
               <Video size={48} className="mx-auto text-[var(--text-secondary)] mb-4" />
               <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">Aucune notification configurée</h3>
@@ -254,9 +248,9 @@ export default function NotificationsPage() {
                 Ajouter un streamer
               </Button>
             </div>
-          </Card>
+          </div>
         ) : (
-          <div className="space-y-3">
+          <ModuleGrid>
             {notifications.map((notification) => {
               const isExpanded = expandedId === notification.id;
               const vals = editValues[notification.id];
@@ -265,32 +259,16 @@ export default function NotificationsPage() {
               const showRoleWarning = vals?.pingEveryoneOnLive && vals?.mentionRoleId;
 
               return (
-                <Card key={notification.id}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-[var(--bg-surface-alt)]">
-                        {getPlatformIcon(notification.platform)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-[var(--text-primary)]">{notification.channelName}</span>
-                          <Badge variant="info">{getPlatformLabel(notification.platform)}</Badge>
-                          {notification.isLive && (
-                            <Badge variant="success">En direct</Badge>
-                          )}
-                        </div>
-                        <div className="text-sm text-[var(--text-secondary)]">
-                          Notifications vers #{notification.discordChannelId}
-                        </div>
-                        {notification.lastLiveAt && (
-                          <div className="text-xs text-[var(--text-secondary)] mt-0.5">
-                            Dernier live : {formatRelativeTime(notification.lastLiveAt)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
+                <SectionCard
+                  key={notification.id}
+                  title={notification.channelName}
+                  description={`Notifications vers #${notification.discordChannelId}`}
+                  headerAction={
                     <div className="flex items-center gap-2">
+                      <Badge variant="info">{getPlatformLabel(notification.platform)}</Badge>
+                      {notification.isLive && (
+                        <Badge variant="success">En direct</Badge>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -318,15 +296,23 @@ export default function NotificationsPage() {
                         <Trash2 size={16} className="text-[var(--error)]" />
                       </Button>
                     </div>
+                  }
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-[var(--bg-surface-alt)]">
+                      {getPlatformIcon(notification.platform)}
+                    </div>
+                    <div>
+                      {notification.lastLiveAt && (
+                        <div className="text-xs text-[var(--text-secondary)]">
+                          Dernier live : {formatRelativeTime(notification.lastLiveAt)}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {isExpanded && vals && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mt-4 pt-4 border-t border-[var(--border-color)] space-y-4"
-                    >
+                    <div className="mt-4 pt-4 border-t border-[var(--border-color)] space-y-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Palette size={14} className="text-[var(--text-secondary)]" />
                         <span className="text-sm font-medium text-[var(--text-primary)]">Personnaliser l'embed</span>
@@ -387,14 +373,14 @@ export default function NotificationsPage() {
                       </div>
 
                       {vals.pingEveryoneOnLive && (
-                        <div className="flex items-start gap-2 p-3 rounded-[var(--radius-sm)] bg-amber-500/10 border border-amber-500/20 text-sm text-amber-400">
+                        <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 text-sm text-amber-400">
                           <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
                           <span>Ping @everyone peut irriter les membres. Utilisez avec parcimonie.</span>
                         </div>
                       )}
 
                       {showRoleWarning && (
-                        <div className="flex items-start gap-2 p-3 rounded-[var(--radius-sm)] bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+                        <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 text-sm text-red-400">
                           <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
                           <span>Vous allez pinger @everyone ET un rôle — c&apos;est redondant.</span>
                         </div>
@@ -416,14 +402,14 @@ export default function NotificationsPage() {
                           Sauvegarder
                         </Button>
                       </div>
-                    </motion.div>
+                    </div>
                   )}
-                </Card>
+                </SectionCard>
               );
             })}
-          </div>
+          </ModuleGrid>
         )}
       </PermissionGate>
-    </motion.div>
+    </PageLayout>
   );
 }

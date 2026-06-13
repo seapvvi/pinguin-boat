@@ -2,17 +2,17 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
 import {
   Save, RotateCcw, LogOut, Trash2, RefreshCw, Download, Upload,
   AlertTriangle,
 } from 'lucide-react';
-import { Card, Button, Input, Select, Skeleton, Modal } from '@pinguin/ui';
+import { Button, Input, Select, Skeleton, Modal } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { ModulePermissions } from '@/components/settings/ModulePermissions';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
+import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
 
 interface DashboardSettings {
   locale?: string;
@@ -75,10 +75,8 @@ export default function GuildSettingsPage() {
   const [confirmName, setConfirmName] = useState('');
   const [dangerLoading, setDangerLoading] = useState(false);
 
-  // Export
   const [exporting, setExporting] = useState(false);
 
-  // Import
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importData, setImportData] = useState<any>(null);
   const [importModules, setImportModules] = useState<string[]>([]);
@@ -261,62 +259,61 @@ export default function GuildSettingsPage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-6 max-w-4xl space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Paramètres du serveur</h1>
+    <PageLayout
+      title="Paramètres du serveur"
+      actions={
         <Button onClick={handleSave} loading={saving}>
           {saved ? '✓ Enregistré' : <><Save className="w-4 h-4 mr-2" />Enregistrer</>}
         </Button>
-      </div>
+      }
+    >
+      <ModuleGrid>
+        <SectionCard title="Configuration générale">
+          <div>
+            <Select
+              label="Langue du serveur"
+              value={settings?.locale || 'fr'}
+              onChange={(e) => setSettings((s) => ({ ...s, locale: e.target.value }))}
+              options={LANGUAGES.map((l) => ({
+                value: l.value,
+                label: l.ready ? `${l.native} (${l.label})` : `${l.native} — Bientôt disponible`,
+              }))}
+            />
+            <p className="text-xs text-[var(--text-secondary)] mt-1">
+              Le bot utilisera cette langue pour ses réponses sur ce serveur.
+            </p>
+          </div>
 
-      <Card className="space-y-5 p-4">
-        <h2 className="text-lg font-medium text-[var(--text-primary)]">Configuration générale</h2>
+          <div className="mt-4">
+            <Input
+              label="Fuseau horaire"
+              value={settings?.timezone || 'Europe/Paris'}
+              onChange={(e) => setSettings((s) => ({ ...s, timezone: e.target.value }))}
+            />
+          </div>
+        </SectionCard>
 
-        <div>
-          <Select
-            label="Langue du serveur"
-            value={settings?.locale || 'fr'}
-            onChange={(e) => setSettings((s) => ({ ...s, locale: e.target.value }))}
-            options={LANGUAGES.map((l) => ({
-              value: l.value,
-              label: l.ready ? `${l.native} (${l.label})` : `${l.native} — Bientôt disponible`,
-            }))}
+        <SectionCard title="Modération">
+          <DiscordSelect
+            type="channel"
+            guildId={guildId}
+            label="Salon des logs de modération"
+            value={settings?.modLogChannelId || ''}
+            onChange={(id) => setSettings((s) => ({ ...s, modLogChannelId: id }))}
           />
-          <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Le bot utilisera cette langue pour ses réponses sur ce serveur.
-          </p>
-        </div>
+          <div className="mt-4">
+            <DiscordSelect
+              type="role"
+              guildId={guildId}
+              label="Rôle muet"
+              value={settings?.muteRoleId || ''}
+              onChange={(id) => setSettings((s) => ({ ...s, muteRoleId: id }))}
+            />
+          </div>
+        </SectionCard>
+      </ModuleGrid>
 
-        <Input
-          label="Fuseau horaire"
-          value={settings?.timezone || 'Europe/Paris'}
-          onChange={(e) => setSettings((s) => ({ ...s, timezone: e.target.value }))}
-        />
-      </Card>
-
-      <Card className="space-y-5 p-4">
-        <h2 className="text-lg font-medium text-[var(--text-primary)]">Modération</h2>
-        <DiscordSelect
-          type="channel"
-          guildId={guildId}
-          label="Salon des logs de modération"
-          value={settings?.modLogChannelId || ''}
-          onChange={(id) => setSettings((s) => ({ ...s, modLogChannelId: id }))}
-        />
-        <DiscordSelect
-          type="role"
-          guildId={guildId}
-          label="Rôle muet"
-          value={settings?.muteRoleId || ''}
-          onChange={(id) => setSettings((s) => ({ ...s, muteRoleId: id }))}
-        />
-      </Card>
-
-      <Card className="space-y-5 p-4">
-        <h2 className="text-lg font-medium text-[var(--text-primary)]">Accès au dashboard</h2>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Configurez les rôles qui auront accès au dashboard de ce serveur. Par défaut, seul le propriétaire du serveur et les administrateurs Discord ont accès complet.
-        </p>
+      <SectionCard title="Accès au dashboard" description="Configurez les rôles qui auront accès au dashboard de ce serveur. Par défaut, seul le propriétaire du serveur et les administrateurs Discord ont accès complet.">
         <DiscordSelect
           type="role"
           guildId={guildId}
@@ -325,52 +322,82 @@ export default function GuildSettingsPage() {
           onChange={(id) => setSettings((s) => ({ ...s, dashboardAccessRoles: id ? [id] : [] }))}
           placeholder="Sélectionner un rôle (optionnel)"
         />
-        <p className="text-xs text-[var(--text-secondary)]">
+        <p className="text-xs text-[var(--text-secondary)] mt-2">
           Les membres ayant ce rôle pourront accéder à l&apos;intégralité du dashboard de ce serveur, même sans être administrateur Discord.
         </p>
-      </Card>
+      </SectionCard>
 
-      {settings && (
+      <SectionCard title="Permissions par module">
         <ModulePermissions
           guildId={guildId}
           values={modulePerms}
           onChange={updateModulePermission}
         />
-      )}
+      </SectionCard>
 
-      <Card className="space-y-4 p-4">
-        <h2 className="text-lg font-medium text-[var(--text-primary)]">Export / Import de la configuration</h2>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Exportez toute la configuration du serveur en JSON ou importez une configuration depuis un autre serveur.
-        </p>
+      <ModuleGrid>
+        <SectionCard title="Export / Import de la configuration" description="Exportez toute la configuration du serveur en JSON ou importez une configuration depuis un autre serveur.">
+          {importError && (
+            <div className="flex items-center gap-2 text-sm text-[var(--error)] bg-[var(--error)]/10 px-3 py-2 mb-3">
+              <AlertTriangle size={14} />
+              {importError}
+            </div>
+          )}
 
-        {importError && (
-          <div className="flex items-center gap-2 text-sm text-[var(--error)] bg-[var(--error)]/10 rounded-[var(--radius-sm)] px-3 py-2">
-            <AlertTriangle size={14} />
-            {importError}
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleExport} loading={exporting}>
+              <Download className="w-4 h-4 mr-2" /> Exporter la config
+            </Button>
+            <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="w-4 h-4 mr-2" /> Importer une config
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
           </div>
-        )}
 
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={handleExport} loading={exporting}>
-            <Download className="w-4 h-4 mr-2" /> Exporter la config
+          <p className="text-xs text-[var(--text-secondary)] mt-2">
+            L&apos;export inclut tous les paramètres mais pas les données dynamiques (portefeuilles, XP, tickets ouverts, logs).
+          </p>
+        </SectionCard>
+
+        <SectionCard title="Onboarding" description="Relancez l&apos;onboarding pour reconfigurer rapidement les paramètres essentiels du serveur.">
+          <Button onClick={() => onboarding.openOnboarding()} loading={onboarding.loading}>
+            <RefreshCw className="w-4 h-4 mr-2" /> Relancer l&apos;onboarding
           </Button>
-          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="w-4 h-4 mr-2" /> Importer une config
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
+        </SectionCard>
+      </ModuleGrid>
+
+      <SectionCard
+        title="Zone de danger"
+        description="Actions irréversibles — confirmation par le nom du serveur requise."
+        accent="#ef4444"
+      >
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <Button variant="danger" onClick={() => setDangerModal('reset')} className="w-full">
+              <RotateCcw className="w-4 h-4 mr-2" /> Réinitialiser
+            </Button>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">Remet à zéro toute la configuration du serveur.</p>
+          </div>
+          <div className="flex-1">
+            <Button variant="danger" onClick={() => setDangerModal('leave')} className="w-full">
+              <LogOut className="w-4 h-4 mr-2" /> Expulser le bot
+            </Button>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">Retire le bot du serveur définitivement.</p>
+          </div>
+          <div className="flex-1">
+            <Button variant="danger" onClick={() => setDangerModal('delete')} className="w-full">
+              <Trash2 className="w-4 h-4 mr-2" /> Supprimer les données
+            </Button>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">Efface toutes les données stockées pour ce serveur.</p>
+          </div>
         </div>
-
-        <p className="text-xs text-[var(--text-secondary)]">
-          L&apos;export inclut tous les paramètres mais pas les données dynamiques (portefeuilles, XP, tickets ouverts, logs).
-        </p>
-      </Card>
+      </SectionCard>
 
       <Modal
         open={importModalOpen}
@@ -378,7 +405,7 @@ export default function GuildSettingsPage() {
         title="Importer la configuration"
       >
         {importWarning && (
-          <div className="flex items-start gap-2 text-sm text-[var(--warning)] bg-[var(--warning)]/10 rounded-[var(--radius-sm)] px-3 py-2 mb-4">
+          <div className="flex items-start gap-2 text-sm text-[var(--warning)] bg-[var(--warning)]/10 px-3 py-2 mb-4">
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
             <span>{importWarning}</span>
           </div>
@@ -392,7 +419,7 @@ export default function GuildSettingsPage() {
           {IMPORT_MODULES.map((mod) => (
             <label
               key={mod.key}
-              className="flex items-center gap-2 px-3 py-2 text-sm rounded-[var(--radius-sm)] border border-[var(--border-color)] cursor-pointer hover:bg-[var(--bg-surface-alt)] transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm border border-[var(--border-color)] cursor-pointer hover:bg-[var(--bg-surface-alt)] transition-colors"
             >
               <input
                 type="checkbox"
@@ -414,32 +441,6 @@ export default function GuildSettingsPage() {
           </Button>
         </div>
       </Modal>
-
-      <Card className="space-y-4 p-4">
-        <h2 className="text-lg font-medium text-[var(--text-primary)]">Onboarding</h2>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Relancez l&apos;onboarding pour reconfigurer rapidement les paramètres essentiels du serveur.
-        </p>
-        <Button onClick={() => onboarding.openOnboarding()} loading={onboarding.loading}>
-          <RefreshCw className="w-4 h-4 mr-2" /> Relancer l&apos;onboarding
-        </Button>
-      </Card>
-
-      <Card className="space-y-4 p-4 border border-[var(--error)]">
-        <h2 className="text-lg font-medium text-[var(--error)]">Zone de danger</h2>
-        <p className="text-sm text-[var(--text-secondary)]">Actions irréversibles — confirmation par le nom du serveur requise.</p>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="danger" onClick={() => setDangerModal('reset')}>
-            <RotateCcw className="w-4 h-4 mr-2" /> Réinitialiser
-          </Button>
-          <Button variant="danger" onClick={() => setDangerModal('leave')}>
-            <LogOut className="w-4 h-4 mr-2" /> Expulser le bot
-          </Button>
-          <Button variant="danger" onClick={() => setDangerModal('delete')}>
-            <Trash2 className="w-4 h-4 mr-2" /> Supprimer les données
-          </Button>
-        </div>
-      </Card>
 
       <Modal
         open={!!dangerModal}
@@ -471,6 +472,6 @@ export default function GuildSettingsPage() {
         onNextStep={onboarding.nextStep}
         onPrevStep={onboarding.prevStep}
       />
-    </motion.div>
+    </PageLayout>
   );
 }

@@ -1,12 +1,12 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { motion } from 'motion/react';
 import {
   Plus, MessageSquare, UserCheck, ChevronLeft, ChevronRight, Lock,
   FileText, Settings, BarChart3, List, Layers, Trash2, GripVertical, Edit3,
+  Clock, TrendingUp,
 } from 'lucide-react';
-import { Card, Table, Button, Badge, Modal, Skeleton, EmptyState, KPICard } from '@pinguin/ui';
+import { Table, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchTickets, api, fetchTicketStats, fetchTicketCategories, deleteTicketCategory, reorderTicketCategories, generateTicketTranscript } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -17,6 +17,7 @@ import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { TicketSettingsForm } from '@/components/TicketSettingsForm';
 import { CategoryBuilder } from '@/components/tickets/CategoryBuilder';
+import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 type TabKey = 'overview' | 'categories' | 'settings' | 'stats';
@@ -59,7 +60,6 @@ export default function TicketsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
-  // ── Tickets state ──
   const [tickets, setTickets] = useState<TicketData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,14 +68,13 @@ export default function TicketsPage() {
   const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // ── Categories state ──
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  // categories expandable state managed internally by SectionCard
 
-  // ── Stats state ──
   const [stats, setStats] = useState<{
     totalOpen: number; totalClosed: number;
     avgResponseTimeMs: number; avgResolutionTimeMs: number;
@@ -83,7 +82,6 @@ export default function TicketsPage() {
   } | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
-  // ── Transcript state ──
   const [transcriptLoading, setTranscriptLoading] = useState<string | null>(null);
 
   const loadTickets = useCallback(async (p: number) => {
@@ -191,27 +189,22 @@ export default function TicketsPage() {
 
   if (error) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <PageLayout title="Tickets">
         <ErrorMessage title="Erreur" message={error} onRetry={() => loadTickets(page)} />
-      </motion.div>
+      </PageLayout>
     );
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Tickets</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les tickets de support.</p>
-        </div>
-      </div>
-
+    <PageLayout
+      title="Tickets"
+      description="Gérez les tickets de support."
+    >
       <PermissionGate permission="manageMessages">
       <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="tickets" label="Tickets" />
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-[var(--border-color)]">
         {tabs.map((tab) => (
           <button
@@ -229,35 +222,54 @@ export default function TicketsPage() {
         ))}
       </div>
 
-      {/* Tab: Overview */}
       {activeTab === 'overview' && (
-        <Card padding={false}>
-          {loading ? (
-            <div className="p-5 space-y-3">
-              {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-            </div>
-          ) : tickets.length === 0 ? (
-            <EmptyState title="Aucun ticket" description="Aucun ticket pour le moment." />
-          ) : (
-            <>
-              <Table columns={columns} data={tickets} keyExtractor={(t) => t.id} />
-              <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border-color)]">
-                <span className="text-xs text-[var(--text-secondary)]">Page {page} / {totalPages}</span>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                    <ChevronLeft size={14} /> Précédent
-                  </Button>
-                  <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                    Suivant <ChevronRight size={14} />
-                  </Button>
-                </div>
+        <>
+          <ModuleGrid>
+            <SectionCard title="Tickets ouverts">
+              <div className="flex flex-col items-center py-6">
+                <span className="text-3xl font-bold text-[var(--text-primary)]">
+                  {loading ? '...' : tickets.filter(t => t.status === 'OPEN' || t.status === 'CLAIMED' || t.status === 'PENDING').length}
+                </span>
+                <span className="text-sm text-[var(--text-secondary)] mt-1">Non résolus</span>
               </div>
-            </>
-          )}
-        </Card>
+            </SectionCard>
+            <SectionCard title="Résolution moyenne">
+              <div className="flex flex-col items-center py-6">
+                <span className="text-3xl font-bold text-[var(--text-primary)]">
+                  {stats ? formatDuration(stats.avgResolutionTimeMs) : '—'}
+                </span>
+                <span className="text-sm text-[var(--text-secondary)] mt-1">Temps moyen</span>
+              </div>
+            </SectionCard>
+          </ModuleGrid>
+
+          <SectionCard title="Tickets récents">
+            {loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : tickets.length === 0 ? (
+              <EmptyState title="Aucun ticket" description="Aucun ticket pour le moment." />
+            ) : (
+              <>
+                <Table columns={columns} data={tickets} keyExtractor={(t) => t.id} />
+                <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border-color)]">
+                  <span className="text-xs text-[var(--text-secondary)]">Page {page} / {totalPages}</span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                      <ChevronLeft size={14} /> Précédent
+                    </Button>
+                    <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                      Suivant <ChevronRight size={14} />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </SectionCard>
+        </>
       )}
 
-      {/* Tab: Categories */}
       {activeTab === 'categories' && (
         <div className="space-y-4">
           <div className="flex justify-end">
@@ -272,43 +284,44 @@ export default function TicketsPage() {
           ) : categories.length === 0 ? (
             <EmptyState title="Aucune catégorie" description="Créez votre première catégorie de tickets." />
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {categories.map((cat, idx) => (
-                <div
+                <SectionCard
                   key={cat.id}
-                  draggable
-                  onDragStart={() => handleDragStart(idx)}
-                  onDragOver={(e) => handleDragOver(e, idx)}
-                  onDragEnd={handleDragEnd}
-                  className={`flex items-center gap-3 p-3 rounded-[var(--radius-sm)] border border-[var(--border-color)] bg-[var(--bg-surface)] transition-colors ${dragIdx === idx ? 'opacity-50' : ''}`}
-                >
-                  <div className="cursor-grab text-[var(--text-secondary)]"><GripVertical size={16} /></div>
-                  <div
-                    className="w-4 h-4 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: cat.color ?? '#5865F2' }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                  title={cat.name}
+                  icon={
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color ?? '#5865F2' }} />
                       {cat.emoji && <span>{cat.emoji}</span>}
-                      <span className="text-sm font-medium text-[var(--text-primary)]">{cat.name}</span>
+                    </div>
+                  }
+                  expandable
+                  defaultExpanded={expandedCategory === cat.id}
+                  headerAction={
+                    <div className="flex items-center gap-1">
                       <Badge variant="info">{cat.openingMode ?? 'BUTTON'}</Badge>
                       {cat.maxTicketsPerUser > 0 && (
                         <span className="text-xs text-[var(--text-secondary)]">max {cat.maxTicketsPerUser}/user</span>
                       )}
+                      <Button variant="ghost" size="sm" onClick={() => { setEditingCategory(cat); setCategoryModalOpen(true); }}>
+                        <Edit3 size={14} />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat.id)}>
+                        <Trash2 size={14} className="text-[var(--error)]" />
+                      </Button>
                     </div>
-                    {cat.description && (
-                      <p className="text-xs text-[var(--text-secondary)] mt-0.5 truncate">{cat.description}</p>
+                  }
+                >
+                  {cat.description && (
+                    <p className="text-sm text-[var(--text-secondary)] mb-3">{cat.description}</p>
+                  )}
+                  <div className="text-xs text-[var(--text-secondary)]">
+                    <span>ID: {cat.id}</span>
+                    {cat.supportRoleIds?.length > 0 && (
+                      <span className="ml-3">Rôles support: {cat.supportRoleIds.length}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditingCategory(cat); setCategoryModalOpen(true); }}>
-                      <Edit3 size={14} />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat.id)}>
-                      <Trash2 size={14} className="text-[var(--error)]" />
-                    </Button>
-                  </div>
-                </div>
+                </SectionCard>
               ))}
             </div>
           )}
@@ -319,45 +332,77 @@ export default function TicketsPage() {
         </div>
       )}
 
-      {/* Tab: Settings */}
-      {activeTab === 'settings' && <TicketSettingsForm guildId={guildId} />}
+      {activeTab === 'settings' && (
+        <ModuleGrid>
+          <SectionCard title="Transcripts">
+            <TicketSettingsForm guildId={guildId} />
+          </SectionCard>
+          <SectionCard title="Canal de fermeture">
+            <p className="text-sm text-[var(--text-secondary)]">
+              Configurez le canal où les transcriptions et notifications de fermeture seront envoyées.
+            </p>
+          </SectionCard>
+        </ModuleGrid>
+      )}
 
-      {/* Tab: Stats */}
       {activeTab === 'stats' && (
         <div className="space-y-6">
           {loadingStats ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}
             </div>
           ) : stats ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <KPICard label="Tickets ouverts" value={String(stats.totalOpen)} icon={<MessageSquare size={20} />} />
-                <KPICard label="Tickets fermés" value={String(stats.totalClosed)} icon={<Lock size={20} />} />
-                <KPICard label="Temps de réponse moyen" value={formatDuration(stats.avgResponseTimeMs)} icon={<UserCheck size={20} />} />
-                <KPICard label="Temps de résolution moyen" value={formatDuration(stats.avgResolutionTimeMs)} icon={<BarChart3 size={20} />} />
+                <SectionCard title="">
+                  <div className="flex flex-col items-center py-4">
+                    <MessageSquare size={24} className="text-[var(--text-secondary)] mb-2" />
+                    <span className="text-3xl font-bold text-[var(--text-primary)]">{String(stats.totalOpen)}</span>
+                    <span className="text-sm text-[var(--text-secondary)] mt-1">Tickets ouverts</span>
+                  </div>
+                </SectionCard>
+                <SectionCard title="">
+                  <div className="flex flex-col items-center py-4">
+                    <Lock size={24} className="text-[var(--text-secondary)] mb-2" />
+                    <span className="text-3xl font-bold text-[var(--text-primary)]">{String(stats.totalClosed)}</span>
+                    <span className="text-sm text-[var(--text-secondary)] mt-1">Tickets fermés</span>
+                  </div>
+                </SectionCard>
+                <SectionCard title="">
+                  <div className="flex flex-col items-center py-4">
+                    <UserCheck size={24} className="text-[var(--text-secondary)] mb-2" />
+                    <span className="text-3xl font-bold text-[var(--text-primary)]">{formatDuration(stats.avgResponseTimeMs)}</span>
+                    <span className="text-sm text-[var(--text-secondary)] mt-1">Réponse moyenne</span>
+                  </div>
+                </SectionCard>
+                <SectionCard title="">
+                  <div className="flex flex-col items-center py-4">
+                    <TrendingUp size={24} className="text-[var(--text-secondary)] mb-2" />
+                    <span className="text-3xl font-bold text-[var(--text-primary)]">{formatDuration(stats.avgResolutionTimeMs)}</span>
+                    <span className="text-sm text-[var(--text-secondary)] mt-1">Résolution moyenne</span>
+                  </div>
+                </SectionCard>
               </div>
 
               {stats.byCategory.length > 0 && (
-                <Card className="p-4">
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Statistiques par catégorie</h3>
+                <SectionCard title="Statistiques par catégorie">
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={stats.byCategory.map((c) => ({ ...c, responseMin: Math.round(c.avgResponseTimeMs / 60000), resolutionMin: Math.round(c.avgResolutionTimeMs / 60000) }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
                       <XAxis dataKey="categoryName" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
                       <YAxis tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} label={{ value: 'Minutes', angle: -90, position: 'insideLeft', style: { fill: 'var(--text-secondary)', fontSize: 12 } }} />
                       <Tooltip
-                        contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '13px' }}
+                        contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 0, fontSize: '13px' }}
                         formatter={(value: any, name: any) => [`${value} min`, name === 'responseMin' ? 'Réponse' : 'Résolution']}
                       />
-                      <Bar dataKey="responseMin" name="Réponse" fill="#14b8a6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="resolutionMin" name="Résolution" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="responseMin" name="Réponse" fill="#14b8a6" />
+                      <Bar dataKey="resolutionMin" name="Résolution" fill="#3b82f6" />
                     </BarChart>
                   </ResponsiveContainer>
 
                   <div className="mt-6 space-y-2">
                     {stats.byCategory.map((c, i) => (
-                      <div key={c.categoryId} className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] border border-[var(--border-color)]">
+                      <div key={c.categoryId} className="flex items-center justify-between p-3 border border-[var(--border-color)]">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }} />
                           <span className="text-sm text-[var(--text-primary)]">{c.categoryName}</span>
@@ -370,7 +415,7 @@ export default function TicketsPage() {
                       </div>
                     ))}
                   </div>
-                </Card>
+                </SectionCard>
               )}
             </>
           ) : (
@@ -379,7 +424,6 @@ export default function TicketsPage() {
         </div>
       )}
 
-      {/* Ticket detail modal */}
       <Modal open={!!selectedTicket} onClose={() => setSelectedTicket(null)} title="Détails du ticket">
         {selectedTicket && (
           <div className="space-y-4">
@@ -416,7 +460,7 @@ export default function TicketsPage() {
               )}
             </div>
             <div className="flex gap-2">
-              {actionError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded w-full">{actionError}</div>}
+              {actionError && <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 p-2 w-full">{actionError}</div>}
             </div>
             <div className="flex gap-2 mt-2">
               {selectedTicket.status === TicketStatus.OPEN && (
@@ -434,6 +478,6 @@ export default function TicketsPage() {
         )}
       </Modal>
       </PermissionGate>
-    </motion.div>
+    </PageLayout>
   );
 }

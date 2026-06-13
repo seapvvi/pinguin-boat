@@ -15,21 +15,21 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    'bg-[var(--accent)] text-[var(--bg-primary)] hover:bg-[var(--accent-hover)] border border-[var(--accent)]',
+    'bg-[var(--accent-primary)] text-white hover:brightness-110 border border-[var(--accent-primary)]',
   secondary:
     'bg-transparent text-[var(--text-primary)] hover:bg-[var(--bg-surface-alt)] border border-[var(--border-color)]',
   ghost:
     'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-alt)] border border-transparent',
   danger:
-    'bg-[var(--error)] text-white hover:opacity-90 border border-[var(--error)]',
+    'bg-[var(--accent-danger)] text-white hover:brightness-110 border border-[var(--accent-danger)]',
   success:
-    'bg-[var(--success)] text-white hover:opacity-90 border border-[var(--success)]',
+    'bg-[var(--accent-live)] text-white hover:brightness-110 border border-[var(--accent-live)]',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-xs',
-  md: 'px-4 py-2 text-sm',
-  lg: 'px-6 py-3 text-base',
+  sm: 'h-8 px-3 text-xs',
+  md: 'h-10 px-4 text-sm',
+  lg: 'h-11 px-5',
 };
 
 export function Button({
@@ -48,17 +48,19 @@ export function Button({
       transition={{ duration: 0.12, ease: 'easeInOut' }}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 font-medium rounded-[var(--radius-sm)] transition-colors duration-150 ease-in-out cursor-pointer select-none',
+        'inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150 ease-in-out cursor-pointer select-none',
         'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+        'relative',
         variantStyles[variant],
         sizeStyles[size],
         className,
       )}
+      style={{ borderRadius: 0 }}
       {...(props as any)}
     >
       {loading && (
         <svg
-          className="animate-spin"
+          className="absolute animate-spin"
           width={size === 'sm' ? 12 : size === 'lg' ? 18 : 14}
           height={size === 'sm' ? 12 : size === 'lg' ? 18 : 14}
           viewBox="0 0 24 24"
@@ -73,7 +75,7 @@ export function Button({
           />
         </svg>
       )}
-      {children}
+      <span className={cn(loading && 'invisible')}>{children}</span>
     </motion.button>
   );
 }

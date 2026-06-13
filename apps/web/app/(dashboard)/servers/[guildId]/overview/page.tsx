@@ -1,13 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { motion } from 'motion/react';
 import {
-  Hash, Shield, Scale, Activity,
+  Shield, Scale, Activity,
   MessageSquare, Terminal, Music, Gift,
   Gamepad2, Star, ClipboardList, Users,
+  Hash, Clock, Command,
 } from 'lucide-react';
-import { Card, KPICard, Skeleton, Badge, Toggle } from '@pinguin/ui';
+import { Skeleton, Badge, Toggle } from '@pinguin/ui';
 import { EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, fetchModCases, updateGuildSettings, fetchAuditLogs } from '@/lib/api';
@@ -16,6 +16,7 @@ import type { GuildConfig, ModCase } from '@pinguin/shared';
 import { ModuleName } from '@pinguin/shared';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
+import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
 
 export default function GuildOverviewPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -86,9 +87,9 @@ export default function GuildOverviewPage() {
 
   if (error) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <PageLayout title="Aperçu du serveur">
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
-      </motion.div>
+      </PageLayout>
     );
   }
 
@@ -107,44 +108,41 @@ export default function GuildOverviewPage() {
     { key: ModuleName.CLANS, label: 'Clans', icon: <Users size={16} /> },
   ];
 
+  const statCards = loading
+    ? Array.from({ length: 4 }).map((_, i) => (
+        <SectionCard key={i} title="">
+          <Skeleton className="h-12 w-16 mx-auto" />
+          <Skeleton className="h-4 w-20 mx-auto mt-2" />
+        </SectionCard>
+      ))
+    : [
+        { icon: <Users size={24} />, value: formatNumber(memberCount || 0), label: 'Membres' },
+        { icon: <Hash size={24} />, value: formatNumber(channelCount || 0), label: 'Salons' },
+        { icon: <Command size={24} />, value: formatNumber(cases.length), label: 'Cas de modération' },
+        { icon: <Clock size={24} />, value: recentActivity.length > 0 ? 'Récente' : '—', label: 'Activité' },
+      ].map((stat, i) => (
+        <SectionCard key={i} title="">
+          <div className="flex flex-col items-center py-4">
+            <span className="text-[var(--text-secondary)] mb-2">{stat.icon}</span>
+            <span className="text-3xl font-bold text-[var(--text-primary)]">{stat.value}</span>
+            <span className="text-sm text-[var(--text-secondary)] mt-1">{stat.label}</span>
+          </div>
+        </SectionCard>
+      ));
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      <div className="flex items-center gap-4 mb-6">
-        {loading ? (
-          <Skeleton className="w-12 h-12 rounded-[0px]" />
-        ) : null}
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
-            {loading ? '...' : 'Aperçu du serveur'}
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)]">ID: {guildId}</p>
-        </div>
+    <PageLayout title="Aperçu du serveur" description={`ID: ${guildId}`}>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        {statCards}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-        {loading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-[var(--radius)]" />
-          ))
-        ) : (
-          <>
-            <KPICard icon={<Users size={20} />} label="Membres" value={formatNumber(memberCount || 0)} />
-            <KPICard icon={<Hash size={20} />} label="Salons" value={String(channelCount || 0)} />
-            <KPICard icon={<Shield size={20} />} label="Rôles" value={String(roleCount || 0)} />
-            <KPICard icon={<Scale size={20} />} label="Cas de modération" value={formatNumber(cases.length)} />
-            <KPICard icon={<Activity size={20} />} label="Activité" value={recentActivity.length > 0 ? 'Récente' : 'Aucune'} />
-          </>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <Card>
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Modules</h2>
-          {toggleError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{toggleError}</div>}
+      <ModuleGrid>
+        <SectionCard title="Modules actifs">
+          {toggleError && <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 p-2 mb-3">{toggleError}</div>}
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full rounded-[var(--radius-sm)]" />
+                <Skeleton key={i} className="h-10 w-full" />
               ))}
             </div>
           ) : (
@@ -152,7 +150,7 @@ export default function GuildOverviewPage() {
               {modules.map((mod) => {
                 const enabled = isModuleEnabled(mod.key);
                 return (
-                  <div key={mod.key} className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
+                  <div key={mod.key} className="flex items-center justify-between py-2 px-3 bg-[var(--bg-surface-alt)]">
                     <div className="flex items-center gap-2">
                       {mod.icon}
                       <span className="text-sm text-[var(--text-primary)]">{mod.label}</span>
@@ -170,61 +168,61 @@ export default function GuildOverviewPage() {
               })}
             </div>
           )}
-        </Card>
+        </SectionCard>
 
-        <Card>
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Cas de modération récents</h2>
+        <SectionCard title="Activité récente">
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-[var(--radius-sm)]" />
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
-          ) : cases.length === 0 ? (
-            <EmptyState title="Aucun cas" description="Aucune modération récente." />
+          ) : recentActivity.length === 0 ? (
+            <p className="text-xs text-[var(--text-secondary)]">Aucune activité récente.</p>
           ) : (
             <div className="space-y-2">
-              {cases.map((c) => (
-                <div key={c.id} className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-[var(--text-primary)]">{c.userId.slice(0, 8)}…</span>
-                      <Badge variant={c.type === 'BAN' || c.type === 'KICK' ? 'error' : 'warning'}>{c.type}</Badge>
-                    </div>
-                    <p className="text-xs text-[var(--text-secondary)] mt-0.5 truncate max-w-[200px]">{c.reason}</p>
+              {recentActivity.map((act, i: number) => (
+                <div key={act.id ?? i} className="flex items-center justify-between py-2 px-3 bg-[var(--bg-surface-alt)]">
+                  <div className="flex items-center gap-2">
+                    <Activity size={14} className="text-[var(--text-secondary)]" />
+                    <span className="text-sm text-[var(--text-primary)]">{act.action ?? 'Action'}</span>
                   </div>
-                  <span className="text-xs text-[var(--text-secondary)]">{formatDate(c.createdAt)}</span>
+                  <span className="text-xs text-[var(--text-secondary)]">{act.createdAt ? formatDate(act.createdAt) : ''}</span>
                 </div>
               ))}
             </div>
           )}
-        </Card>
-      </div>
+        </SectionCard>
+      </ModuleGrid>
 
-      <Card>
-        <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Activité récente</h2>
+      <SectionCard title="Cas de modération récents">
         {loading ? (
           <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full rounded-[var(--radius-sm)]" />
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
             ))}
           </div>
-        ) : recentActivity.length === 0 ? (
-          <span className="text-xs text-[var(--text-secondary)]">Aucune activité récente.</span>
+        ) : cases.length === 0 ? (
+          <EmptyState title="Aucun cas" description="Aucune modération récente." />
         ) : (
-          <div className="space-y-2">
-            {recentActivity.map((act, i: number) => (
-              <div key={act.id ?? i} className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
-                <div className="flex items-center gap-2">
-                  <Activity size={14} className="text-[var(--text-secondary)]" />
-                  <span className="text-sm text-[var(--text-primary)]">{act.action ?? 'Action'}</span>
-                </div>
-                <span className="text-xs text-[var(--text-secondary)]">{act.createdAt ? formatDate(act.createdAt) : ''}</span>
+          <div>
+            <div className="grid grid-cols-4 gap-4 px-3 py-2 text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+              <span>Utilisateur</span>
+              <span>Type</span>
+              <span>Raison</span>
+              <span>Date</span>
+            </div>
+            {cases.map((c) => (
+              <div key={c.id} className="grid grid-cols-4 gap-4 items-center py-2 px-3 bg-[var(--bg-surface-alt)] mt-1">
+                <span className="text-sm text-[var(--text-primary)] font-mono">{c.userId.slice(0, 8)}…</span>
+                <Badge variant={c.type === 'BAN' || c.type === 'KICK' ? 'error' : 'warning'}>{c.type}</Badge>
+                <span className="text-xs text-[var(--text-secondary)] truncate">{c.reason}</span>
+                <span className="text-xs text-[var(--text-secondary)]">{formatDate(c.createdAt)}</span>
               </div>
             ))}
           </div>
         )}
-      </Card>
+      </SectionCard>
 
       <OnboardingModal
         guildId={guildId}
@@ -239,6 +237,6 @@ export default function GuildOverviewPage() {
         onNextStep={onboarding.nextStep}
         onPrevStep={onboarding.prevStep}
       />
-    </motion.div>
+    </PageLayout>
   );
 }

@@ -20,7 +20,9 @@ export function generateThemeCSSVariables(theme: ThemeConfig): string {
     --info: ${c.info};
     --radius: 0px;
     --radius-sm: 0px;
+    --radius-md: 0px;
     --radius-lg: 0px;
+    --radius-xl: 0px;
   `;
 }
 

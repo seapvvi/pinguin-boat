@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   MessageSquare, Users, Hash, Activity
 } from 'lucide-react';
-import { Card, Button, Skeleton } from '@pinguin/ui';
+import { Card, Button, Skeleton, Toggle } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import type { LogSettings } from '@pinguin/shared';
@@ -14,6 +14,9 @@ import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { useBackgroundRefresh, useAutoSave } from '@/lib/hooks';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionCard } from '@/components/layout/SectionCard';
+import { ModuleGrid } from '@/components/layout/ModuleGrid';
 
 const eventCategories: { label: string; icon: React.ReactNode; events: { value: LogEventType; label: string }[] }[] = [
   {
@@ -153,7 +156,7 @@ export default function LogsPage() {
     return (
       <motion.div className="space-y-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-[var(--radius)]" />
+          <Skeleton key={i} className="h-24 w-full" />
         ))}
       </motion.div>
     );
@@ -161,99 +164,125 @@ export default function LogsPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Logs</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Configurez les événements à journaliser.</p>
-        </div>
-        <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
-      </div>
-      {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
-
       <PermissionGate permission="manageMessages">
-      <div className="mb-4">
-        <ModuleToggle guildId={guildId} moduleKey="logs" label="Logs" />
-      </div>
+        <PageLayout
+          title="Logs"
+          description="Configurez les événements à journaliser."
+          actions={<Button loading={saving} onClick={handleSave}>Enregistrer</Button>}
+        >
+          {saveError && (
+            <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 px-3 py-2 mb-4">{saveError}</div>
+          )}
 
-      <div className="space-y-6">
-        <Card className="p-4">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Salon de logs</h2>
-          <DiscordSelect
-            type="channel"
-            guildId={guildId}
-            value={local.logChannelId ?? ''}
-            onChange={(id) => setLocal({ ...local, logChannelId: id || null })}
-          />
-        </Card>
+          <div className="mb-4">
+            <ModuleToggle guildId={guildId} moduleKey="logs" label="Logs" />
+          </div>
 
-        <Card className="p-4">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Événements journalisés</h2>
-          <div className="space-y-4">
-            {eventCategories.map((cat) => (
-              <div key={cat.label}>
-                <div className="flex items-center gap-2 mb-2">
-                  {cat.icon}
-                  <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{cat.label}</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {cat.events.map((evt) => (
-                    <label key={evt.value} className="flex items-center gap-2 p-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={(local.enabledEvents ?? []).includes(evt.value)}
-                        onChange={() => toggleEvent(evt.value)}
-                        className="accent-[var(--accent)]"
+          <SectionCard
+            title="Configuration des logs"
+            description="Salon de destination pour les logs"
+          >
+            <DiscordSelect
+              type="channel"
+              guildId={guildId}
+              value={local.logChannelId ?? ''}
+              onChange={(id) => setLocal({ ...local, logChannelId: id || null })}
+            />
+          </SectionCard>
+
+          <div className="mt-6">
+            <ModuleGrid>
+              {eventCategories.map((cat) => {
+                const catEnabled = cat.events.some((e) => (local.enabledEvents ?? []).includes(e.value));
+                return (
+                  <SectionCard
+                    key={cat.label}
+                    title={cat.label}
+                    icon={cat.icon}
+                    headerAction={
+                      <Toggle
+                        checked={catEnabled}
+                        onChange={(v) => {
+                          const enabledEvents = local.enabledEvents ?? [];
+                          if (v) {
+                            setLocal({
+                              ...local,
+                              enabledEvents: [...new Set([...enabledEvents, ...cat.events.map((e) => e.value)])],
+                            });
+                          } else {
+                            setLocal({
+                              ...local,
+                              enabledEvents: enabledEvents.filter((e) => !cat.events.some((ce) => ce.value === e)),
+                            });
+                          }
+                        }}
                       />
-                      <span className="text-sm text-[var(--text-primary)]">{evt.label}</span>
-                    </label>
+                    }
+                  >
+                    <div className={!catEnabled ? 'opacity-50' : ''}>
+                      <div className="space-y-1">
+                        {cat.events.map((evt) => (
+                          <label key={evt.value} className="flex items-center gap-2 py-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={(local.enabledEvents ?? []).includes(evt.value)}
+                              onChange={() => toggleEvent(evt.value)}
+                              className="accent-[var(--accent)]"
+                            />
+                            <span className="text-sm text-[var(--text-primary)]">{evt.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </SectionCard>
+                );
+              })}
+
+              <SectionCard
+                title="Salons ignorés"
+                icon={<Hash size={16} />}
+              >
+                <div className="flex gap-2 mb-3">
+                  <div className="flex-1">
+                    <DiscordSelect
+                      type="channel"
+                      guildId={guildId}
+                      value={ignoreChannelsInput}
+                      onChange={setIgnoreChannelsInput}
+                      placeholder="Choisir un salon"
+                    />
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      if (!ignoreChannelsInput) return;
+                      setLocal({
+                        ...local,
+                        ignoreChannels: [...(local.ignoreChannels ?? []), ignoreChannelsInput],
+                      });
+                      setIgnoreChannelsInput('');
+                    }}
+                  >
+                    Ajouter
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(local.ignoreChannels ?? []).map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setLocal({ ...local, ignoreChannels: local.ignoreChannels?.filter((c) => c !== id) })}
+                      className="text-xs px-2 py-1 bg-[var(--bg-surface-alt)] border border-[var(--border-color)]"
+                    >
+                      {id} ×
+                    </button>
                   ))}
                 </div>
-              </div>
-            ))}
+              </SectionCard>
+            </ModuleGrid>
           </div>
-        </Card>
-
-        <Card className="p-4">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Salons ignorés</h2>
-          <div className="flex gap-2 mb-3">
-            <div className="flex-1">
-              <DiscordSelect
-                type="channel"
-                guildId={guildId}
-                value={ignoreChannelsInput}
-                onChange={setIgnoreChannelsInput}
-                placeholder="Choisir un salon"
-              />
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                if (!ignoreChannelsInput) return;
-                setLocal({
-                  ...local,
-                  ignoreChannels: [...(local.ignoreChannels ?? []), ignoreChannelsInput],
-                });
-                setIgnoreChannelsInput('');
-              }}
-            >
-              Ajouter
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {(local.ignoreChannels ?? []).map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setLocal({ ...local, ignoreChannels: local.ignoreChannels?.filter((c) => c !== id) })}
-                className="text-xs px-2 py-1 rounded bg-[var(--bg-surface-alt)] border border-[var(--border-color)]"
-              >
-                {id} ×
-              </button>
-            ))}
-          </div>
-        </Card>
-      </div>
+        </PageLayout>
       </PermissionGate>
     </motion.div>
   );

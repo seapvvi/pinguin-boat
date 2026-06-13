@@ -13,12 +13,12 @@ export function Skeleton({ className, width, height, rounded = false }: Skeleton
     <div
       className={cn(
         'bg-[var(--bg-surface-alt)]',
-        rounded ? 'rounded-[0px]' : 'rounded-[var(--radius-sm)]',
         className,
       )}
       style={{
         width,
         height,
+        borderRadius: 0,
         animation: 'pinguin-shimmer 1.5s infinite ease-in-out',
         backgroundImage: 'linear-gradient(90deg, var(--bg-surface-alt) 0%, var(--bg-surface) 50%, var(--bg-surface-alt) 100%)',
         backgroundSize: '200% 100%',

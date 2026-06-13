@@ -35,9 +35,40 @@
     --warning: #f59e0b;
     --error: #ef4444;
     --info: #3b82f6;
+
+    /* Angles droits */
     --radius: 0px;
     --radius-sm: 0px;
+    --radius-md: 0px;
     --radius-lg: 0px;
+    --radius-xl: 0px;
+
+    /* Grille de modules */
+    --module-grid: repeat(2, 1fr);
+
+    /* Couleurs d'accent contextuelles */
+    --accent-twitch: #9146ff;
+    --accent-youtube: #ef4444;
+    --accent-live: #22c55e;
+    --accent-primary: #3b82f6;
+    --accent-warning: #f59e0b;
+    --accent-danger: #ef4444;
+
+    /* Labels uppercase */
+    --label-tracking: 0.08em;
+    --label-size: 0.6875rem;
+    --label-weight: 600;
+
+    /* Hauteur standard des inputs */
+    --input-height: 2.5rem;
+    --input-padding-x: 0.75rem;
+
+    /* Épaisseur bordure */
+    --border-width: 1px;
+
+    /* Espacement section */
+    --section-gap: 1.5rem;
+    --module-gap: 1rem;
   }
 
   * {

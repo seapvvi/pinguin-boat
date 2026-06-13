@@ -3,14 +3,26 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Users, TrendingUp, Plus, X,
-  Shield
+  Users, TrendingUp, Plus, X, Shield, Hash
 } from 'lucide-react';
 import { Card, Toggle, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import type { GuildConfig, AutoroleSettings, RoleReward } from '@pinguin/shared';
 import { ModuleToggle } from '@/components/ModuleToggle';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionCard } from '@/components/layout/SectionCard';
+import { ModuleGrid } from '@/components/layout/ModuleGrid';
+
+const ROLE_COLORS = ['#5865f2', '#ed4245', '#57f287', '#fee75c', '#eb459e', '#00b0f4', '#95e5d7', '#ff73fa'];
+
+function hashRoleColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return ROLE_COLORS[Math.abs(hash) % ROLE_COLORS.length];
+}
 
 export default function AutorolesPage() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -112,7 +124,7 @@ export default function AutorolesPage() {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-[var(--radius)]" />
+          <Skeleton key={i} className="h-24 w-full" />
         ))}
       </motion.div>
     );
@@ -120,118 +132,128 @@ export default function AutorolesPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Auto-rôles</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les rôles automatiques.</p>
-        </div>
-        <Button loading={saving} onClick={handleSave}>Enregistrer</Button>
-      </div>
-      {saveError && <div className="text-sm text-[var(--error)] bg-[var(--error-bg)] p-2 rounded mb-4">{saveError}</div>}
+      <PageLayout
+        title="Auto-rôles"
+        description="Gérez les rôles automatiques."
+        actions={<Button loading={saving} onClick={handleSave}>Enregistrer</Button>}
+      >
+        {saveError && (
+          <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 px-3 py-2 mb-4">{saveError}</div>
+        )}
 
-      <div className="mb-4">
-        <ModuleToggle guildId={guildId} moduleKey="autoroles" label="Rôles automatiques" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Users size={18} className="text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">Rôles à l&apos;arrivée</h2>
-              </div>
-            </div>
-            <div className="flex gap-2 mb-3">
-              <Input placeholder="ID du rôle" value={roleInput} onChange={(e) => setRoleInput(e.target.value)} className="flex-1" />
-              <Button variant="secondary" size="sm" onClick={addJoinRole}><Plus size={12} /></Button>
-            </div>
-            {local.roleIds.length === 0 ? (
-              <span className="text-xs text-[var(--text-secondary)]">Aucun rôle à l&apos;arrivée.</span>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {local.roleIds.map((id) => (
-                  <span key={id} onClick={() => removeJoinRole(id)} className="cursor-pointer inline-flex">
-                    <Badge variant="default">
-                      {id.slice(0, 10)}… <span className="ml-1">×</span>
-                    </Badge>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="mt-4">
-              <Input label="Délai (secondes)" type="number" value={String(local.delay)} onChange={(e) => setLocal({ ...local, delay: Number(e.target.value) })} />
-            </div>
-          </Card>
-
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Shield size={18} className="text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">Rôles bots</h2>
-              </div>
-            </div>
-            <div className="flex gap-2 mb-3">
-              <Input placeholder="ID du rôle" value={botRoleInput} onChange={(e) => setBotRoleInput(e.target.value)} className="flex-1" />
-              <Button variant="secondary" size="sm" onClick={addBotRole}><Plus size={12} /></Button>
-            </div>
-            {local.botRoles.length === 0 ? (
-              <span className="text-xs text-[var(--text-secondary)]">Aucun rôle pour les bots.</span>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {local.botRoles.map((id) => (
-                  <span key={id} onClick={() => removeBotRole(id)} className="cursor-pointer inline-flex">
-                    <Badge variant="default">
-                      {id.slice(0, 10)}… <span className="ml-1">×</span>
-                    </Badge>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex items-center justify-between mt-4 p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
-              <div>
-                <span className="text-sm text-[var(--text-primary)]">Ignorer les bots</span>
-                <p className="text-xs text-[var(--text-secondary)]">Ne pas attribuer de rôles aux bots</p>
-              </div>
-              <Toggle checked={local.ignoreBots} onChange={(v) => setLocal({ ...local, ignoreBots: v })} />
-            </div>
-          </Card>
+        <div className="mb-4">
+          <ModuleToggle guildId={guildId} moduleKey="autoroles" label="Rôles automatiques" />
         </div>
 
-        <div className="space-y-6">
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp size={18} className="text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">Rôles par niveau</h2>
-              </div>
-              <Button variant="secondary" size="sm" onClick={() => setRewardModal(true)}><Plus size={12} /> Ajouter</Button>
-            </div>
-            {roleRewards.length === 0 ? (
-              <EmptyState title="Aucune récompense" description="Ajoutez des rôles à débloquer par niveau." />
-            ) : (
-              <div className="space-y-2">
-                {roleRewards.map((rr, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="info">Niveau {rr.level}</Badge>
-                      <span className="text-sm font-mono text-[var(--text-secondary)]">{rr.roleId.slice(0, 12)}…</span>
-                    </div>
-                    <button onClick={() => removeReward(i)} className="text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors">
-                      <X size={14} />
-                    </button>
+        <SectionCard title="Ajouter un rôle" icon={<Users size={16} />}>
+          <div className="flex gap-2 mb-4">
+            <Input placeholder="ID du rôle" value={roleInput} onChange={(e) => setRoleInput(e.target.value)} className="flex-1" />
+            <Button variant="secondary" size="sm" onClick={addJoinRole}><Plus size={12} /> Ajouter un rôle</Button>
+          </div>
+          {local.roleIds.length === 0 ? (
+            <span className="text-xs text-[var(--text-secondary)]">Aucun rôle à l'arrivée.</span>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {local.roleIds.map((id) => (
+                <div key={id} className="flex items-center justify-between p-3 bg-[var(--bg-surface-alt)]">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-3 h-3 inline-block"
+                      style={{ backgroundColor: hashRoleColor(id) }}
+                    />
+                    <span className="text-sm font-mono text-[var(--text-secondary)]">{id.slice(0, 12)}…</span>
+                    <Badge variant="info">Arrivée</Badge>
                   </div>
-                ))}
-              </div>
-            )}
-          </Card>
+                  <button onClick={() => removeJoinRole(id)} className="text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors">
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
 
-          <Card>
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Rôles par réaction</h2>
-            <span className="text-xs text-[var(--text-secondary)]">Fonctionnalité à venir.</span>
-          </Card>
+        <div className="mt-6">
+          <ModuleGrid>
+            <SectionCard
+              title="Rôles bots"
+              icon={<Shield size={16} />}
+            >
+              <div className="flex gap-2 mb-3">
+                <Input placeholder="ID du rôle" value={botRoleInput} onChange={(e) => setBotRoleInput(e.target.value)} className="flex-1" />
+                <Button variant="secondary" size="sm" onClick={addBotRole}><Plus size={12} /></Button>
+              </div>
+              {local.botRoles.length === 0 ? (
+                <span className="text-xs text-[var(--text-secondary)]">Aucun rôle pour les bots.</span>
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {local.botRoles.map((id) => (
+                    <div key={id} className="flex items-center justify-between p-2 bg-[var(--bg-surface-alt)]">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-3 h-3 inline-block"
+                          style={{ backgroundColor: hashRoleColor(id) }}
+                        />
+                        <span className="text-sm font-mono text-[var(--text-secondary)]">{id.slice(0, 12)}…</span>
+                      </div>
+                      <button onClick={() => removeBotRole(id)} className="text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-between mt-4 p-3 bg-[var(--bg-surface-alt)]">
+                <div>
+                  <span className="text-sm text-[var(--text-primary)]">Ignorer les bots</span>
+                  <p className="text-xs text-[var(--text-secondary)]">Ne pas attribuer de rôles aux bots</p>
+                </div>
+                <Toggle checked={local.ignoreBots} onChange={(v) => setLocal({ ...local, ignoreBots: v })} />
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Rôles par niveau"
+              icon={<TrendingUp size={16} />}
+              headerAction={
+                <Button variant="secondary" size="sm" onClick={() => setRewardModal(true)}>
+                  <Plus size={12} /> Ajouter
+                </Button>
+              }
+            >
+              {roleRewards.length === 0 ? (
+                <EmptyState title="Aucune récompense" description="Ajoutez des rôles à débloquer par niveau." />
+              ) : (
+                <div className="space-y-2">
+                  {roleRewards.map((rr, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-[var(--bg-surface-alt)]">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="info">Niveau {rr.level}</Badge>
+                        <span className="text-sm font-mono text-[var(--text-secondary)]">{rr.roleId.slice(0, 12)}…</span>
+                      </div>
+                      <button onClick={() => removeReward(i)} className="text-[var(--text-secondary)] hover:text-[var(--error)] transition-colors">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </ModuleGrid>
         </div>
-      </div>
+
+        <div className="mt-6">
+          <SectionCard title="Paramètres" icon={<Hash size={16} />}>
+            <Input label="Délai (secondes)" type="number" value={String(local.delay)} onChange={(e) => setLocal({ ...local, delay: Number(e.target.value) })} />
+          </SectionCard>
+        </div>
+
+        <div className="mt-6">
+          <SectionCard title="Rôles par réaction" icon={<Hash size={16} />} expandable defaultExpanded={false}>
+            <span className="text-xs text-[var(--text-secondary)]">Fonctionnalité à venir.</span>
+          </SectionCard>
+        </div>
+      </PageLayout>
 
       <Modal open={rewardModal} onClose={() => setRewardModal(false)} title="Ajouter un rôle par niveau">
         <div className="space-y-4">

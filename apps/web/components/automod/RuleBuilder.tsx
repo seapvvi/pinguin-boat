@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, Toggle, Select, Button } from '@pinguin/ui'
+import { Toggle, Select, Button } from '@pinguin/ui'
 import { classNames } from '@/lib/utils'
 import {
   type AutoModRule,
@@ -46,8 +46,15 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
         const isOpen = expanded === rule.id
 
         return (
-          <Card key={rule.id} className={classNames('p-4', isOpen && 'ring-1 ring-[var(--accent)]')}>
-            <div className="flex items-center justify-between">
+          <div
+            key={rule.id}
+            className={classNames(
+              'w-full bg-[var(--bg-surface)] border border-[var(--border-color)]',
+              isOpen && rule.enabled && 'border-l-[3px] border-l-[var(--accent-danger)]',
+            )}
+            style={{ borderLeft: isOpen && rule.enabled ? '3px solid var(--accent-danger)' : undefined }}
+          >
+            <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <Toggle
                   checked={rule.enabled}
@@ -60,6 +67,16 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
                 >
                   {RULE_LABELS[type]}
                 </button>
+                <span
+                  className={classNames(
+                    'inline-flex items-center px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+                    rule.enabled
+                      ? 'bg-[var(--accent-live)]/15 text-[var(--accent-live)]'
+                      : 'bg-[var(--bg-surface-alt)] text-[var(--text-secondary)]',
+                  )}
+                >
+                  {rule.enabled ? 'Actif' : 'Inactif'}
+                </span>
               </div>
               {simulated === rule.id && (
                 <span className="text-xs text-[var(--text-secondary)] mr-2">{simulateRule(rule)}</span>
@@ -67,11 +84,11 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
             </div>
 
             {isOpen && rule.enabled && (
-              <div className="mt-4 space-y-4 border-t border-[var(--border-color)] pt-4">
+              <div className="px-4 pb-4 space-y-4 border-t border-[var(--border-color)] pt-4">
                 {type === 'SPAM' && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                      <label className="block text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-2">
                         Seuil : {rule.threshold} messages
                       </label>
                       <input
@@ -84,7 +101,7 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                      <label className="block text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-2">
                         Intervalle : {rule.interval}s
                       </label>
                       <input
@@ -101,7 +118,7 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
 
                 {type === 'CAPS' && (
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-2">
                       Seuil : {rule.threshold}% de majuscules
                     </label>
                     <input
@@ -117,7 +134,7 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
 
                 {type === 'MENTIONS' && (
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-2">
                       Seuil : {rule.threshold} mentions
                     </label>
                     <input
@@ -133,7 +150,7 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
 
                 {type === 'EMOJIS' && (
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-2">
                       Seuil : {rule.threshold} emojis
                     </label>
                     <input
@@ -149,7 +166,7 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
 
                 {(type === 'LINKS' || type === 'BANNED_WORDS') && (
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-2">
                       Seuil d&apos;infractions avant sanction : {rule.threshold}
                     </label>
                     <input
@@ -172,7 +189,7 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
                   />
                   {rule.action === 'MUTE' && (
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-2">
+                      <label className="block text-[11px] font-semibold text-[var(--text-secondary)] tracking-widest uppercase mb-2">
                         Durée (minutes)
                       </label>
                       <input
@@ -181,7 +198,8 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
                         max={40320}
                         value={rule.actionDuration ?? 10}
                         onChange={(e) => updateRule(rule.id, { actionDuration: Number(e.target.value) || 10 })}
-                        className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none focus:border-[var(--accent)] [color-scheme:dark]"
+                        className="w-full text-sm text-[var(--text-primary)] bg-[var(--bg-surface)] border border-[var(--border-color)] outline-none focus:outline-2 focus:outline-[var(--accent-primary)] focus:outline-offset-0 [color-scheme:dark]"
+                        style={{ height: 'var(--input-height)', paddingLeft: 'var(--input-padding-x)', paddingRight: 'var(--input-padding-x)', borderRadius: 0 }}
                       />
                     </div>
                   )}
@@ -196,7 +214,7 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
                     {simulated === rule.id ? 'Masquer' : 'Simuler'}
                   </Button>
                   {simulated === rule.id && (
-                    <div className="flex-1 flex items-center px-3 py-1.5 text-sm text-[var(--text-secondary)] bg-[var(--bg-surface-alt)]/50 rounded-[var(--radius-sm)] border border-[var(--border-color)]">
+                    <div className="flex-1 flex items-center px-3 py-1.5 text-sm text-[var(--text-secondary)] bg-[var(--bg-surface-alt)]/50 border border-[var(--border-color)]">
                       {simulateRule(rule)}
                     </div>
                   )}
@@ -205,11 +223,11 @@ export function RuleBuilder({ rules, onChange }: RuleBuilderProps) {
             )}
 
             {isOpen && !rule.enabled && (
-              <div className="mt-3 text-xs text-[var(--text-secondary)] italic border-t border-[var(--border-color)] pt-3">
+              <div className="px-4 pb-4 text-xs text-[var(--text-secondary)] italic border-t border-[var(--border-color)] pt-3">
                 Règle désactivée — activez le toggle pour configurer
               </div>
             )}
-          </Card>
+          </div>
         )
       })}
     </div>

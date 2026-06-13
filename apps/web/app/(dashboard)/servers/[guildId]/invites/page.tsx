@@ -2,12 +2,15 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import { RefreshCw, Search } from 'lucide-react';
+import { RefreshCw, Search, Trash2, UserPlus } from 'lucide-react';
 import { Card, Button, Input, Table, EmptyState, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
 import type { Column } from '@pinguin/ui';
+import { ModuleToggle } from '@/components/ModuleToggle';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionCard } from '@/components/layout/SectionCard';
 
 interface InviteEntry {
   rank: number;
@@ -70,12 +73,12 @@ export default function InvitesPage() {
 
   const columns: Column<InviteEntry>[] = [
     { key: 'rank', label: '#', render: (e) => <span className="text-xs font-bold text-[var(--text-secondary)]">#{e.rank}</span> },
-    { key: 'user', label: 'Utilisateur', render: (e) => (
+    { key: 'user', label: 'Membre', render: (e) => (
       <div className="flex items-center gap-2">
         {e.avatar ? (
-          <img src={`https://cdn.discordapp.com/avatars/${e.userId}/${e.avatar}.png?size=32`} alt="" className="w-6 h-6 rounded-[0px]" />
+          <img src={`https://cdn.discordapp.com/avatars/${e.userId}/${e.avatar}.png?size=32`} alt="" className="w-6 h-6" />
         ) : (
-          <div className="w-6 h-6 rounded-[0px] bg-[var(--bg-surface-alt)] flex items-center justify-center">
+          <div className="w-6 h-6 bg-[var(--bg-surface-alt)] flex items-center justify-center">
             <span className="text-xs text-[var(--text-secondary)]">{e.username.charAt(0).toUpperCase()}</span>
           </div>
         )}
@@ -83,9 +86,9 @@ export default function InvitesPage() {
       </div>
     )},
     { key: 'totalInvites', label: 'Invitations', sortable: true, render: (e) => <span className="text-xs font-mono">{formatNumber(e.totalInvites)}</span> },
-    { key: 'fakeInvites', label: 'Faux', sortable: true, render: (e) => <span className="text-xs font-mono text-[var(--error)]">{formatNumber(e.fakeInvites)}</span> },
-    { key: 'leftInvites', label: 'Partis', sortable: true, render: (e) => <span className="text-xs font-mono text-[var(--text-secondary)]">{formatNumber(e.leftInvites)}</span> },
-    { key: 'netInvites', label: 'Net', sortable: true, render: (e) => <span className="text-xs font-mono font-semibold text-[var(--accent)]">{formatNumber(e.netInvites)}</span> },
+    { key: 'fakeInvites', label: 'Faux comptes', sortable: true, render: (e) => <span className="text-xs font-mono text-[var(--error)]">{formatNumber(e.fakeInvites)}</span> },
+    { key: 'leftInvites', label: 'Gauches', sortable: true, render: (e) => <span className="text-xs font-mono text-[var(--text-secondary)]">{formatNumber(e.leftInvites)}</span> },
+    { key: 'netInvites', label: 'Total', sortable: true, render: (e) => <span className="text-xs font-mono font-semibold text-[var(--accent)]">{formatNumber(e.netInvites)}</span> },
   ];
 
   if (error) {
@@ -100,7 +103,7 @@ export default function InvitesPage() {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-[var(--radius)]" />
+          <Skeleton key={i} className="h-24 w-full" />
         ))}
       </motion.div>
     );
@@ -108,21 +111,32 @@ export default function InvitesPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Invitations</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Classement des invitations du serveur.</p>
-        </div>
-        <Button variant="secondary" loading={refreshing} onClick={handleRefresh}>
-          <RefreshCw size={14} className="mr-2" />
-          Actualiser
-        </Button>
-      </div>
-
-      <Card>
-        <div className="p-5 border-b border-[var(--border-color)] flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 flex-1 max-w-md">
-            <Search size={16} className="text-[var(--text-secondary)]" />
+      <PageLayout
+        title="Invitations"
+        description="Classement des invitations du serveur."
+      >
+        <SectionCard
+          title="Suivi des invitations"
+          icon={<UserPlus size={16} />}
+          headerAction={
+            <div className="flex items-center gap-2">
+              <ModuleToggle guildId={guildId} moduleKey="invites" label="Suivi" />
+              <Button variant="ghost" size="sm" loading={refreshing} onClick={handleRefresh}>
+                <RefreshCw size={14} />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={async () => {
+                try {
+                  await api.post(`/api/guilds/${guildId}/invites/reset`);
+                  await load();
+                } catch { /* ignore */ }
+              }}>
+                <Trash2 size={14} className="text-[var(--error)]" />
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex items-center gap-2 mb-4 max-w-md">
+            <Search size={16} className="text-[var(--text-secondary)] shrink-0" />
             <Input
               placeholder="Rechercher un utilisateur..."
               value={searchQuery}
@@ -130,16 +144,16 @@ export default function InvitesPage() {
               className="flex-1"
             />
           </div>
-        </div>
-        {filteredLeaderboard.length === 0 ? (
-          <EmptyState
-            title={searchQuery ? "Aucun résultat" : "Aucune donnée"}
-            description={searchQuery ? "Aucun utilisateur ne correspond à votre recherche." : "Le classement des invitations est vide."}
-          />
-        ) : (
-          <Table columns={columns} data={filteredLeaderboard} keyExtractor={(e) => e.userId} />
-        )}
-      </Card>
+          {filteredLeaderboard.length === 0 ? (
+            <EmptyState
+              title={searchQuery ? 'Aucun résultat' : 'Aucune donnée'}
+              description={searchQuery ? 'Aucun utilisateur ne correspond à votre recherche.' : 'Le classement des invitations est vide.'}
+            />
+          ) : (
+            <Table columns={columns} data={filteredLeaderboard} keyExtractor={(e) => e.userId} />
+          )}
+        </SectionCard>
+      </PageLayout>
     </motion.div>
   );
 }

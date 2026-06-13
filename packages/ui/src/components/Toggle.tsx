@@ -10,7 +10,6 @@ interface ToggleProps {
   label?: string;
 }
 
-/** Interrupteur rectangulaire : actif = couleur accent, inactif = fond sombre semi-transparent + bordure. */
 export function Toggle({ checked, onChange, disabled = false, className, label }: ToggleProps) {
   return (
     <label
@@ -27,14 +26,23 @@ export function Toggle({ checked, onChange, disabled = false, className, label }
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className={cn(
-          'relative inline-flex h-7 w-12 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border px-1 text-[10px] font-semibold uppercase tracking-wide',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2',
-          checked
-            ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-primary)]'
-            : 'border-[var(--border-color)] bg-[var(--bg-surface-alt)]/40 text-[var(--text-secondary)] opacity-70',
+          'relative inline-flex shrink-0 items-center transition-colors duration-150',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] focus-visible:ring-offset-2',
+          checked ? 'bg-[var(--accent-primary)]' : 'bg-[var(--bg-surface-alt)]',
         )}
+        style={{ width: 32, height: 18, borderRadius: 0 }}
       >
-        {checked ? 'ON' : 'OFF'}
+        <span
+          className={cn(
+            'absolute top-0.5 left-0.5 bg-white transition-transform duration-150',
+          )}
+          style={{
+            width: 14,
+            height: 14,
+            borderRadius: 0,
+            transform: checked ? 'translateX(14px)' : 'translateX(0)',
+          }}
+        />
       </button>
       {label && <span className="text-sm text-[var(--text-primary)]">{label}</span>}
     </label>

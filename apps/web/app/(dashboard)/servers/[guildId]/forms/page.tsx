@@ -1,13 +1,12 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { motion } from 'motion/react';
 import {
   ClipboardList, Plus, Trash2, Edit2, X, Check,
   ChevronLeft, ChevronRight, Eye, XCircle, CheckCircle,
   Clock, FileText, ArrowUp, ArrowDown,
 } from 'lucide-react';
-import { Card, Button, Badge, Skeleton, EmptyState, ErrorMessage, Input, Modal } from '@pinguin/ui';
+import { Button, Badge, Skeleton, EmptyState, ErrorMessage, Input, Modal } from '@pinguin/ui';
 import {
   fetchFormSettings, updateFormSettings,
   createFormTemplate, updateFormTemplate, deleteFormTemplate,
@@ -16,19 +15,14 @@ import {
 import { formatDate } from '@/lib/utils';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
+import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
 
-// Discord modals only support text inputs (short or paragraph). Multiple
-// choice is not supported by the Discord form API, so we limit field types
-// to short/long text. `style` matches what the bot reads when building the
-// modal (TextInputStyle.Short / TextInputStyle.Paragraph).
 interface FormField {
   label: string;
   style: 'short' | 'paragraph';
   required: boolean;
 }
 
-// Older templates were saved with a `type` field (text/textarea/select).
-// Normalize them to the current `style`-based model when loading.
 function normalizeField(f: unknown): FormField {
   let style: 'short' | 'paragraph' = 'short';
   const field = f as { style?: string; type?: string; label?: string; required?: boolean };
@@ -255,56 +249,62 @@ export default function FormsPage() {
 
   if (error && !settings) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
+      <PageLayout title="Formulaires">
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
-      </motion.div>
+      </PageLayout>
     );
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Formulaires</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Créez des formulaires personnalisés et recevez les réponses en direct.</p>
-        </div>
+    <PageLayout
+      title="Formulaires"
+      description="Créez des formulaires personnalisés et recevez les réponses en direct."
+    >
+      <div className="mb-4">
         <ModuleToggle guildId={guildId} moduleKey="forms" label="Formulaires" />
       </div>
 
       {error && (
-        <div className="rounded-[var(--radius-sm)] border border-[var(--error)] bg-[var(--error)]/10 p-3 text-sm text-[var(--error)]">
+        <div className="border border-[var(--error)] bg-[var(--error)]/10 p-3 text-sm text-[var(--error)] mb-4">
           {error}
         </div>
       )}
 
       {loading ? (
         <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-[var(--radius)]" />)}
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
         </div>
       ) : (
         <>
-          {/* Settings */}
-          <Card className="p-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Configuration</h2>
+          <SectionCard title="Configuration">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-[var(--text-secondary)] mb-1">Salon des formulaires</label>
-                <DiscordSelect guildId={guildId} type="channel" value={channelId} onChange={setChannelId} placeholder="Sélectionner un salon" />
-              </div>
-              <div>
-                <label className="block text-xs text-[var(--text-secondary)] mb-1">Salon de logs</label>
-                <DiscordSelect guildId={guildId} type="channel" value={logChannel} onChange={setLogChannel} placeholder="Sélectionner un salon" />
-              </div>
+              <DiscordSelect guildId={guildId} type="channel" value={channelId} onChange={setChannelId} placeholder="Sélectionner un salon" label="Salon des formulaires" />
+              <DiscordSelect guildId={guildId} type="channel" value={logChannel} onChange={setLogChannel} placeholder="Sélectionner un salon" label="Salon de logs" />
             </div>
             <div className="mt-4">
               <Button variant="primary" size="sm" loading={saving} onClick={handleSaveSettings}>
                 Sauvegarder
               </Button>
             </div>
-          </Card>
+          </SectionCard>
 
-          {/* Tabs */}
-          <div className="flex gap-2 border-b border-[var(--border-color)]">
+          <SectionCard
+            title="Créer un formulaire"
+            expandable
+            defaultExpanded={false}
+            headerAction={
+              <Button variant="primary" size="sm" onClick={openCreateTemplate}>
+                <Plus size={14} /> Nouveau
+              </Button>
+            }
+          >
+            <p className="text-sm text-[var(--text-secondary)] mb-3">
+              Créez un nouveau formulaire personnalisé avec des champs texte.
+              Les formulaires sont envoyés via un modal Discord.
+            </p>
+          </SectionCard>
+
+          <div className="flex gap-2 border-b border-[var(--border-color)] mb-4">
             <button
               onClick={() => setTab('templates')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -330,13 +330,7 @@ export default function FormsPage() {
           </div>
 
           {tab === 'templates' && (
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button variant="primary" size="sm" onClick={openCreateTemplate}>
-                  <Plus size={14} /> Créer un formulaire
-                </Button>
-              </div>
-
+            <div>
               {templates.length === 0 ? (
                 <EmptyState
                   icon={<FileText size={32} />}
@@ -345,22 +339,16 @@ export default function FormsPage() {
                   action={{ label: 'Créer un formulaire', onClick: openCreateTemplate }}
                 />
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <ModuleGrid>
                   {templates.map((t) => {
                     let fieldCount = 0;
                     try { fieldCount = JSON.parse(t.fields).length; } catch { }
                     return (
-                      <Card key={t.id} className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t.name}</h3>
-                            {t.description && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{t.description}</p>}
-                          </div>
-                          <Badge variant={t.enabled ? 'success' : 'error'}>
-                            {t.enabled ? 'Actif' : 'Inactif'}
-                          </Badge>
+                      <SectionCard key={t.id} title={t.name} description={t.description ?? undefined}>
+                        <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)] mb-3">
+                          <span>{fieldCount} question{fieldCount > 1 ? 's' : ''}</span>
+                          <span>{/* nb réponses - pas disponible directement */}— réponse(s)</span>
                         </div>
-                        <p className="text-xs text-[var(--text-secondary)] mb-3">{fieldCount} champ{fieldCount > 1 ? 's' : ''}</p>
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" onClick={() => openEditTemplate(t)}>
                             <Edit2 size={12} /> Modifier
@@ -368,14 +356,17 @@ export default function FormsPage() {
                           <Button variant="ghost" size="sm" onClick={() => handleToggleTemplate(t)}>
                             {t.enabled ? 'Désactiver' : 'Activer'}
                           </Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setTab('submissions'); }}>
+                            <Eye size={12} /> Réponses
+                          </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleDeleteTemplate(t.id)}>
                             <Trash2 size={12} />
                           </Button>
                         </div>
-                      </Card>
+                      </SectionCard>
                     );
                   })}
-                </div>
+                </ModuleGrid>
               )}
             </div>
           )}
@@ -392,10 +383,10 @@ export default function FormsPage() {
                 <>
                   <div className="space-y-3">
                     {submissions.map((sub) => (
-                      <Card key={sub.id} className="p-4">
+                      <div key={sub.id} className="border border-[var(--border-color)] bg-[var(--bg-surface)] p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-semibold text-[var(--text-secondary)]">
+                            <div className="w-8 h-8 bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-semibold text-[var(--text-secondary)]">
                               {sub.user.username?.charAt(0)?.toUpperCase() ?? '?'}
                             </div>
                             <div>
@@ -428,7 +419,7 @@ export default function FormsPage() {
                             )}
                           </div>
                         </div>
-                      </Card>
+                      </div>
                     ))}
                   </div>
 
@@ -448,14 +439,12 @@ export default function FormsPage() {
             </div>
           )}
 
-          {/* Template Modal */}
           {showTemplateModal && (
             <Modal
               open={showTemplateModal}
               onClose={() => setShowTemplateModal(false)}
               title={editingTemplate ? 'Modifier le formulaire' : 'Créer un formulaire'}
             >
-
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs text-[var(--text-secondary)] mb-1">Nom</label>
@@ -475,7 +464,7 @@ export default function FormsPage() {
                   </div>
                   <div className="space-y-3">
                     {templateForm.fields.map((field, index) => (
-                      <div key={index} className="flex items-start gap-2 p-3 bg-[var(--bg-surface-alt)] rounded-[var(--radius-sm)]">
+                      <div key={index} className="flex items-start gap-2 p-3 bg-[var(--bg-surface-alt)]">
                         <div className="flex flex-col gap-1">
                           <button
                             onClick={() => moveField(index, 'up')}
@@ -502,7 +491,7 @@ export default function FormsPage() {
                             <select
                               value={field.style}
                               onChange={(e) => updateField(index, { style: e.target.value as FormField['style'] })}
-                              className="text-xs bg-[var(--bg-primary)] border border-[var(--border-color)] rounded px-2 py-1 text-[var(--text-primary)]"
+                              className="text-xs bg-[var(--bg-primary)] border border-[var(--border-color)] px-2 py-1 text-[var(--text-primary)]"
                             >
                               <option value="short">Texte court</option>
                               <option value="paragraph">Texte long</option>
@@ -537,17 +526,15 @@ export default function FormsPage() {
             </Modal>
           )}
 
-          {/* Submission Detail Modal */}
           {viewSubmission && (
             <Modal
               open={!!viewSubmission}
               onClose={() => setViewSubmission(null)}
               title={`Réponse - ${viewSubmission.templateName}`}
             >
-
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-semibold">
+                  <div className="w-8 h-8 bg-[var(--bg-surface-alt)] flex items-center justify-center text-xs font-semibold">
                     {viewSubmission.user.username?.charAt(0)?.toUpperCase() ?? '?'}
                   </div>
                   <div>
@@ -563,7 +550,7 @@ export default function FormsPage() {
                   {Array.isArray(viewSubmission.responses) && viewSubmission.responses.map((r: unknown, i: number) => {
                     const response = r as { label?: string; value?: string };
                     return (
-                      <div key={i} className="p-3 bg-[var(--bg-surface-alt)] rounded-[var(--radius-sm)]">
+                      <div key={i} className="p-3 bg-[var(--bg-surface-alt)]">
                         <div className="text-xs font-semibold text-[var(--text-secondary)] mb-1">{response.label ?? `Champ ${i + 1}`}</div>
                         <div className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{response.value ?? '-'}</div>
                       </div>
@@ -588,6 +575,6 @@ export default function FormsPage() {
           )}
         </>
       )}
-    </motion.div>
+    </PageLayout>
   );
 }
