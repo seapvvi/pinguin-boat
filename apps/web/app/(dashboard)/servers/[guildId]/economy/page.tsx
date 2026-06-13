@@ -16,7 +16,7 @@ import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { ShopItemForm } from '@/components/economy/ShopItemForm';
-import { useBackgroundRefresh, useAutoSave } from '@/lib/hooks';
+import { useAutoSave } from '@/lib/hooks';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
@@ -61,9 +61,23 @@ function SliderField({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase">{label}</label>
-        <span className="text-xs font-mono text-[var(--accent)]">
-          {formatValue ? formatValue(value) : value.toLocaleString('fr-FR')}{suffix ?? ''}
-        </span>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={min}
+            max={max}
+            step={step}
+            value={value}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (!isNaN(v) && v >= min && v <= max) onChange(v);
+            }}
+            className="w-20 px-2 py-0.5 text-xs font-mono text-right bg-transparent border border-[var(--border-color)] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+          />
+          <span className="text-xs font-mono text-[var(--accent)]">
+            {formatValue ? formatValue(value) : value.toLocaleString('fr-FR')}{suffix ?? ''}
+          </span>
+        </div>
       </div>
       <input
         type="range"
@@ -120,7 +134,7 @@ export default function EconomyPage() {
   };
 
   useEffect(() => { load(); }, [guildId]);
-  useBackgroundRefresh(load, 10000, [guildId]);
+  // Pas de background refresh — l'auto-save gère la persistance, le refresh écraserait les edits locaux
 
   const saveEconomy = async (data: LocalSettings) => {
     const { shopItems, ...settings } = data;

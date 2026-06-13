@@ -103,6 +103,10 @@ export default function GuildOverviewPage() {
 
   const isModuleEnabled = (module: ModuleName) => !config?.disabledModules.includes(module);
 
+  const animatedMembers = useCountUp(memberCount || 0, 700);
+  const animatedChannels = useCountUp(channelCount || 0, 700);
+  const animatedCases = useCountUp(cases.length || 0, 700);
+
   if (error) {
     return (
       <PageLayout title="Aperçu du serveur">
@@ -114,10 +118,6 @@ export default function GuildOverviewPage() {
   if (loading) {
     return <SkeletonPage rows={skeletonRows} />;
   }
-
-  const animatedMembers = useCountUp(memberCount || 0, 700);
-  const animatedChannels = useCountUp(channelCount || 0, 700);
-  const animatedCases = useCountUp(cases.length || 0, 700);
 
   const statCards = [
     { icon: <Users size={24} />, value: formatNumber(animatedMembers), label: 'Membres' },

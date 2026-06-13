@@ -79,7 +79,7 @@ export function Toggle({ checked, onChange, disabled = false, label, size = 'md'
               width: thumbSize,
               height: thumbSize,
               borderRadius: 0,
-              backgroundColor: checked ? '#ffffff' : 'var(--text-primary)',
+              backgroundColor: checked ? '#ffffff' : 'var(--text-secondary)',
             }}
           />
         </button>

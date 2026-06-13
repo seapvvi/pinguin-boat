@@ -115,7 +115,7 @@ export default function LevelsPage() {
       .replace('{{user}}', '@Jean#1234')
       .replace('{{level}}', '15')
       .replace('{{server}}', 'Mon Serveur');
-  }, [local?.announcementMessage]);
+  }, [local?.announcementMessage, local?.levelUpNotification]);
 
   const getRankColor = (rank: number) => {
     if (rank === 1) return 'text-yellow-400';

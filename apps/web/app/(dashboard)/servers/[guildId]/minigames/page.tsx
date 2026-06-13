@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Gamepad2, Coins, Trophy, Dice1, Dice2, Swords, Target } from 'lucide-react';
+import { Gamepad2, Coins, Trophy, Dice1, Dice2, Swords, Target, Dices, Brain, Table2, Rocket } from 'lucide-react';
 import { Button, Skeleton, EmptyState, ErrorMessage, Input, Toggle } from '@pinguin/ui';
 import {
   fetchMinigameSettings, updateMinigameSettings, fetchMinigameLeaderboard,
@@ -29,6 +29,12 @@ const DEFAULT_GAMES: Omit<MinigameConfig, 'icon'>[] = [
   { id: 'rps', name: 'Pierre-Feuille-Ciseaux', description: 'Affrontez le bot dans un duel classique.', enabled: true, cooldown: 15, gainMin: 10, gainMax: 30 },
   { id: 'dice', name: 'Lancer de dés', description: 'Tentez votre chance au lancer de dés, double mise si vous gagnez.', enabled: true, cooldown: 10, gainMin: 5, gainMax: 100 },
   { id: 'coinflip', name: 'Pile ou face', description: 'Pariez sur pile ou face et doublez votre mise.', enabled: true, cooldown: 5, gainMin: 10, gainMax: 200 },
+  { id: 'blackjack', name: 'Blackjack', description: 'Affrontez le croupier au blackjack et atteignez 21 sans dépasser.', enabled: true, cooldown: 30, gainMin: 10, gainMax: 200 },
+  { id: 'connect4', name: 'Puissance 4', description: 'Affrontez un adversaire au Puissance 4, alignez 4 pions pour gagner.', enabled: true, cooldown: 60, gainMin: 15, gainMax: 75 },
+  { id: 'hangman', name: 'Pendu', description: 'Trouvez le mot caché avant que le bonhomme ne soit pendu.', enabled: true, cooldown: 30, gainMin: 10, gainMax: 100 },
+  { id: 'morpion', name: 'Morpion', description: 'Affrontez un adversaire au morpion, alignez 3 symboles.', enabled: true, cooldown: 45, gainMin: 10, gainMax: 50 },
+  { id: 'poker', name: 'Poker', description: 'Jouez au poker avec des mises, que le meilleur bluff gagne.', enabled: true, cooldown: 60, gainMin: 25, gainMax: 500 },
+  { id: 'race', name: 'Course', description: 'Pariez sur une course et empochez les gains si votre favori gagne.', enabled: true, cooldown: 20, gainMin: 10, gainMax: 150 },
 ];
 
 const GAME_ICONS: Record<string, typeof Gamepad2> = {
@@ -36,6 +42,12 @@ const GAME_ICONS: Record<string, typeof Gamepad2> = {
   rps: Swords,
   dice: Dice1,
   coinflip: Dice2,
+  blackjack: Dices,
+  connect4: Table2,
+  hangman: Brain,
+  morpion: Table2,
+  poker: Rocket,
+  race: Trophy,
 };
 
 interface LeaderboardEntry {
@@ -76,7 +88,13 @@ export default function MinigamesPage() {
         setBetMin(data.settings.betMin ?? 10);
         setBetMax(data.settings.betMax ?? 1000);
         if (data.settings.games) {
-          setGames(data.settings.games.map(g => ({ ...g, icon: GAME_ICONS[g.id] ?? Gamepad2 })));
+          // Merge saved games with defaults to ensure all games exist
+          const savedGames = data.settings.games;
+          const merged = DEFAULT_GAMES.map(def => {
+            const saved = savedGames.find((sg: Omit<MinigameConfig, 'icon'>) => sg.id === def.id);
+            return saved ? { ...def, ...saved, icon: GAME_ICONS[def.id] ?? Gamepad2 } : { ...def, icon: GAME_ICONS[def.id] ?? Gamepad2 };
+          });
+          setGames(merged);
         }
       }
     } catch (e) {

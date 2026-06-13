@@ -16,20 +16,19 @@ export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleT
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const normalizedModuleKey = moduleKey.trim().toLowerCase();
 
   useEffect(() => {
     fetchGuildSettings(guildId)
       .then((res) => {
         if (res.success && res.data?.guild) {
           const disabled = res.data.guild.disabledModules ?? [];
-          setEnabled(!disabled.map((m: string) => m.toLowerCase()).includes(moduleKey));
+          setEnabled(!disabled.map((m: string) => m.toLowerCase()).includes(normalizedModuleKey));
         }
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Erreur de chargement'))
       .finally(() => setLoading(false));
-  }, [guildId, moduleKey]);
-
-  const normalizedModuleKey = moduleKey.trim().toLowerCase();
+  }, [guildId, normalizedModuleKey]);
 
   const handleToggle = async (value: boolean) => {
     setEnabled(value);

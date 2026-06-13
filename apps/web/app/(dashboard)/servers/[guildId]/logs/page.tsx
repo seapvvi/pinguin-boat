@@ -107,7 +107,7 @@ export default function LogsPage() {
   }, [guildId]);
 
   useEffect(() => { load(); }, [load]);
-  useBackgroundRefresh(load, 10000, [guildId]);
+  // Pas de background refresh — l'auto-save gère la persistance, le refresh écraserait les edits locaux
 
   const saveLogs = useCallback(async (data: LogSettings) => {
     await api.put(`/api/guilds/${guildId}/logs`, {
