@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Users, TrendingUp, Plus, X, Shield, Hash
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Toggle, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import type { GuildConfig, AutoroleSettings, RoleReward } from '@pinguin/shared';

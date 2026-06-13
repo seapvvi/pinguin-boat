@@ -4,9 +4,9 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   Play, Pause, SkipForward, SkipBack, Square, Volume2, Shuffle, Repeat,
-  ListMusic, Disc3, Settings, Headphones, MicVocal
+  ListMusic, Settings, Headphones, MicVocal
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Badge, Skeleton, EmptyState } from '@pinguin/ui';
+import { Toggle, Input, Button, Badge, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';

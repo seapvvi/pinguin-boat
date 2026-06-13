@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Plus, X, Eye, Trophy, Award, Zap, Bell, Medal
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Badge, Modal, Skeleton, Table, EmptyState, Select } from '@pinguin/ui';
+import { Toggle, Input, Button, Badge, Modal, Skeleton, Table, EmptyState, Select } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, fetchXPLeaderboard, updateGuildSettings } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
@@ -101,14 +101,6 @@ export default function LevelsPage() {
     setLocal({
       ...local,
       roleRewards: (local.roleRewards ?? []).filter((_, i) => i !== index),
-    });
-  };
-
-  const updateReward = (index: number, patch: Partial<RoleReward>) => {
-    if (!local) return;
-    setLocal({
-      ...local,
-      roleRewards: (local.roleRewards ?? []).map((rr, i) => (i === index ? { ...rr, ...patch } : rr)),
     });
   };
 

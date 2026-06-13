@@ -3,12 +3,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
   Plus, MessageSquare, UserCheck, ChevronLeft, ChevronRight, Lock,
-  FileText, Settings, BarChart3, List, Layers, Trash2, GripVertical, Edit3,
-  Clock, TrendingUp,
+  FileText, Settings, BarChart3, List, Layers, Trash2, Edit3,
+  TrendingUp,
 } from 'lucide-react';
 import { Table, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
-import { fetchTickets, api, fetchTicketStats, fetchTicketCategories, deleteTicketCategory, reorderTicketCategories, generateTicketTranscript } from '@/lib/api';
+import { fetchTickets, api, fetchTicketStats, fetchTicketCategories, deleteTicketCategory, generateTicketTranscript } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { TicketData } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
@@ -72,8 +72,7 @@ export default function TicketsPage() {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  // categories expandable state managed internally by SectionCard
+  const [expandedCategory] = useState<string | null>(null);
 
   const [stats, setStats] = useState<{
     totalOpen: number; totalClosed: number;
@@ -146,21 +145,6 @@ export default function TicketsPage() {
     if (!confirm('Supprimer cette catégorie ?')) return;
     await deleteTicketCategory(guildId, id);
     loadCategories();
-  };
-
-  const handleDragStart = (idx: number) => setDragIdx(idx);
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    if (dragIdx === null || dragIdx === idx) return;
-    const reordered = [...categories];
-    const [item] = reordered.splice(dragIdx, 1);
-    reordered.splice(idx, 0, item);
-    setCategories(reordered);
-    setDragIdx(idx);
-  };
-  const handleDragEnd = async () => {
-    setDragIdx(null);
-    await reorderTicketCategories(guildId, categories.map((c) => c.id));
   };
 
   const columns: Column<TicketData>[] = [
@@ -285,7 +269,7 @@ export default function TicketsPage() {
             <EmptyState title="Aucune catégorie" description="Créez votre première catégorie de tickets." />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {categories.map((cat, idx) => (
+              {categories.map((cat) => (
                 <SectionCard
                   key={cat.id}
                   title={cat.name}

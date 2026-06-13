@@ -3,19 +3,17 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Vote, Plus, BarChart3, X, Plus as PlusIcon,
-  ChevronLeft, ChevronRight, Trash2, CheckCircle, Clock
+  Vote, BarChart3, X, Plus as PlusIcon,
+  Trash2, CheckCircle, Clock
 } from 'lucide-react';
-import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState, Select } from '@pinguin/ui';
+import { Input, Button, Badge, Modal, Skeleton, EmptyState, Select } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchPolls, fetchGuildChannels, api } from '@/lib/api';
 import type { Poll } from '@pinguin/shared';
-import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { useBackgroundRefresh } from '@/lib/hooks';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
-import { ModuleGrid } from '@/components/layout/ModuleGrid';
 
 const OPTION_COLORS = ['#5865f2', '#ed4245', '#57f287', '#fee75c', '#eb459e', '#00b0f4', '#95e5d7', '#ff73fa', '#faa61a'];
 
@@ -24,8 +22,8 @@ export default function PollsPage() {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [page] = useState(1);
+  const [, setTotalPages] = useState(1);
   const [selectedPoll, setSelectedPoll] = useState<Poll | null>(null);
   const [form, setForm] = useState({ question: '', options: ['', ''], duration: 300, channelId: '' });
   const [channels, setChannels] = useState<{ id: string; name: string }[]>([]);
@@ -156,7 +154,7 @@ export default function PollsPage() {
       >
         <div className="mb-4"><ModuleToggle guildId={guildId} moduleKey="polls" label="Sondages" /></div>
 
-        <SectionCard title="Créer un sondage" icon={<Plus size={16} />}>
+        <SectionCard title="Créer un sondage" icon={<PlusIcon size={16} />}>
           <div className="space-y-4">
             <Input label="Question" value={form.question} onChange={(e) => setForm({ ...form, question: e.target.value })} error={formErrors.question} placeholder="Votre question" />
             <Select

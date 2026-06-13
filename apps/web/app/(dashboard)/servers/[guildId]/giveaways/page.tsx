@@ -3,17 +3,16 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Gift, Plus, Trophy, BarChart3,
-  ChevronLeft, ChevronRight, RotateCcw, XCircle, Trash2,
+  Gift, Trophy, BarChart3,
+  RotateCcw, XCircle, Trash2,
   Clock, History
 } from 'lucide-react';
-import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Input, Button, Select, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGiveaways, fetchGuildChannels, api } from '@/lib/api';
 import { useBackgroundRefresh } from '@/lib/hooks';
 import { formatDate } from '@/lib/utils';
 import type { APIResponse, Giveaway } from '@pinguin/shared';
-import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
@@ -44,8 +43,8 @@ export default function GiveawaysPage() {
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [page] = useState(1);
+  const [, setTotalPages] = useState(1);
   const [channels, setChannels] = useState<{ id: string; name: string }[]>([]);
   const [form, setForm] = useState({
     prize: '', winners: 1, duration: 60, channelId: '',

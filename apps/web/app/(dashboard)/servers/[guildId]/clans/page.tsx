@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Users, Trophy, Shield, Settings, Eye, Swords, Crown
+  Users, Trophy, Settings, Eye, Crown
 } from 'lucide-react';
-import { Card, Input, Toggle, Button, Skeleton, EmptyState, Badge } from '@pinguin/ui';
+import { Input, Toggle, Button, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchClans, fetchGuildSettings, updateGuildSettings, type Clan } from '@/lib/api';
 import { ModuleToggle } from '@/components/ModuleToggle';

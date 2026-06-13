@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Search, Plus, ChevronLeft, ChevronRight, Trash2
 } from 'lucide-react';
-import { Card, Table, Input, Button, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Table, Input, Button, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildBlacklist, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';

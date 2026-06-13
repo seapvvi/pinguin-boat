@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { RefreshCw, Search, Trash2, UserPlus } from 'lucide-react';
-import { Card, Button, Input, Table, EmptyState, Skeleton } from '@pinguin/ui';
+import { Button, Input, Table, EmptyState, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';

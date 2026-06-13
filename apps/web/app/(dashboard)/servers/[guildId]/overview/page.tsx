@@ -28,7 +28,6 @@ export default function GuildOverviewPage() {
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [memberCount, setMemberCount] = useState<number>(0);
   const [channelCount, setChannelCount] = useState<number>(0);
-  const [roleCount, setRoleCount] = useState<number>(0);
   const [recentActivity, setRecentActivity] = useState<{ id?: string; action?: string; createdAt?: string }[]>([]);
 
   const onboarding = useOnboarding(guildId);
@@ -47,7 +46,6 @@ export default function GuildOverviewPage() {
         setConfig(guild);
         setMemberCount((guild as GuildConfig & { memberCount?: number }).memberCount ?? 0);
         setChannelCount((guild as GuildConfig & { channelCount?: number }).channelCount ?? 0);
-        setRoleCount((guild as GuildConfig & { roleCount?: number }).roleCount ?? 0);
       }
       if (casesRes.success && casesRes.data) setCases(casesRes.data.cases ?? []);
       if (auditRes.success && auditRes.data) setRecentActivity(auditRes.data.entries ?? []);

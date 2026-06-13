@@ -6,7 +6,7 @@ import {
   AlertTriangle, Ban, MicOff, UserX,
   Plus, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { Card, Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState, Avatar } from '@pinguin/ui';
+import { Table, Input, Button, Select, Badge, Modal, Skeleton, EmptyState, Avatar } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchModCases, api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';

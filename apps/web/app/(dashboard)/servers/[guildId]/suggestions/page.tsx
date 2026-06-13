@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, MessageSquare, Send, Trash2,
   Settings, BarChart
 } from 'lucide-react';
-import { Card, Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Table, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchSuggestions, api } from '@/lib/api';
 import type { Suggestion } from '@pinguin/shared';

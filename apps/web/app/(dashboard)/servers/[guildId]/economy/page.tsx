@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Banknote, ShoppingCart, Plus, X, Coins, Trophy, Landmark
 } from 'lucide-react';
-import { Card, Toggle, Input, Button, Table, Skeleton, EmptyState, Badge } from '@pinguin/ui';
+import { Toggle, Input, Button, Table, Skeleton, EmptyState, Badge } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, fetchEconomyLeaderboard, updateGuildSettings } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
