@@ -72,7 +72,7 @@ export async function musicRoutes(app: FastifyInstance) {
         if (!queue) return reply.status(404).send(error('Aucune file active'));
 
         if (action === 'volume' && body.value) {
-          await prisma.musicQueue.update({ where: { guildId }, data: { volume: parseInt(body.value) || 50 } });
+          await prisma.musicQueue.update({ where: { guildId }, data: { volume: parseInt(body.value, 10) || 50 } });
         }
         if (action === 'loop' && body.value) {
           await prisma.musicQueue.update({ where: { guildId }, data: { loopMode: body.value as 'NONE' | 'TRACK' | 'QUEUE' } });

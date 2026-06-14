@@ -87,6 +87,16 @@ const envSchema = z.object({
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
+let _allowedRedirectUris: string[] | null = null;
+
+export function getAllowedRedirectUris(): string[] {
+  if (!_allowedRedirectUris) {
+    const appUrl = getConfig().NEXT_PUBLIC_APP_URL.replace(/\/+$/, '');
+    _allowedRedirectUris = [`${appUrl}/auth/callback`];
+  }
+  return _allowedRedirectUris;
+}
+
 let config: EnvConfig | null = null;
 
 export function loadConfig(): EnvConfig {

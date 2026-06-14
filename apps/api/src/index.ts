@@ -248,12 +248,17 @@ async function main() {
 
 main();
 
-async function shutdown(signal: string) {
-  app.log.info(`Signal ${signal} reçu, arrêt gracieux...`);
-  await app.close();
-  await prisma.$disconnect();
-  process.exit(0);
+async function gracefulShutdown(signal: string) {
+  console.log(`Signal ${signal} reçu, arrêt gracieux...`);
+  try {
+    await app.close();       // ferme les connexions HTTP en cours
+    await prisma.$disconnect();
+    console.log('Arrêt propre effectué');
+    process.exit(0);
+  } catch (err) {
+    console.error('Erreur lors de l\'arrêt gracieux:', err);
+    process.exit(1);
+  }
 }
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

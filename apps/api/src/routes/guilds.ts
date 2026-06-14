@@ -1,80 +1,95 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '@pinguin/db';
-import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
 import { requireGuildAdmin } from '../middleware/guild-auth';
 import { validateParams, validateBody } from '../middleware/validate';
 import { success, error, sanitizeError } from '../utils/response';
-import { getQueueState, botControl, botPlay, notifyModuleChange, createTicketChannel, leaveGuildViaBot, invalidateBotAutoModCache } from '../services/bot-proxy';
-import { closeTicketWithTranscript } from '../services/ticket-close';
-import { generateTicketTranscriptHtml } from '../services/pastebin';
-import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, getGuildMember, getBotUserId, DISCORD_PERMISSIONS, NUMBER_EMOJIS } from '../services/discord';
+import { MODULE_FIELDS, MODULE_DEFAULTS, guildIdSchema, suggestionIdSchema, giveawayIdSchema, pollIdSchema, economySchema, levelsSchema, welcomeSchema, protectionSchema, autoroleSchema, computeDisabledModules, mapLogsPayload, transformAutoroleSettings, getEconomySettings } from '../utils/guild-helpers';
+import { getQueueState, botControl, notifyModuleChange } from '../services/bot-proxy';
+import { sendDM, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, getGuildChannels, getGuildRoles, getGuildMember, getBotGuilds, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
 
-const config = getConfig();
-
-const guildIdSchema = z.object({ guildId: z.string().min(1) });
-const ticketIdSchema = z.object({ guildId: z.string().min(1), ticketId: z.string().min(1) });
-const suggestionIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
-const giveawayIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
-const pollIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
-
-const autoroleSchema = z.object({
-  enabled: z.boolean().optional(),
-  roleIds: z.array(z.string()).optional(),
-  botRoles: z.array(z.string()).optional(),
-});
+import { moderationRoutes } from './guild/moderation';
+import { ticketsRoutes } from './guild/tickets';
+import { economyRoutes } from './guild/economy';
+import { levelsRoutes } from './guild/levels';
+import { welcomeRoutes } from './guild/welcome';
+import { protectionRoutes } from './guild/protection';
+import { settingsRoutes } from './guild/settings';
+import { membersRoutes } from './guild/members';
 
 const guildParam = { preHandler: [authenticate, validateParams(guildIdSchema)] };
 
 export async function guildRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const allGuilds = await prisma.guild.findMany({
-        select: {
-          id: true, name: true, icon: true, ownerId: true, memberCount: true,
-          botPresent: true, settings: true,
-        },
-        orderBy: [{ botPresent: 'desc' }, { memberCount: 'desc' }],
-      });
       const userDiscordId = request.user!.discordId;
-      // Concurrency-limited checks (max 10 simultaneous Discord API calls)
-      const concurrency = 10;
-      const results: (typeof allGuilds[0] & { isMember: boolean; hasDashboardAccess: boolean })[] = [];
-      for (let i = 0; i < allGuilds.length; i += concurrency) {
-        const batch = allGuilds.slice(i, i + concurrency);
+
+      const botGuilds = await getBotGuilds().catch(() => null as Array<{ id: string }> | null);
+      const botGuildIds = botGuilds ? new Set(botGuilds.map(g => g.id)) : null;
+
+      const [allGuilds, userMemberships] = await Promise.all([
+        prisma.guild.findMany({
+          select: {
+            id: true, name: true, icon: true, ownerId: true, memberCount: true,
+            botPresent: true, settings: true,
+          },
+          orderBy: [{ botPresent: 'desc' }, { memberCount: 'desc' }],
+        }),
+        prisma.guildMember.findMany({
+          where: { userId: userDiscordId },
+          select: { guildId: true, isOwner: true },
+        }),
+      ]);
+
+      const membershipMap = new Map(userMemberships.map(m => [m.guildId, m.isOwner]));
+
+      const candidateGuilds = allGuilds.filter(g => {
+        if (botGuildIds && !botGuildIds.has(g.id)) return false;
+        return membershipMap.has(g.id);
+      });
+
+      const needsRoleCheck = candidateGuilds.filter(g => {
+        if (membershipMap.get(g.id) || g.ownerId === userDiscordId) return false;
+        try {
+          const roles: string[] = g.settings ? JSON.parse(g.settings.dashboardAccessRoles || '[]') : [];
+          return roles.length > 0;
+        } catch { return false; }
+      });
+
+      const discordMemberRoles = new Map<string, string[]>();
+      for (let i = 0; i < needsRoleCheck.length; i += 10) {
+        const batch = needsRoleCheck.slice(i, i + 10);
         const batchResults = await Promise.all(
           batch.map(async (g) => {
             const member = await getGuildMember(g.id, userDiscordId).catch(() => null);
-            if (!member) return { ...g, isMember: false, hasDashboardAccess: false };
-            
-            const isOwner = g.ownerId === userDiscordId;
-            const roles = await getGuildRoles(g.id).catch(() => [] as Array<{ id: string; permissions?: string }>);
-            const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
-            let permissions = BigInt(0);
-            for (const role of roles) {
-              if (memberRoleIds.includes(role.id)) {
-                permissions |= BigInt(role.permissions ?? 0);
-              }
-            }
-            const ADMINISTRATOR = BigInt(0x8);
-            const isAdmin = (permissions & ADMINISTRATOR) !== BigInt(0);
-            
-            // Check role-based dashboard access
-            let dashboardAccessRoles: string[] = [];
-            try {
-              dashboardAccessRoles = g.settings ? JSON.parse(g.settings.dashboardAccessRoles || '[]') : [];
-            } catch {
-              dashboardAccessRoles = [];
-            }
-            const hasDashboardAccess = isOwner || isAdmin || dashboardAccessRoles.some((r: string) => memberRoleIds.includes(r));
-            
-            return { ...g, isMember: true, hasDashboardAccess };
+            return {
+              guildId: g.id,
+              roles: member && Array.isArray(member.roles) ? (member.roles as string[]) : [],
+            };
           })
         );
-        results.push(...batchResults);
+        for (const r of batchResults) discordMemberRoles.set(r.guildId, r.roles);
       }
-      const guilds = results.filter(g => g.isMember && g.hasDashboardAccess);
+
+      const results: (typeof allGuilds[0] & { isMember: boolean; hasDashboardAccess: boolean })[] = [];
+      for (const g of candidateGuilds) {
+        const isOwner = membershipMap.get(g.id) || g.ownerId === userDiscordId;
+        if (isOwner) {
+          results.push({ ...g, isMember: true, hasDashboardAccess: true });
+          continue;
+        }
+        let dashboardRoles: string[] = [];
+        try { dashboardRoles = g.settings ? JSON.parse(g.settings.dashboardAccessRoles || '[]') : []; } catch { dashboardRoles = []; }
+        if (dashboardRoles.length === 0) {
+          results.push({ ...g, isMember: true, hasDashboardAccess: false });
+          continue;
+        }
+        const memberRoles = discordMemberRoles.get(g.id) ?? [];
+        results.push({ ...g, isMember: true, hasDashboardAccess: dashboardRoles.some(r => memberRoles.includes(r)) });
+      }
+
+      const guilds = results.filter(g => g.hasDashboardAccess);
       guilds.sort((a, b) => {
         if (a.botPresent !== b.botPresent) return a.botPresent ? -1 : 1;
         return b.memberCount - a.memberCount;
@@ -94,54 +109,6 @@ export async function guildRoutes(app: FastifyInstance) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
-
-  const MODULE_FIELDS = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'] as const;
-  const MODULE_DEFAULTS: Record<string, boolean> = {
-    moderation: true, protection: true, tickets: true, logs: true,
-    levels: true, economy: false, music: true, giveaways: true,
-    polls: true, suggestions: true, welcome: true, autoroles: true, embeds: true,
-    minigames: true, starboard: false, forms: false, clans: false, notifications: false,
-  };
-
-  function computeDisabledModules(modulesEnabled: any): string[] {
-    return MODULE_FIELDS
-      .filter(f => modulesEnabled ? !modulesEnabled[f] : !MODULE_DEFAULTS[f])
-      .map(f => f.toUpperCase());
-  }
-
-  const defaultEconomy = () => ({
-    enabled: false, currencyName: 'pièces', currencySymbol: '🪙',
-    dailyAmount: 200, weeklyAmount: 1000, startupBalance: 100,
-    workMin: 10, workMax: 50, workCooldown: 60,
-    robberyEnabled: false, robberyMaxAmount: 500, robberyCooldown: 3600,
-    interestRate: 5, interestInterval: 86400, bankCapacity: 50000,
-    shopItems: [],
-  });
-
-  function mapLogsPayload(logSettings: { logChannelId: string | null; events: string; ignoredChannels: string; ignoredRoles: string } | null, modules?: { logs?: boolean } | null) {
-    const events = logSettings ? JSON.parse(logSettings.events || '[]') : [];
-    return {
-      enabled: modules?.logs ?? true,
-      logChannelId: logSettings?.logChannelId ?? null,
-      enabledEvents: events,
-      ignoreChannels: logSettings ? JSON.parse(logSettings.ignoredChannels || '[]') : [],
-      ignoreUsers: logSettings ? JSON.parse(logSettings.ignoredRoles || '[]') : [],
-    };
-  }
-
-  async function getEconomySettings(guildId: string) {
-    let es = await prisma.economySettings.findUnique({
-      where: { guildId },
-      include: { shopItems: true },
-    });
-    if (!es) {
-      es = await prisma.economySettings.create({
-        data: { guildId },
-        include: { shopItems: true },
-      });
-    }
-    return es;
-  }
 
   app.get('/:guildId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -288,11 +255,10 @@ export async function guildRoutes(app: FastifyInstance) {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
 
-      // -- disabledModules --
       if (Array.isArray(body.disabledModules)) {
         const data: Record<string, boolean> = {};
         for (const f of MODULE_FIELDS) {
-          data[f] = !body.disabledModules.map((m: string) => m.toLowerCase()).includes(f);
+          data[f] = !(body.disabledModules as string[]).map((m: string) => m.toLowerCase()).includes(f);
         }
         await prisma.moduleEnabled.upsert({
           where: { guildId },
@@ -300,15 +266,16 @@ export async function guildRoutes(app: FastifyInstance) {
           create: { guildId, ...data },
         });
         try {
-          await notifyModuleChange(guildId, body.disabledModules);
-        } catch {
-          // bot offline, DB already updated, bot will reload on next restart
-        }
+          await notifyModuleChange(guildId, body.disabledModules as string[]);
+        } catch {}
       }
 
-      // -- economy --
       if (body.economy) {
-        const ec = body.economy;
+        const parsed = economySchema.safeParse(body.economy);
+        if (!parsed.success) {
+          return reply.status(400).send(error(parsed.error.errors.map(e => e.message).join(', ')));
+        }
+        const ec = parsed.data;
         const { shopItems: shopItemsPayload, ...ecScalar } = ec;
         const economy = await prisma.economySettings.upsert({
           where: { guildId },
@@ -347,13 +314,12 @@ export async function guildRoutes(app: FastifyInstance) {
         }
       }
 
-      // -- autoroles --
       if (body.autoroles) {
-        const ar = body.autoroles;
+        const ar = body.autoroles as Record<string, unknown>;
         const settings = await prisma.autoroleSettings.upsert({
           where: { guildId },
-          update: { enabled: ar.enabled ?? undefined },
-          create: { guildId, enabled: ar.enabled ?? false },
+          update: { enabled: ar.enabled as boolean | undefined },
+          create: { guildId, enabled: (ar.enabled as boolean) ?? false },
         });
         await prisma.autoroleEntry.deleteMany({ where: { settingsId: settings.id } });
         const entries: any[] = [];
@@ -372,9 +338,12 @@ export async function guildRoutes(app: FastifyInstance) {
         }
       }
 
-      // -- levels --
       if (body.levels) {
-        const lv = body.levels;
+        const parsed = levelsSchema.safeParse(body.levels);
+        if (!parsed.success) {
+          return reply.status(400).send(error(parsed.error.errors.map(e => e.message).join(', ')));
+        }
+        const lv = parsed.data;
         await prisma.xPSettings.upsert({
           where: { guildId },
           update: {
@@ -421,9 +390,12 @@ export async function guildRoutes(app: FastifyInstance) {
         }
       }
 
-      // -- welcome --
       if (body.welcome) {
-        const w = body.welcome;
+        const parsed = welcomeSchema.safeParse(body.welcome);
+        if (!parsed.success) {
+          return reply.status(400).send(error(parsed.error.errors.map(e => e.message).join(', ')));
+        }
+        const w = parsed.data;
         await (prisma.welcomeSettings as { upsert: Function }).upsert({
           where: { guildId },
           update: {
@@ -458,24 +430,23 @@ export async function guildRoutes(app: FastifyInstance) {
         });
       }
 
-      // -- logSettings (also accepts body.logs) --
       const logData = body.logSettings || body.logs;
       if (logData) {
-        const ls = logData;
+        const ls = logData as Record<string, unknown>;
         const eventsList = ls.enabledEvents ?? ls.events;
         const ignoreCh = ls.ignoreChannels ?? ls.ignoredChannels;
         const ignoreUs = ls.ignoreUsers ?? ls.ignoredRoles;
         await prisma.logSettings.upsert({
           where: { guildId },
           update: {
-            logChannelId: ls.logChannelId ?? undefined,
+            logChannelId: ls.logChannelId as string | undefined,
             events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : undefined,
             ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : undefined,
             ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : undefined,
           },
           create: {
             guildId,
-            logChannelId: ls.logChannelId ?? null,
+            logChannelId: (ls.logChannelId as string) ?? null,
             events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : '[]',
             ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : '[]',
             ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : '[]',
@@ -483,7 +454,6 @@ export async function guildRoutes(app: FastifyInstance) {
         });
       }
 
-      // -- embeds --
       if (body.embeds && Array.isArray(body.embeds)) {
         await prisma.$transaction([
           prisma.savedEmbed.deleteMany({ where: { guildId } }),
@@ -509,9 +479,12 @@ export async function guildRoutes(app: FastifyInstance) {
         ]);
       }
 
-      // -- protection --
       if (body.protection) {
-        const p = body.protection;
+        const parsed = protectionSchema.safeParse(body.protection);
+        if (!parsed.success) {
+          return reply.status(400).send(error(parsed.error.errors.map(e => e.message).join(', ')));
+        }
+        const p = parsed.data;
         await prisma.protectionSettings.upsert({
           where: { guildId },
           update: {
@@ -538,17 +511,17 @@ export async function guildRoutes(app: FastifyInstance) {
 
       const settingsPayload = body.settings || body.guild;
       if (settingsPayload) {
-        const s = settingsPayload;
+        const s = settingsPayload as Record<string, unknown>;
         await prisma.guildSettings.upsert({
           where: { guildId },
           update: {
-            prefix: s.prefix ?? undefined,
-            locale: s.locale ?? undefined,
-            timezone: s.timezone ?? undefined,
-            modLogChannel: s.modLogChannel ?? undefined,
+            prefix: s.prefix as string | undefined,
+            locale: s.locale as string | undefined,
+            timezone: s.timezone as string | undefined,
+            modLogChannel: s.modLogChannel as string | undefined,
             modRoleIds: Array.isArray(s.modRoleIds) ? JSON.stringify(s.modRoleIds) : undefined,
             adminRoleIds: Array.isArray(s.adminRoleIds) ? JSON.stringify(s.adminRoleIds) : undefined,
-            muteRoleId: s.muteRoleId ?? undefined,
+            muteRoleId: s.muteRoleId as string | undefined,
             dashboardAccessRoles: Array.isArray(s.dashboardAccessRoles) ? JSON.stringify(s.dashboardAccessRoles) : undefined,
             dashboardModerationAccess: Array.isArray(s.dashboardModerationAccess) ? JSON.stringify(s.dashboardModerationAccess) : undefined,
             dashboardTicketsAccess: Array.isArray(s.dashboardTicketsAccess) ? JSON.stringify(s.dashboardTicketsAccess) : undefined,
@@ -566,13 +539,13 @@ export async function guildRoutes(app: FastifyInstance) {
           },
           create: {
             guildId,
-            prefix: s.prefix ?? null,
-            locale: s.locale ?? 'fr',
-            timezone: s.timezone ?? 'Europe/Paris',
-            modLogChannel: s.modLogChannel ?? null,
+            prefix: (s.prefix as string) ?? null,
+            locale: (s.locale as string) ?? 'fr',
+            timezone: (s.timezone as string) ?? 'Europe/Paris',
+            modLogChannel: (s.modLogChannel as string) ?? null,
             modRoleIds: Array.isArray(s.modRoleIds) ? JSON.stringify(s.modRoleIds) : '[]',
             adminRoleIds: Array.isArray(s.adminRoleIds) ? JSON.stringify(s.adminRoleIds) : '[]',
-            muteRoleId: s.muteRoleId ?? null,
+            muteRoleId: (s.muteRoleId as string) ?? null,
             dashboardAccessRoles: Array.isArray(s.dashboardAccessRoles) ? JSON.stringify(s.dashboardAccessRoles) : '[]',
             dashboardModerationAccess: Array.isArray(s.dashboardModerationAccess) ? JSON.stringify(s.dashboardModerationAccess) : '[]',
             dashboardTicketsAccess: Array.isArray(s.dashboardTicketsAccess) ? JSON.stringify(s.dashboardTicketsAccess) : '[]',
@@ -591,7 +564,6 @@ export async function guildRoutes(app: FastifyInstance) {
         });
       }
 
-      // -- re-fetch and return --
       const guild = await prisma.guild.findUnique({
         where: { id: guildId },
         include: {
@@ -681,1026 +653,197 @@ export async function guildRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get('/:guildId/settings', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  // ─── Music ───
+  app.get('/:guildId/music/queue', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
-      let settings = await prisma.guildSettings.findUnique({ where: { guildId } });
-      if (!settings) {
-        settings = await prisma.guildSettings.create({ data: { guildId } });
-      }
-      reply.send(success({ settings }));
-    } catch (err: unknown) {
-      reply.status(500).send(error(sanitizeError(err)));
-    }
+      const data = await getQueueState(guildId);
+      reply.send(success(data));
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.put('/:guildId/settings', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/:guildId/music/control', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
-      await prisma.guildSettings.upsert({
-        where: { guildId },
-        update: {
-          prefix: body.prefix ?? undefined,
-          locale: body.locale ?? undefined,
-          timezone: body.timezone ?? undefined,
-          modLogChannel: body.modLogChannel ?? undefined,
-          modRoleIds: body.modRoleIds ? JSON.stringify(body.modRoleIds) : undefined,
-          adminRoleIds: body.adminRoleIds ? JSON.stringify(body.adminRoleIds) : undefined,
-          muteRoleId: body.muteRoleId ?? undefined,
-          suggestionChannelId: body.suggestionChannelId ?? undefined,
-        },
-        create: {
-          guildId,
-          prefix: body.prefix ?? '/',
-          locale: body.locale ?? 'fr',
-          modRoleIds: body.modRoleIds ? JSON.stringify(body.modRoleIds) : '[]',
-          adminRoleIds: body.adminRoleIds ? JSON.stringify(body.adminRoleIds) : '[]',
-        },
-      });
-      reply.send(success(null, 'Paramètres mis à jour'));
-    } catch (err: unknown) {
-      reply.status(500).send(error(sanitizeError(err)));
-    }
-  });
-
-  app.get('/:guildId/modules', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      let modules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
-      if (!modules) modules = await prisma.moduleEnabled.create({ data: { guildId } });
-      reply.send(success({ modules }));
-    } catch (err: unknown) {
-      reply.status(500).send(error(sanitizeError(err)));
-    }
-  });
-
-  app.put('/:guildId/modules', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      const fields = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'];
-      const data: Record<string, unknown> = {};
-      for (const f of fields) { if (typeof body[f] === 'boolean') data[f] = body[f]; }
-      if (Object.keys(data).length > 0) {
-        await prisma.moduleEnabled.upsert({ where: { guildId }, update: data, create: { guildId, ...data } });
-      }
-      reply.send(success(null, 'Modules mis à jour'));
-    } catch (err: unknown) {
-      reply.status(500).send(error(sanitizeError(err)));
-    }
-  });
-
-  app.patch('/:guildId/modules', {
-    preHandler: [authenticate, requireGuildAdmin],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, boolean>;
-      const validModules = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'];
-      const updates: Record<string, boolean> = {};
-      for (const [key, val] of Object.entries(body)) {
-        if (validModules.includes(key) && typeof val === 'boolean') {
-          updates[key] = val;
-        }
-      }
-      if (Object.keys(updates).length === 0) {
-        return reply.status(400).send(error('Aucun module valide à mettre à jour'));
-      }
-      const result = await prisma.moduleEnabled.upsert({
-        where: { guildId },
-        update: updates,
-        create: { guildId, ...updates },
-      });
-      try { await notifyModuleChange(guildId, validModules.filter((m) => !(result as Record<string, boolean | undefined>)[m])); } catch {}
-      reply.send(success(result, 'Modules mis à jour'));
+      await botControl(guildId, body.action as string, body.value);
+      reply.send(success({ action: body.action }));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.patch('/:guildId/modules/:moduleKey', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, moduleKey } = request.params as { guildId: string; moduleKey: string };
-      const { enabled } = request.body as { enabled?: boolean };
-      const validModules = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'];
-      if (!validModules.includes(moduleKey)) return reply.status(400).send(error('Module inconnu'));
-      await prisma.moduleEnabled.upsert({
-        where: { guildId },
-        update: { [moduleKey]: enabled },
-        create: { guildId, [moduleKey]: enabled },
-      });
-      // Notify the bot of the module change
-      const allModules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
-      const disabled = allModules ? validModules.filter((m) => !(allModules as Record<string, boolean | undefined>)[m]) : [];
-      try { await notifyModuleChange(guildId, disabled); } catch {}
-      reply.send(success({ moduleKey, enabled }, 'Module mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/my-permissions', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const discordId = request.user!.discordId;
-      const member = await getGuildMember(guildId, discordId).catch(() => null);
-      if (!member) return reply.status(403).send(error('Membre introuvable dans ce serveur'));
-      const roles = await getGuildRoles(guildId).catch(() => [] as Array<{ id: string; permissions?: string }>);
-      const guild = await prisma.guild.findUnique({ where: { id: guildId }, include: { settings: true } });
-      const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
-      let permissions = BigInt(0);
-      for (const role of roles) {
-        if (memberRoleIds.includes(role.id)) {
-          permissions |= BigInt(role.permissions ?? 0);
-        }
-      }
-      const isOwner = guild?.ownerId === discordId;
-      if (isOwner) permissions = BigInt('9007199254740991');
-      const ADMINISTRATOR = BigInt(0x8);
-      const MANAGE_GUILD = BigInt(0x20);
-      const MANAGE_ROLES = BigInt(0x10000000);
-      const MANAGE_MESSAGES = BigInt(0x2000);
-      const isAdmin = (permissions & ADMINISTRATOR) !== BigInt(0);
-      
-      // Check role-based dashboard access
-      const settings = guild?.settings;
-      const dashboardAccessRoles = settings ? JSON.parse(settings.dashboardAccessRoles || '[]') : [];
-      const hasDashboardAccess = isOwner || isAdmin || dashboardAccessRoles.some((r: string) => memberRoleIds.includes(r));
-      
-      // Module-specific access
-      const hasAccess = (accessField: string) => {
-        if (isOwner || isAdmin) return true;
-        const accessRoles = settings ? JSON.parse((settings as Record<string, string>)[accessField] || '[]') : [];
-        return accessRoles.some((r: string) => memberRoleIds.includes(r));
-      };
-      
-      reply.send(success({
-        isOwner,
-        isAdmin,
-        hasDashboardAccess,
-        permissions: permissions.toString(),
-        can: {
-          manageGuild: isAdmin || (permissions & MANAGE_GUILD) !== BigInt(0),
-          manageRoles: isAdmin || (permissions & MANAGE_ROLES) !== BigInt(0),
-          manageMessages: isAdmin || (permissions & MANAGE_MESSAGES) !== BigInt(0),
-        },
-        dashboard: {
-          moderation: hasAccess('dashboardModerationAccess'),
-          tickets: hasAccess('dashboardTicketsAccess'),
-          polls: hasAccess('dashboardPollsAccess'),
-          suggestions: hasAccess('dashboardSuggestionsAccess'),
-          giveaways: hasAccess('dashboardGiveawaysAccess'),
-          economy: hasAccess('dashboardEconomyAccess'),
-          music: hasAccess('dashboardMusicAccess'),
-          levels: hasAccess('dashboardLevelsAccess'),
-          welcome: hasAccess('dashboardWelcomeAccess'),
-          autoroles: hasAccess('dashboardAutorolesAccess'),
-          logs: hasAccess('dashboardLogsAccess'),
-          protection: hasAccess('dashboardProtectionAccess'),
-          audit: hasAccess('dashboardAuditAccess'),
-        },
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/:guildId/music/history', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const where: Record<string, unknown> = { guildId, deletedAt: null };
-      if (q.search) {
-        where.OR = [
-          { userId: { contains: q.search } },
-          { reason: { contains: q.search, mode: 'insensitive' } },
-        ];
-      }
-      if (q.type) {
-        where.type = q.type;
-      }
-      const [modCases, total] = await Promise.all([
-        prisma.moderationCase.findMany({
-          where, orderBy: { createdAt: 'desc' },
-          skip: (page - 1) * limit, take: limit,
-          include: { user: { select: { username: true, avatar: true } } },
-        }),
-        prisma.moderationCase.count({ where }),
-      ]);
-      reply.send(success({
-        cases: modCases,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      }));
-    } catch (err: unknown) {
-      reply.status(500).send(error(sanitizeError(err)));
-    }
-  });
-
-  async function ensureUser(discordId: string) {
-    const existing = await prisma.user.findUnique({ where: { discordId } });
-    if (existing) return existing;
-    return prisma.user.create({ data: { discordId, username: discordId } });
-  }
-
-  app.delete('/:guildId/moderation/:caseId', { preHandler: [authenticate, validateParams(z.object({ guildId: z.string(), caseId: z.string() }))] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, caseId } = request.params as { guildId: string; caseId: string };
-      const modCase = await prisma.moderationCase.findFirst({ where: { id: caseId, guildId } });
-      if (!modCase) return reply.status(404).send(error('Cas introuvable'));
-      await prisma.moderationCase.update({ where: { id: caseId }, data: { deletedAt: new Date() } });
-      await prisma.auditLog.create({
-        data: {
-          guildId, action: 'MODERATION_CASE_DELETED',
-          userId: request.user!.id,
-          details: JSON.stringify({ caseId, targetUserId: modCase.userId }),
-        },
-      }).catch(() => {});
-      reply.send(success(null, 'Cas supprimé'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      const type = body.type as string;
-      if (!type || !body.userId || !body.reason)
-        return reply.status(400).send(error('Type, utilisateur et raison requis'));
-      await ensureUser(body.userId);
-
-      const moderatorTag = request.user!.username || 'Dashboard';
-      const reason = body.reason;
-      const durationMs = body.duration ? body.duration * 1000 : null;
-
-      switch (type) {
-        case 'WARN':
-          await sendDM(body.userId, {
-            embeds: [{
-              title: 'Avertissement',
-              description: `Vous avez reçu un avertissement sur le serveur.\nRaison : ${reason}`,
-              color: 0xFFA500,
-              timestamp: new Date().toISOString(),
-            }],
-          }).catch(() => {});
-          break;
-        case 'MUTE':
-        case 'TIMEOUT':
-          await timeoutMember(guildId, body.userId, durationMs);
-          await sendDM(body.userId, {
-            embeds: [{
-              title: 'Mute',
-              description: `Vous avez été rendu muet.\nRaison : ${reason}${durationMs ? `\nDurée : ${Math.round(durationMs / 60000)} minutes` : ''}`,
-              color: 0xFF0000,
-              timestamp: new Date().toISOString(),
-            }],
-          }).catch(() => {});
-          break;
-        case 'UNMUTE':
-          await timeoutMember(guildId, body.userId, null);
-          break;
-        case 'KICK':
-          await kickMember(guildId, body.userId, `Expulsé par ${moderatorTag}: ${reason}`);
-          await sendDM(body.userId, {
-            embeds: [{
-              title: 'Expulsion',
-              description: `Vous avez été expulsé du serveur.\nRaison : ${reason}`,
-              color: 0xFF0000,
-              timestamp: new Date().toISOString(),
-            }],
-          }).catch(() => {});
-          break;
-        case 'BAN':
-        case 'TEMPBAN':
-          await banMember(guildId, body.userId, `Banni par ${moderatorTag}: ${reason}`);
-          await sendDM(body.userId, {
-            embeds: [{
-              title: 'Bannissement',
-              description: `Vous avez été banni du serveur.\nRaison : ${reason}${type === 'TEMPBAN' && durationMs ? `\nDurée : ${Math.round(durationMs / 3600000)} heures` : ''}`,
-              color: 0xFF0000,
-              timestamp: new Date().toISOString(),
-            }],
-          }).catch(() => {});
-          break;
-        case 'UNBAN':
-          await unbanMember(guildId, body.userId, `Débanni par ${moderatorTag}: ${reason}`);
-          break;
-        default:
-          return reply.status(400).send(error(`Type de modération inconnu: ${type}`));
-      }
-
-      const modCase = await prisma.moderationCase.create({
-        data: {
-          guildId, userId: body.userId, moderatorId: request.user!.discordId,
-          type, reason,
-          duration: body.duration ? body.duration * 60 : null, // web sends minutes → store as seconds
-          expiresAt: body.duration ? new Date(Date.now() + body.duration * 60 * 1000) : null,
-        },
-      });
-      reply.status(201).send(success(modCase, 'Action exécutée sur Discord'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/:guildId/moderation/:caseId/revoke', { preHandler: [authenticate, validateParams(z.object({ guildId: z.string(), caseId: z.string() }))] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, caseId } = request.params as { guildId: string; caseId: string };
-      const modCase = await prisma.moderationCase.findFirst({ where: { id: caseId, guildId } });
-      if (!modCase) return reply.status(404).send(error('Cas introuvable'));
-
-      if (modCase.type === 'BAN' || modCase.type === 'TEMPBAN') {
-        await unbanMember(guildId, modCase.userId, 'Révoqué via dashboard');
-      } else if (modCase.type === 'TIMEOUT') {
-        await timeoutMember(guildId, modCase.userId, null);
-      } else {
-        return reply.status(400).send(error('Ce type de sanction ne peut pas être révoqué'));
-      }
-
-      await prisma.moderationCase.update({
-        where: { id: caseId },
-        data: { active: false },
-      });
-
-      await prisma.auditLog.create({
-        data: {
-          guildId,
-          action: 'MODERATION_CASE_DELETED',
-          userId: request.user!.id,
-          details: JSON.stringify({ caseId, targetUserId: modCase.userId, caseType: modCase.type }),
-        },
-      }).catch(() => {});
-
-      reply.send(success(null, 'Sanction révoquée'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/blacklist', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const where: Record<string, unknown> = { guildId };
-      if (q.search) {
-        where.userId = { contains: q.search };
-      }
+      const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(q.limit ?? '20', 10) || 20));
       const [entries, total] = await Promise.all([
-        prisma.guildBlacklistUser.findMany({
-          where, orderBy: { createdAt: 'desc' },
+        prisma.musicHistoryEntry.findMany({
+          where: { guildId }, orderBy: { playedAt: 'desc' },
           skip: (page - 1) * limit, take: limit,
         }),
-        prisma.guildBlacklistUser.count({ where }),
+        prisma.musicHistoryEntry.count({ where: { guildId } }),
       ]);
-      reply.send(success({
-        entries,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      }));
-    } catch (err: unknown) {
-      reply.status(500).send(error(sanitizeError(err)));
-    }
-  });
-
-  app.post('/:guildId/blacklist', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      if (!body.userId || !body.reason) {
-        return reply.status(400).send(error('ID utilisateur et raison requis'));
-      }
-      const existing = await prisma.guildBlacklistUser.findUnique({
-        where: { guildId_userId: { guildId, userId: body.userId } },
-      });
-      if (existing) {
-        return reply.status(400).send(error('Utilisateur déjà blacklisté'));
-      }
-      const entry = await prisma.guildBlacklistUser.create({
-        data: {
-          guildId,
-          userId: body.userId,
-          reason: body.reason,
-          moderatorId: request.user!.discordId,
-        },
-      });
-      await prisma.auditLog.create({
-        data: {
-          guildId,
-          action: 'BLACKLIST_ADD',
-          userId: request.user!.id,
-          details: JSON.stringify({ targetUserId: body.userId, reason: body.reason }),
-        },
-      }).catch(() => {});
-      reply.status(201).send(success(entry, 'Utilisateur ajouté à la blacklist'));
+      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.delete('/:guildId/blacklist/:userId', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, userId } = request.params as { guildId: string; userId: string };
-      const entry = await prisma.guildBlacklistUser.findUnique({
-        where: { guildId_userId: { guildId, userId } },
-      });
-      if (!entry) {
-        return reply.status(404).send(error('Entrée blacklist introuvable'));
-      }
-      await prisma.guildBlacklistUser.delete({
-        where: { guildId_userId: { guildId, userId } },
-      });
-      await prisma.auditLog.create({
-        data: {
-          guildId,
-          action: 'BLACKLIST_REMOVE',
-          userId: request.user!.id,
-          details: JSON.stringify({ targetUserId: userId }),
-        },
-      }).catch(() => {});
-      reply.send(success(null, 'Utilisateur retiré de la blacklist'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/tickets', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  // ─── Polls ───
+  app.get('/:guildId/polls', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const where: any = { guildId };
-      if (q.status) where.status = q.status;
-      const [tickets, total] = await Promise.all([
-        prisma.ticket.findMany({
-          where, orderBy: { createdAt: 'desc' },
+      const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(q.limit ?? '20', 10) || 20));
+      const [polls, total] = await Promise.all([
+        prisma.poll.findMany({
+          where: { guildId }, orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit, take: limit,
-          include: { creator: { select: { username: true, avatar: true } }, claimedBy: { select: { username: true } } },
+          include: { votes: { select: { userId: true, optionIndex: true, user: { select: { discordId: true } } } } },
         }),
-        prisma.ticket.count({ where }),
+        prisma.poll.count({ where: { guildId } }),
       ]);
-      reply.send(success({
-        tickets,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/:guildId/tickets', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      if (!body.subject) return reply.status(400).send(error('Sujet requis'));
-      const creatorId = body.creatorId || request.user!.discordId;
-      await ensureUser(creatorId);
-      const catId = body.categoryId || undefined;
-      const botUserId = await getBotUserId();
-      const memberPerms = String(DISCORD_PERMISSIONS.VIEW_CHANNEL | DISCORD_PERMISSIONS.SEND_MESSAGES | DISCORD_PERMISSIONS.READ_MESSAGE_HISTORY);
-      const botPerms = String(DISCORD_PERMISSIONS.VIEW_CHANNEL | DISCORD_PERMISSIONS.SEND_MESSAGES | DISCORD_PERMISSIONS.READ_MESSAGE_HISTORY | DISCORD_PERMISSIONS.MANAGE_CHANNELS);
-      let channel: any;
-      try {
-        channel = await createGuildChannel(guildId, {
-          name: `ticket-${body.subject.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 32)}`,
-          type: 0,
-          parent_id: catId,
-          permission_overwrites: [
-            { id: guildId, type: 0, deny: String(DISCORD_PERMISSIONS.VIEW_CHANNEL) },
-            { id: creatorId, type: 1, allow: memberPerms },
-            { id: botUserId, type: 1, allow: botPerms },
-          ],
-          topic: `Ticket: ${body.subject}`,
-        });
-      } catch {
-        return reply.status(500).send(error('Impossible de créer le channel ticket sur Discord'));
-      }
-      await sendChannelMessage(channel.id, {
-        content: `<@${creatorId}>`,
-        embeds: [{
-          title: '🎫 Ticket — Support',
-          description: `**Sujet :** ${body.subject}${body.description ? `\n**Description :** ${body.description}` : ''}\nUn membre de l'équipe va vous répondre sous peu.`,
-          color: 0x00AAFF,
-          timestamp: new Date().toISOString(),
-        }],
-        components: [{
-          type: 1,
-          components: [
-            { type: 2, style: 4, custom_id: 'ticket_close', label: 'Fermer', emoji: { name: '🔒' } },
-            { type: 2, style: 3, custom_id: 'ticket_claim', label: 'Claim', emoji: { name: '🤚' } },
-          ],
-        }],
-      });
-      const ticket = await prisma.ticket.create({
-        data: {
-          guildId, channelId: channel.id, creatorId,
-          subject: body.subject, description: body.description || null,
-          categoryId: body.categoryId || null, status: 'OPEN',
-        },
-      });
-      reply.status(201).send(success(ticket, 'Ticket créé'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.put('/:guildId/tickets/:ticketId', { preHandler: [authenticate, validateParams(ticketIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, ticketId } = request.params as { guildId: string; ticketId: string };
-      const body = request.body as Record<string, unknown>;
-      const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, guildId } });
-      if (!ticket) return reply.status(404).send(error('Ticket introuvable'));
-      const upd: any = {};
-      const action = body.action || (body.status ? 'status' : null);
-      if (action === 'close' || action === 'CLOSED') {
-        upd.status = 'CLOSED'; upd.closedAt = new Date(); upd.closedById = request.user!.discordId;
-      } else if (action === 'claim' || action === 'CLAIMED') {
-        upd.status = 'CLAIMED'; upd.claimedById = body.claimedById || request.user!.discordId;
-      } else if (action === 'unclaim') {
-        upd.status = 'OPEN'; upd.claimedById = null;
-      } else if (body.status) {
-        upd.status = body.status;
-      }
-      if (body.claimedById !== undefined && !upd.claimedById) upd.claimedById = body.claimedById;
-      const updated = await prisma.ticket.update({ where: { id: ticketId }, data: upd });
-      if (upd.status === 'CLOSED') {
-        const guild = await prisma.guild.findUnique({ where: { id: guildId }, select: { name: true } });
-        await closeTicketWithTranscript(ticketId, request.user!.discordId, {
-          guildName: guild?.name,
-        }).catch(() => {});
-      }
-      if (upd.claimedById && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
-        await editChannel(ticket.channelId, { name: `claimed-${ticket.subject.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 24)}` }).catch(() => {});
-        await sendChannelMessage(ticket.channelId, {
-          embeds: [{ title: 'Ticket réclamé', description: `Ce ticket a été réclamé par <@${upd.claimedById}>.`, color: 0x00FF00, timestamp: new Date().toISOString() }],
-        }).catch(() => {});
-      }
-      if (upd.claimedById === null && ticket.channelId && !ticket.channelId.startsWith('pending-')) {
-        await editChannel(ticket.channelId, { name: `ticket-${ticket.subject.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 24)}` }).catch(() => {});
-        await sendChannelMessage(ticket.channelId, {
-          embeds: [{ title: 'Ticket non réclamé', description: `Ce ticket n'est plus réclamé.`, color: 0xFFA500, timestamp: new Date().toISOString() }],
-        }).catch(() => {});
-      }
-      reply.send(success(updated, 'Ticket mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // ─── Ticket stats ───
-  app.get('/:guildId/tickets/stats', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-      const [totalOpen, totalClosed, closedTickets, recentClaims] = await Promise.all([
-        prisma.ticket.count({ where: { guildId, status: { in: ['OPEN', 'CLAIMED', 'PENDING'] } } }),
-        prisma.ticket.count({ where: { guildId, status: 'CLOSED' } }),
-        // Closed tickets for resolution and by-category stats
-        prisma.ticket.findMany({
-          where: { guildId, status: 'CLOSED', closedAt: { not: null } },
-          select: { id: true, categoryId: true, createdAt: true, closedAt: true },
-        }),
-        // Claims in last 30 days for response time
-        prisma.ticketClaim.findMany({
-          where: {
-            ticket: { guildId, createdAt: { gte: thirtyDaysAgo } },
-          },
-          include: { ticket: { select: { id: true, categoryId: true, createdAt: true } } },
-        }),
-      ]);
-
-      // Avg response time (claimedAt - createdAt)
-      let avgResponseTimeMs = 0;
-      if (recentClaims.length > 0) {
-        const totalMs = recentClaims.reduce((sum, c) => sum + (c.claimedAt.getTime() - c.ticket.createdAt.getTime()), 0);
-        avgResponseTimeMs = Math.round(totalMs / recentClaims.length);
-      }
-
-      // Avg resolution time (closedAt - createdAt)
-      let avgResolutionTimeMs = 0;
-      if (closedTickets.length > 0) {
-        const totalMs = closedTickets.reduce((sum, t) => sum + (t.closedAt!.getTime() - t.createdAt.getTime()), 0);
-        avgResolutionTimeMs = Math.round(totalMs / closedTickets.length);
-      }
-
-      // By-category stats
-      const catCount = new Map<string, { count: number; totalResolution: number; totalResponse: number; claimCount: number }>();
-      for (const t of closedTickets) {
-        const catId = t.categoryId ?? '__none__';
-        if (!catCount.has(catId)) catCount.set(catId, { count: 0, totalResolution: 0, totalResponse: 0, claimCount: 0 });
-        const entry = catCount.get(catId)!;
-        entry.count++;
-        entry.totalResolution += t.closedAt!.getTime() - t.createdAt.getTime();
-      }
-      for (const c of recentClaims) {
-        const catId = c.ticket.categoryId ?? '__none__';
-        if (!catCount.has(catId)) catCount.set(catId, { count: 0, totalResolution: 0, totalResponse: 0, claimCount: 0 });
-        const entry = catCount.get(catId)!;
-        entry.totalResponse += c.claimedAt.getTime() - c.ticket.createdAt.getTime();
-        entry.claimCount++;
-      }
-
-      const categoryIds = [...catCount.keys()].filter((id) => id !== '__none__');
-      const categories = await prisma.ticketCategory.findMany({
-        where: { id: { in: categoryIds } },
-        select: { id: true, name: true },
-      });
-      const catNameMap = new Map(categories.map((c) => [c.id, c.name]));
-
-      const byCategory = [...catCount.entries()]
-        .filter(([id]) => id !== '__none__')
-        .map(([catId, data]) => ({
-          categoryId: catId,
-          categoryName: catNameMap.get(catId) ?? 'Inconnue',
-          count: data.count,
-          avgResponseTimeMs: data.claimCount > 0 ? Math.round(data.totalResponse / data.claimCount) : 0,
-          avgResolutionTimeMs: data.count > 0 ? Math.round(data.totalResolution / data.count) : 0,
-        }));
-
-      reply.send(success({
-        totalOpen,
-        totalClosed,
-        avgResponseTimeMs,
-        avgResolutionTimeMs,
-        byCategory,
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // ─── Transcript export ───
-  app.post('/:guildId/tickets/:ticketId/transcript', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, ticketId } = request.params as { guildId: string; ticketId: string };
-      const body = request.body as { format?: string } | undefined;
-      const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, guildId } });
-      if (!ticket) return reply.status(404).send(error('Ticket introuvable'));
-      if (!ticket.channelId || ticket.channelId.startsWith('pending-')) {
-        return reply.status(400).send(error('Aucun salon Discord associé à ce ticket'));
-      }
-      const settings = await prisma.ticketSettings.findUnique({ where: { guildId } });
-      const format = body?.format ?? settings?.transcriptFormat ?? 'HTML';
-
-      const messages = await getChannelMessages(ticket.channelId, 200);
-      const guild = await prisma.guild.findUnique({ where: { id: guildId }, select: { name: true } });
-
-      if (format === 'TXT') {
-        const lines: string[] = [];
-        lines.push(`Ticket: ${ticket.subject}`);
-        lines.push(`Serveur: ${guild?.name ?? '—'}`);
-        lines.push(`Ouvert le: ${ticket.createdAt.toISOString()}`);
-        lines.push(`Fermé le: ${ticket.closedAt?.toISOString() ?? '—'}`);
-        lines.push(`Statut: ${ticket.status}`);
-        lines.push('');
-        lines.push('─'.repeat(60));
-        lines.push('');
-        const ordered = [...messages].reverse();
-        for (const m of ordered) {
-          const time = m.timestamp ? new Date(m.timestamp).toISOString() : '—';
-          const author = m.author?.username ?? 'Inconnu';
-          const content = m.content ?? '';
-          lines.push(`[${time}] ${author}: ${content}`);
-          if (m.attachments?.length > 0) {
-            for (const a of m.attachments) {
-              lines.push(`  📎 ${a.name ?? 'fichier'}: ${a.url}`);
-            }
+      const data = polls.map((p) => {
+        const parsed = JSON.parse(p.options);
+        const rawOptions = Array.isArray(parsed)
+          ? parsed.map((o: any, i: number) => ({ id: String(i), label: typeof o === 'string' ? o : o.label, votes: 0 }))
+          : [];
+        const votesRecord: Record<string, string> = {};
+        const voteCounts: number[] = new Array(rawOptions.length).fill(0);
+        for (const v of p.votes) {
+          const discordId = v.userId ? ((v as { user?: { discordId: string } }).user?.discordId ?? v.userId) : `anon_${v.optionIndex}`;
+          if (p.anonymous) {
+            voteCounts[v.optionIndex]++;
+          } else {
+            votesRecord[discordId] = String(v.optionIndex);
+            voteCounts[v.optionIndex]++;
           }
         }
-        const txtContent = lines.join('\n');
-
-        // Save to TranscriptMeta
-        await prisma.transcriptMeta.upsert({
-          where: { ticketId },
-          update: { content: txtContent },
-          create: { ticketId, channelId: ticket.channelId, guildId, content: txtContent },
-        });
-
-        reply.send(success({
-          content: txtContent,
-          format: 'TXT',
-          filename: `transcript-${ticket.subject.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 60)}.txt`,
-        }));
-      } else {
-        const html = generateTicketTranscriptHtml(messages, ticket.subject, {
-          guildName: guild?.name,
-          openedAt: ticket.createdAt?.toLocaleString('fr-FR') ?? '—',
-          closedAt: ticket.closedAt?.toLocaleString('fr-FR') ?? '—',
-          closedBy: ticket.closedById ?? '—',
-        });
-
-        // Save to TranscriptMeta
-        await prisma.transcriptMeta.upsert({
-          where: { ticketId },
-          update: { content: html },
-          create: { ticketId, channelId: ticket.channelId, guildId, content: html },
-        });
-
-        reply.send(success({
-          content: html,
-          format: 'HTML',
-          filename: `transcript-${ticket.subject.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 60)}.html`,
-          ticketId,
-        }));
-      }
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // ─── Ticket categories ───
-  app.get('/:guildId/tickets/categories', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const categories = await prisma.ticketCategory.findMany({
-        where: { guildId },
-        orderBy: { position: 'asc' },
+        return {
+          id: p.id, guildId: p.guildId, channelId: p.channelId,
+          question: p.question,
+          options: rawOptions.map((o, i) => ({ id: String(i), label: o.label, votes: voteCounts[i] })),
+          votes: votesRecord,
+          status: p.status === 'OPEN' ? 'ACTIVE' : 'CLOSED' as const,
+          anonymous: p.anonymous, multiChoice: p.multiChoice,
+          endsAt: p.endsAt?.toISOString() ?? null,
+        };
       });
-      const parsed = categories.map((c) => ({
-        ...c,
-        staffRoleIds: JSON.parse(c.staffRoleIds || '[]'),
+      reply.send(success({
+        polls: data,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-      reply.send(success({ categories: parsed }));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.post('/:guildId/tickets/categories', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/:guildId/polls', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
-      if (!body.name) return reply.status(400).send(error('Nom requis'));
-      const maxPos = await prisma.ticketCategory.aggregate({
-        where: { guildId },
-        _max: { position: true },
-      });
-      const category = await prisma.ticketCategory.create({
-        data: {
-          guildId,
-          name: body.name,
-          description: body.description ?? null,
-          staffRoleIds: Array.isArray(body.staffRoleIds) ? JSON.stringify(body.staffRoleIds) : '[]',
-          maxTicketsPerUser: body.maxTicketsPerUser ?? 5,
-          openingMode: body.openingMode ?? 'BUTTON',
-          formId: body.formId ?? null,
-          welcomeMessage: body.welcomeMessage ?? null,
-          color: body.color ?? '#5865F2',
-          emoji: body.emoji ?? null,
-          position: (maxPos._max.position ?? -1) + 1,
-        },
-      });
-      reply.status(201).send(success({ category }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
+      if (!body.question || !(body.options as any[])?.length)
+        return reply.status(400).send(error('Question et options requises'));
+      const channelId = body.channelId as string;
+      if (!channelId) return reply.status(400).send(error('channelId requis pour publier le sondage sur Discord'));
 
-  app.put('/:guildId/tickets/categories/:categoryId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, categoryId } = request.params as { guildId: string; categoryId: string };
-      const body = request.body as Record<string, unknown>;
-      const existing = await prisma.ticketCategory.findFirst({ where: { id: categoryId, guildId } });
-      if (!existing) return reply.status(404).send(error('Catégorie introuvable'));
-      const data: Record<string, unknown> = {};
-      if (body.name !== undefined) data.name = body.name;
-      if (body.description !== undefined) data.description = body.description;
-      if (body.staffRoleIds !== undefined) data.staffRoleIds = JSON.stringify(body.staffRoleIds);
-      if (body.maxTicketsPerUser !== undefined) data.maxTicketsPerUser = body.maxTicketsPerUser;
-      if (body.openingMode !== undefined) data.openingMode = body.openingMode;
-      if (body.formId !== undefined) data.formId = body.formId;
-      if (body.welcomeMessage !== undefined) data.welcomeMessage = body.welcomeMessage;
-      if (body.color !== undefined) data.color = body.color;
-      if (body.emoji !== undefined) data.emoji = body.emoji;
-      if (body.position !== undefined) data.position = body.position;
-      const category = await prisma.ticketCategory.update({ where: { id: categoryId }, data });
-      reply.send(success({ category: { ...category, staffRoleIds: JSON.parse(category.staffRoleIds || '[]') } }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.delete('/:guildId/tickets/categories/:categoryId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, categoryId } = request.params as { guildId: string; categoryId: string };
-      const existing = await prisma.ticketCategory.findFirst({ where: { id: categoryId, guildId } });
-      if (!existing) return reply.status(404).send(error('Catégorie introuvable'));
-      await prisma.ticketCategory.delete({ where: { id: categoryId } });
-      reply.send(success(null, 'Catégorie supprimée'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.patch('/:guildId/tickets/categories/reorder', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as { orderedIds: string[] };
-      if (!Array.isArray(body.orderedIds)) return reply.status(400).send(error('orderedIds requis'));
-      await prisma.$transaction(
-        body.orderedIds.map((id, index) =>
-          prisma.ticketCategory.updateMany({
-            where: { id, guildId },
-            data: { position: index },
-          })
-        )
-      );
-      reply.send(success(null, 'Ordre mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/logs', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      let ls = await prisma.logSettings.findUnique({ where: { guildId } });
-      if (!ls) ls = await prisma.logSettings.create({ data: { guildId } });
-      const modules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
-      reply.send(success(mapLogsPayload(ls, modules)));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.put('/:guildId/logs', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      const eventsList = body.enabledEvents ?? body.events;
-      const ignoreCh = body.ignoreChannels ?? body.ignoredChannels;
-      const ignoreUs = body.ignoreUsers ?? body.ignoredRoles;
-      await prisma.logSettings.upsert({
-        where: { guildId },
-        update: {
-          logChannelId: body.logChannelId ?? undefined,
-          events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : undefined,
-          ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : undefined,
-          ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : undefined,
-        },
-        create: {
-          guildId,
-          logChannelId: body.logChannelId || null,
-          events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : '[]',
-          ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : '[]',
-          ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : '[]',
-        },
-      });
-      reply.send(success(null, 'Logs mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/levels', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      let xp = await prisma.xPSettings.findUnique({ where: { guildId } });
-      if (!xp) {
-        await prisma.guild.upsert({
-          where: { id: guildId },
-          update: {},
-          create: { id: guildId, name: guildId, ownerId: 'unknown', memberCount: 0 },
-        });
-        xp = await prisma.xPSettings.create({ data: { guildId } });
-      }
-      const rewards = await prisma.xPRoleReward.findMany({ where: { guildId }, orderBy: { levelRequired: 'asc' } });
-      reply.send(success({ settings: xp, roleRewards: rewards }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.put('/:guildId/levels', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      await prisma.xPSettings.upsert({
-        where: { guildId },
-        update: {
-          enabled: body.enabled ?? undefined,
-          xpPerMessageMin: body.xpPerMessageMin ?? undefined,
-          xpPerMessageMax: body.xpPerMessageMax ?? undefined,
-          voiceXp: body.voiceXp ?? undefined,
-          messageCooldown: body.messageCooldown ?? undefined,
-          voiceCooldown: body.voiceCooldown ?? undefined,
-          announcementChannelId: body.announcementChannelId ?? undefined,
-          announcementMessage: body.announcementMessage ?? undefined,
-          ignoredChannels: body.ignoredChannels ? JSON.stringify(body.ignoredChannels) : undefined,
-          ignoredRoles: body.ignoredRoles ? JSON.stringify(body.ignoredRoles) : undefined,
-        },
-        create: { guildId, ...body },
-      });
-      if (body.roleRewards) {
-        await prisma.xPRoleReward.deleteMany({ where: { guildId } });
-        for (const r of body.roleRewards) {
-          await prisma.xPRoleReward.create({ data: { guildId, roleId: r.roleId, levelRequired: r.level, xpMultiplier: r.xpMultiplier ?? 1.0 } });
+      let msg: any = null;
+      if (channelId) {
+        const options = (body.options as string[]).map((o: string) => ({ id: o, label: o }));
+        const descLines = options.map((o: any, i: number) => `${NUMBER_EMOJIS[i] || `${i + 1}.`} ${o.label}`).join('\n');
+        try {
+          msg = await sendChannelMessage(channelId, {
+            embeds: [{
+              title: `📊 ${body.question}`,
+              description: descLines,
+              color: 0x00AAFF,
+              footer: { text: 'Réagissez pour voter' },
+              timestamp: new Date().toISOString(),
+            }],
+          });
+          const emojis = options.slice(0, 10).map((_: unknown, i: number) => NUMBER_EMOJIS[i]);
+          for (const emoji of emojis) {
+            await addMessageReaction(channelId, msg.id, emoji);
+            await new Promise((r) => setTimeout(r, 350));
+          }
+        } catch {
+          return reply.status(500).send(error('Impossible de poster le sondage sur Discord'));
         }
       }
-      reply.send(success(null, 'Paramètres XP mis à jour'));
+      const endsAt = body.duration ? new Date(Date.now() + (body.duration as number) * 60 * 1000) : null;
+
+      const poll = await prisma.poll.create({
+        data: {
+          guildId, channelId: channelId || '',
+          messageId: msg?.id || null,
+          question: body.question as string,
+          options: JSON.stringify((body.options as string[]).map((o: string, i: number) => ({ id: String(i), label: o, votes: 0 }))),
+          status: 'OPEN',
+          anonymous: (body.anonymous as boolean) ?? false,
+          multiChoice: (body.multiChoice as boolean) ?? false,
+          endsAt,
+        },
+      });
+      reply.status(201).send(success(poll, 'Sondage créé'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.get('/:guildId/levels/rank-card', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.put('/:guildId/polls/:id', { preHandler: [authenticate, validateParams(pollIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as { guildId: string };
-      let settings = await prisma.rankCardSettings.findUnique({ where: { guildId } });
-      if (!settings) {
-        settings = await prisma.rankCardSettings.create({ data: { guildId } });
-      }
-      reply.send(success({ settings }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.put('/:guildId/levels/rank-card', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
+      const { guildId, id } = request.params as { guildId: string; id: string };
       const body = request.body as Record<string, unknown>;
-      const settings = await prisma.rankCardSettings.upsert({
-        where: { guildId },
-        update: {
-          backgroundType: body.backgroundType ?? undefined,
-          backgroundColor: body.backgroundColor ?? undefined,
-          backgroundImage: body.backgroundImage ?? undefined,
-          gradientFrom: body.gradientFrom ?? undefined,
-          gradientTo: body.gradientTo ?? undefined,
-          xpBarColor: body.xpBarColor ?? undefined,
-          xpBarBackground: body.xpBarBackground ?? undefined,
-          textColor: body.textColor ?? undefined,
-          avatarBorder: body.avatarBorder ?? undefined,
-          avatarBorderColor: body.avatarBorderColor ?? undefined,
-          fontFamily: body.fontFamily ?? undefined,
-        },
-        create: { guildId, ...body },
-      });
-      reply.send(success({ settings }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/levels/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const [profiles, total] = await Promise.all([
-        prisma.xPProfile.findMany({
-          where: { guildId }, orderBy: { xp: 'desc' },
-          skip: (page - 1) * limit, take: limit,
-          include: { user: { select: { username: true, avatar: true } } },
-        }),
-        prisma.xPProfile.count({ where: { guildId } }),
-      ]);
-      const entries = profiles.map((p, i) => ({
-        rank: (page - 1) * limit + i + 1, userId: p.userId,
-        username: p.user.username, avatar: p.user.avatar,
-        xp: p.xp, level: p.level, guildId,
-      }));
+      const p = await prisma.poll.findFirst({ where: { id, guildId }, include: { votes: true } });
+      if (!p) return reply.status(404).send(error('Sondage introuvable'));
+      const upd: any = {};
+      if (body.status) upd.status = body.status === 'CLOSED' ? 'CLOSED' : 'OPEN';
+      const updated = await prisma.poll.update({ where: { id }, data: upd });
+      if (body.status === 'CLOSED' && p.messageId && !p.channelId.startsWith('pending')) {
+        const parsed = JSON.parse(p.options);
+        const rawOptions = Array.isArray(parsed)
+          ? parsed.map((o: any, i: number) => ({ id: String(i), label: typeof o === 'string' ? o : o.label, votes: 0 }))
+          : [];
+        const voteCounts = new Array(rawOptions.length).fill(0);
+        for (const v of (p.votes || [])) voteCounts[v.optionIndex]++;
+        const descLines = rawOptions.map((o: any, i: number) =>
+          `${NUMBER_EMOJIS[i] || `${i + 1}.`} ${o.label} — **${voteCounts[i]}** vote(s)`
+        ).join('\n');
+        await editMessage(p.channelId, p.messageId, {
+          embeds: [{
+            title: `📊 ${p.question} (Terminé)`,
+            description: descLines,
+            color: 0x808080,
+            footer: { text: 'Sondage fermé' },
+            timestamp: new Date().toISOString(),
+          }],
+        }).catch(() => {});
+      }
       reply.send(success({
-        entries,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      }));
+        ...updated,
+        options: JSON.parse(updated.options),
+        endsAt: updated.endsAt?.toISOString() ?? null,
+      }, 'Sondage mis à jour'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.get('/:guildId/economy', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.delete('/:guildId/polls/:id', { preHandler: [authenticate, validateParams(pollIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as { guildId: string };
-      const wallets = await prisma.economyWallet.findMany({
-        where: { guildId }, orderBy: { wallet: 'desc' }, take: 10,
-        include: { user: { select: { username: true, avatar: true } } },
-      });
-      const totalEconomy = await prisma.economyWallet.aggregate({
-        where: { guildId },
-        _sum: { wallet: true, bank: true },
-      });
-      reply.send(success({
-        wallets,
-        totalWallet: totalEconomy._sum.wallet || 0,
-        totalBank: totalEconomy._sum.bank || 0,
-        currencyName: 'pièces',
-        currencySymbol: '🪙',
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
+      const { guildId, id } = request.params as { guildId: string; id: string };
+      const p = await prisma.poll.findFirst({ where: { id, guildId } });
+      if (!p) return reply.status(404).send(error('Sondage introuvable'));
+      await prisma.pollVote.deleteMany({ where: { pollId: id } });
+      await prisma.poll.delete({ where: { id } });
+      reply.send(success(null, 'Sondage supprimé'));
+    } catch (err: unknown) {
+      console.error('[POLL DELETE ERROR]', err);
+      reply.status(500).send(error(sanitizeError(err)));
+    }
   });
 
-  app.put('/:guildId/economy', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const ec = request.body as Record<string, unknown>;
-      await prisma.economySettings.upsert({
-        where: { guildId },
-        update: {
-          enabled: ec.enabled, currencyName: ec.currencyName, currencySymbol: ec.currencySymbol,
-          dailyAmount: ec.dailyAmount, weeklyAmount: ec.weeklyAmount, startupBalance: ec.startupBalance,
-          workMin: ec.workMin, workMax: ec.workMax, workCooldown: ec.workCooldown,
-          robberyEnabled: ec.robberyEnabled, robberyMaxAmount: ec.robberyMaxAmount,
-          robberyCooldown: ec.robberyCooldown, interestRate: ec.interestRate,
-          interestInterval: ec.interestInterval, bankCapacity: ec.bankCapacity,
-        },
-        create: { guildId, ...ec },
-      });
-      reply.send(success(null, 'Économie sauvegardée'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/economy/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const [wallets, total] = await Promise.all([
-        prisma.economyWallet.findMany({
-          where: { guildId }, orderBy: { wallet: 'desc' },
-          skip: (page - 1) * limit, take: limit,
-          include: { user: { select: { username: true, avatar: true } } },
-        }),
-        prisma.economyWallet.count({ where: { guildId } }),
-      ]);
-      const entries = wallets.map((w, i) => ({
-        rank: (page - 1) * limit + i + 1, userId: w.userId,
-        username: w.user?.username ?? w.userId, avatar: w.user?.avatar ?? null,
-        wallet: w.wallet, bank: w.bank, totalEarned: w.totalEarned,
-        guildId,
-      }));
-      reply.send(success({
-        entries,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
+  // ─── Giveaways ───
   app.get('/:guildId/giveaways', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
+      const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(q.limit ?? '20', 10) || 20));
       const [giveaways, total] = await Promise.all([
         prisma.giveaway.findMany({
           where: { guildId }, orderBy: { createdAt: 'desc' },
@@ -1761,9 +904,9 @@ export async function guildRoutes(app: FastifyInstance) {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
       if (!body.prize || !body.duration) return reply.status(400).send(error('Prize et durée requis'));
-      const channelId = body.channelId;
+      const channelId = body.channelId as string;
       if (!channelId) return reply.status(400).send(error('channelId requis'));
-      const endsAt = new Date(Date.now() + body.duration * 1000);
+      const endsAt = new Date(Date.now() + (body.duration as number) * 1000);
       let msg: any;
       try {
         msg = await sendChannelMessage(channelId, {
@@ -1786,10 +929,10 @@ export async function guildRoutes(app: FastifyInstance) {
         data: {
           guildId, channelId,
           messageId: msg.id,
-          prize: body.prize, winnerCount: body.winners || 1,
-          duration: body.duration,
+          prize: body.prize as string, winnerCount: (body.winners as number) || 1,
+          duration: body.duration as number,
           endsAt,
-          requiredRoleId: body.requirements?.requiredRoleId || null,
+          requiredRoleId: ((body.requirements as any)?.requiredRoleId as string) || null,
           requiredLevel: 0, requiredAccountAge: 0,
           status: 'RUNNING',
         },
@@ -1858,157 +1001,7 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.get('/:guildId/polls', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const [polls, total] = await Promise.all([
-        prisma.poll.findMany({
-          where: { guildId }, orderBy: { createdAt: 'desc' },
-          skip: (page - 1) * limit, take: limit,
-          include: { votes: { select: { userId: true, optionIndex: true, user: { select: { discordId: true } } } } },
-        }),
-        prisma.poll.count({ where: { guildId } }),
-      ]);
-      const data = polls.map((p) => {
-        const parsed = JSON.parse(p.options);
-        const rawOptions = Array.isArray(parsed)
-          ? parsed.map((o: any, i: number) => ({ id: String(i), label: typeof o === 'string' ? o : o.label, votes: 0 }))
-          : [];
-        const votesRecord: Record<string, string> = {};
-        const voteCounts: number[] = new Array(rawOptions.length).fill(0);
-        for (const v of p.votes) {
-          const discordId = v.userId ? ((v as { user?: { discordId: string } }).user?.discordId ?? v.userId) : `anon_${v.optionIndex}`;
-          if (p.anonymous) {
-            voteCounts[v.optionIndex]++;
-          } else {
-            votesRecord[discordId] = String(v.optionIndex);
-            voteCounts[v.optionIndex]++;
-          }
-        }
-        return {
-          id: p.id,
-          guildId: p.guildId,
-          channelId: p.channelId,
-          question: p.question,
-          options: rawOptions.map((o, i) => ({ id: String(i), label: o.label, votes: voteCounts[i] })),
-          votes: votesRecord,
-          status: p.status === 'OPEN' ? 'ACTIVE' : 'CLOSED' as const,
-          anonymous: p.anonymous,
-          multiChoice: p.multiChoice,
-          endsAt: p.endsAt?.toISOString() ?? null,
-        };
-      });
-      reply.send(success({
-        polls: data,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/:guildId/polls', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      if (!body.question || !body.options?.length)
-        return reply.status(400).send(error('Question et options requises'));
-      const channelId = body.channelId;
-      if (!channelId) return reply.status(400).send(error('channelId requis pour publier le sondage sur Discord'));
-
-      let msg: any = null;
-      if (channelId) {
-        const options = body.options.map((o: string) => ({ id: o, label: o }));
-        const descLines = options.map((o: any, i: number) => `${NUMBER_EMOJIS[i] || `${i + 1}.`} ${o.label}`).join('\n');
-        try {
-          msg = await sendChannelMessage(channelId, {
-            embeds: [{
-              title: `📊 ${body.question}`,
-              description: descLines,
-              color: 0x00AAFF,
-              footer: { text: 'Réagissez pour voter' },
-              timestamp: new Date().toISOString(),
-            }],
-          });
-          const emojis = options.slice(0, 10).map((_: unknown, i: number) => NUMBER_EMOJIS[i]);
-          for (const emoji of emojis) {
-            await addMessageReaction(channelId, msg.id, emoji);
-            await new Promise((r) => setTimeout(r, 350));
-          }
-        } catch {
-          return reply.status(500).send(error('Impossible de poster le sondage sur Discord'));
-        }
-      }
-      const endsAt = body.duration ? new Date(Date.now() + body.duration * 60 * 1000) : null;
-
-      const poll = await prisma.poll.create({
-        data: {
-          guildId, channelId: channelId || '',
-          messageId: msg?.id || null,
-          question: body.question,
-          options: JSON.stringify(body.options.map((o: string, i: number) => ({ id: String(i), label: o, votes: 0 }))),
-          status: 'OPEN',
-          anonymous: body.anonymous ?? false,
-          multiChoice: body.multiChoice ?? false,
-          endsAt,
-        },
-      });
-      reply.status(201).send(success(poll, 'Sondage créé'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.put('/:guildId/polls/:id', { preHandler: [authenticate, validateParams(pollIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, id } = request.params as { guildId: string; id: string };
-      const body = request.body as Record<string, unknown>;
-      const p = await prisma.poll.findFirst({ where: { id, guildId }, include: { votes: true } });
-      if (!p) return reply.status(404).send(error('Sondage introuvable'));
-      const upd: any = {};
-      if (body.status) upd.status = body.status === 'CLOSED' ? 'CLOSED' : 'OPEN';
-      const updated = await prisma.poll.update({ where: { id }, data: upd });
-      if (body.status === 'CLOSED' && p.messageId && !p.channelId.startsWith('pending')) {
-        const parsed = JSON.parse(p.options);
-        const rawOptions = Array.isArray(parsed)
-          ? parsed.map((o: any, i: number) => ({ id: String(i), label: typeof o === 'string' ? o : o.label, votes: 0 }))
-          : [];
-        const voteCounts = new Array(rawOptions.length).fill(0);
-        for (const v of (p.votes || [])) voteCounts[v.optionIndex]++;
-        const descLines = rawOptions.map((o: any, i: number) =>
-          `${NUMBER_EMOJIS[i] || `${i + 1}.`} ${o.label} — **${voteCounts[i]}** vote(s)`
-        ).join('\n');
-        await editMessage(p.channelId, p.messageId, {
-          embeds: [{
-            title: `📊 ${p.question} (Terminé)`,
-            description: descLines,
-            color: 0x808080,
-            footer: { text: 'Sondage fermé' },
-            timestamp: new Date().toISOString(),
-          }],
-        }).catch(() => {});
-      }
-      reply.send(success({
-        ...updated,
-        options: JSON.parse(updated.options),
-        endsAt: updated.endsAt?.toISOString() ?? null,
-      }, 'Sondage mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.delete('/:guildId/polls/:id', { preHandler: [authenticate, validateParams(pollIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, id } = request.params as { guildId: string; id: string };
-      const p = await prisma.poll.findFirst({ where: { id, guildId } });
-      if (!p) return reply.status(404).send(error('Sondage introuvable'));
-      await prisma.pollVote.deleteMany({ where: { pollId: id } });
-      await prisma.poll.delete({ where: { id } });
-      reply.send(success(null, 'Sondage supprimé'));
-    } catch (err: unknown) {
-      console.error('[POLL DELETE ERROR]', err);
-      reply.status(500).send(error(sanitizeError(err)));
-    }
-  });
-
+  // ─── Suggestions ───
   app.post('/:guildId/suggestions/send', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
@@ -2016,27 +1009,27 @@ export async function guildRoutes(app: FastifyInstance) {
       if (!body.content || !body.channelId) {
         return reply.status(400).send(error('content et channelId requis'));
       }
-      const msg = await sendChannelMessage(body.channelId, {
+      const msg = await sendChannelMessage(body.channelId as string, {
         embeds: [{
           title: '💡 Nouvelle suggestion',
-          description: body.content,
+          description: body.content as string,
           color: 0x5865f2,
           footer: { text: 'Réagissez pour voter' },
           timestamp: new Date().toISOString(),
         }],
       });
-      await addMessageReaction(body.channelId, msg.id, '✅');
+      await addMessageReaction(body.channelId as string, msg.id, '✅');
       await new Promise((r) => setTimeout(r, 350));
-      await addMessageReaction(body.channelId, msg.id, '❌');
+      await addMessageReaction(body.channelId as string, msg.id, '❌');
 
       const authorDiscordId = request.user!.discordId;
       const suggestion = await prisma.suggestion.create({
         data: {
           guildId,
-          channelId: body.channelId,
+          channelId: body.channelId as string,
           messageId: msg.id,
           authorId: authorDiscordId,
-          content: body.content,
+          content: body.content as string,
           status: 'PENDING',
         },
       });
@@ -2048,8 +1041,8 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as { guildId: string };
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
+      const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(q.limit ?? '20', 10) || 20));
       const where: any = { guildId };
       if (q.status) where.status = q.status;
       const [rawSuggestions, total] = await Promise.all([
@@ -2091,7 +1084,7 @@ export async function guildRoutes(app: FastifyInstance) {
             description: `Ta suggestion a été ${body.status === 'APPROVED' ? 'approuvée' : 'refusée'} :\n\n${s.content}`,
             fields: [
               { name: 'Votes', value: `👍 ${s.upvotes} | 👎 ${s.downvotes}`, inline: false },
-              ...(body.staffResponse ? [{ name: 'Réponse du staff', value: body.staffResponse, inline: false }] : []),
+              ...(body.staffResponse ? [{ name: 'Réponse du staff', value: body.staffResponse as string, inline: false }] : []),
             ],
             color: body.status === 'APPROVED' ? 0x00FF00 : 0xFF0000,
             timestamp: new Date().toISOString(),
@@ -2107,7 +1100,7 @@ export async function guildRoutes(app: FastifyInstance) {
             description: s.content,
             fields: [
               { name: 'Statut', value: statusLabel, inline: true },
-              { name: 'Réponse du staff', value: body.staffResponse || 'Aucune réponse', inline: false },
+              { name: 'Réponse du staff', value: (body.staffResponse as string) || 'Aucune réponse', inline: false },
             ],
             color: body.status === 'APPROVED' ? 0x00FF00 : body.status === 'REJECTED' ? 0xFF0000 : 0xFFA500,
             timestamp: new Date().toISOString(),
@@ -2124,8 +1117,8 @@ export async function guildRoutes(app: FastifyInstance) {
       const body = request.body as Record<string, unknown>;
       const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
       if (!s) return reply.status(404).send(error('Suggestion introuvable'));
-      const action = body.action;
-      const staffResponse = body.response;
+      const action = body.action as string;
+      const staffResponse = body.response as string;
       if (!action || !staffResponse) return reply.status(400).send(error('action et response requis'));
       const upd: any = { status: action, staffResponse, staffResponderId: request.user!.id };
       const updated = await prisma.suggestion.update({ where: { id }, data: upd });
@@ -2165,7 +1158,7 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId, id } = request.params as { guildId: string; id: string };
       const body = request.body as Record<string, unknown>;
-      const vote = body.vote;
+      const vote = body.vote as string;
       if (!['up', 'down'].includes(vote)) return reply.status(400).send(error('Vote invalide'));
       const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
       if (!s || s.status !== 'PENDING') return reply.status(400).send(error('Suggestion introuvable ou déjà traitée'));
@@ -2174,7 +1167,7 @@ export async function guildRoutes(app: FastifyInstance) {
       if (voters[discordId] === vote) {
         delete voters[discordId];
       } else {
-        voters[discordId] = vote;
+        voters[discordId] = vote as 'up' | 'down';
       }
       const upvotes = Object.values(voters).filter((v) => v === 'up').length;
       const downvotes = Object.values(voters).filter((v) => v === 'down').length;
@@ -2196,215 +1189,47 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.get('/:guildId/welcome', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  // ─── Auto-modération ───
+  app.get('/:guildId/automod', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
-      let welcome = await prisma.welcomeSettings.findUnique({ where: { guildId } });
-      if (!welcome) welcome = await prisma.welcomeSettings.create({ data: { guildId } });
-      reply.send(success({ settings: welcome }));
+      let settings = await prisma.autoModSettings.findUnique({ where: { guildId } });
+      if (!settings) {
+        settings = await prisma.autoModSettings.create({ data: { guildId } });
+      }
+      reply.send(success(settings));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.put('/:guildId/welcome', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.patch('/:guildId/automod', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
-      const welcomeDM = body.welcomeDM ?? body.dmWelcome ?? false;
-      const welcomeDMMessage = body.welcomeDMMessage ?? body.dmWelcomeMessage ?? null;
-      const data = {
-        enabled: body.enabled ?? true,
-        welcomeChannelId: body.welcomeChannelId ?? null,
-        welcomeMessage: body.welcomeMessage ?? null,
-        welcomeEmbed: body.welcomeEmbed ?? false,
-        welcomeDM,
-        welcomeDMMessage,
-        goodbyeEnabled: body.goodbyeEnabled ?? true,
-        goodbyeChannelId: body.goodbyeChannelId ?? null,
-        goodbyeMessage: body.goodbyeMessage ?? null,
-        goodbyeEmbed: body.goodbyeEmbed ?? false,
-        cardEnabled: body.cardEnabled ?? false,
-        cardBackground: body.cardBackground ?? 'COLOR',
-        cardBgColor: body.cardBgColor ?? '#23272a',
-        cardBgImage: body.cardBgImage ?? null,
-        cardTextColor: body.cardTextColor ?? '#ffffff',
-        cardSubtextColor: body.cardSubtextColor ?? '#b9bbbe',
-        cardAccentColor: body.cardAccentColor ?? '#5865f2',
-        cardBlurBackground: body.cardBlurBackground ?? false,
-        cardText: body.cardText ?? 'Bienvenue sur {server} !',
-        cardSubtext: body.cardSubtext ?? 'Tu es le {memberCount}ème membre',
-      };
-      await prisma.welcomeSettings.upsert({
+      const arrayFields = [
+        'bannedWordsList', 'forbiddenPingRoles', 'forbiddenMarkdownList',
+        'whitelistRoles', 'whitelistChannels',
+      ];
+      const data: Record<string, unknown> = { ...body };
+      for (const f of arrayFields) {
+        if (Array.isArray(body[f])) data[f] = JSON.stringify(body[f]);
+      }
+      const settings = await prisma.autoModSettings.upsert({
         where: { guildId },
         update: data,
         create: { guildId, ...data },
       });
-      reply.send(success(null, 'Paramètres de bienvenue mis à jour'));
+      const { invalidateBotAutoModCache } = await import('../services/bot-proxy');
+      await invalidateBotAutoModCache(guildId).catch(() => {});
+      reply.send(success(settings, 'Auto-modération mise à jour'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  function transformAutoroleSettings(ar: any) {
-    return {
-      enabled: ar.enabled,
-      roleIds: (ar.entries ?? []).filter((e: any) => e.type === 'JOIN').map((e: any) => e.roleId),
-      botRoles: (ar.entries ?? []).filter((e: any) => e.type === 'BOT').map((e: any) => e.roleId),
-      delay: 0,
-      ignoreBots: false,
-    };
-  }
-
-  app.get('/:guildId/autoroles', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      let ar = await prisma.autoroleSettings.findUnique({ where: { guildId }, include: { entries: true } });
-      if (!ar) ar = await prisma.autoroleSettings.create({ data: { guildId }, include: { entries: true } });
-      reply.send(success({ settings: transformAutoroleSettings(ar) }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/protection', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      let ps = await prisma.protectionSettings.findUnique({ where: { guildId } });
-      if (!ps) ps = await prisma.protectionSettings.create({ data: { guildId } });
-      reply.send(success({ settings: ps }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.put('/:guildId/protection', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      await prisma.protectionSettings.upsert({
-        where: { guildId },
-        update: {
-          enabled: body.enabled ?? undefined,
-          antiRaid: body.antiRaid ?? undefined,
-          raidThreshold: body.raidThreshold ?? undefined,
-          raidInterval: body.raidInterval ?? undefined,
-          antiSpam: body.antiSpam ?? undefined,
-          spamThreshold: body.spamThreshold ?? undefined,
-          spamInterval: body.spamInterval ?? undefined,
-          antiMassMention: body.antiMassMention ?? undefined,
-          mentionThreshold: body.mentionThreshold ?? undefined,
-          antiLink: body.antiLink ?? undefined,
-          antiAlts: body.antiAlts ?? undefined,
-          altAccountAge: body.altAccountAge ?? undefined,
-          verificationLevel: body.verificationLevel ?? undefined,
-          captchaVerification: body.captchaVerification ?? undefined,
-          verifiedRoleId: body.verifiedRoleId ?? undefined,
-          punishment: body.punishment ?? undefined,
-        },
-        create: { guildId, ...body },
-      });
-      reply.send(success(null, 'Protection mise à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/:guildId/protection/emergency', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = (request.body as { enable?: boolean }) ?? {};
-      const enable = body.enable !== false;
-      await prisma.protectionSettings.upsert({
-        where: { guildId },
-        update: { emergencyMode: enable, enabled: enable ? true : undefined },
-        create: { guildId, emergencyMode: enable, enabled: true },
-      });
-      const { botEmergencyMode } = await import('../services/bot-proxy');
-      await botEmergencyMode(guildId, enable).catch(() => {});
-      reply.send(success({ emergencyMode: enable }, enable ? 'Mode urgence activé' : 'Mode urgence désactivé'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.put('/:guildId/autoroles', { preHandler: [authenticate, validateParams(guildIdSchema), validateBody(autoroleSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      await prisma.autoroleSettings.upsert({
-        where: { guildId },
-        update: { enabled: body.enabled ?? undefined },
-        create: { guildId, enabled: body.enabled ?? true },
-      });
-      if (body.roleIds || body.botRoles) {
-        const settings = await prisma.autoroleSettings.findUnique({ where: { guildId } });
-        if (settings) {
-          await prisma.autoroleEntry.deleteMany({ where: { guildId } });
-          const joinRoles: string[] = body.roleIds ?? [];
-          const botRoles: string[] = body.botRoles ?? [];
-          if (joinRoles.length > 0) {
-            await prisma.autoroleEntry.createMany({
-              data: joinRoles.map((roleId: string) => ({ settingsId: settings.id, guildId, roleId, type: 'JOIN' })),
-            });
-          }
-          if (botRoles.length > 0) {
-            await prisma.autoroleEntry.createMany({
-              data: botRoles.map((roleId: string) => ({ settingsId: settings.id, guildId, roleId, type: 'BOT' })),
-            });
-          }
-        }
-      }
-      reply.send(success(null, 'Paramètres d\'autorôles mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.put('/:guildId/embeds', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as { embeds?: any[] };
-      if (!Array.isArray(body.embeds)) {
-        return reply.status(400).send(error('embeds (tableau) requis'));
-      }
-      await prisma.$transaction([
-        prisma.savedEmbed.deleteMany({ where: { guildId } }),
-        ...body.embeds.map((e: any) =>
-          prisma.savedEmbed.create({
-            data: {
-              id: e.id ?? undefined,
-              guildId,
-              name: e.name,
-              title: e.title ?? null,
-              description: e.description ?? null,
-              color: e.color ?? '#e0e0e0',
-              fields: Array.isArray(e.fields) ? JSON.stringify(e.fields) : '[]',
-              footer: e.footer ?? null,
-              image: e.image ?? null,
-              thumbnail: e.thumbnail ?? null,
-              authorName: e.authorName ?? null,
-              authorIcon: e.authorIcon ?? null,
-              timestamp: e.timestamp ?? true,
-            },
-          })
-        ),
-      ]);
-      reply.send(success(null, 'Embeds mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/audit', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const [logs, total] = await Promise.all([
-        prisma.auditLog.findMany({
-          where: { guildId }, orderBy: { createdAt: 'desc' },
-          skip: (page - 1) * limit, take: limit,
-          include: { user: { select: { username: true, avatar: true } } },
-        }),
-        prisma.auditLog.count({ where: { guildId } }),
-      ]);
-      reply.send(success({ entries: logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // --- Auto-mod history ---
   app.get('/:guildId/automod/history', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const perPage = Math.min(100, Math.max(1, parseInt(q.perPage) || 20));
+      const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
+      const perPage = Math.min(100, Math.max(1, parseInt(q.perPage ?? '20', 10) || 20));
       const typeFilter = q.type as string | undefined;
 
       const where: Record<string, unknown> = { guildId, action: { in: ['AUTO_MOD_VIOLATION', 'AUTO_MOD_SANCTION'] } };
@@ -2442,177 +1267,12 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  // --- Music routes (proxy to bot internal API) ---
-
-  app.get('/:guildId/music/queue', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const data = await getQueueState(guildId);
-      reply.send(success(data));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/:guildId/music/control', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      await botControl(guildId, body.action, body.value);
-      reply.send(success({ action: body.action }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // --- Ticket settings ---
-  app.get('/:guildId/tickets/settings', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      let ts = await prisma.ticketSettings.findUnique({ where: { guildId } });
-      if (!ts) ts = await prisma.ticketSettings.create({ data: { guildId } });
-      reply.send(success({
-        ...ts,
-        moderatorRoles: JSON.parse(ts.moderatorRoles || '[]'),
-        accessRoles: JSON.parse(ts.accessRoles || '[]'),
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.patch('/:guildId/tickets/settings', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      const data: Record<string, unknown> = { ...body };
-      if (Array.isArray(body.moderatorRoles)) data.moderatorRoles = JSON.stringify(body.moderatorRoles);
-      if (Array.isArray(body.accessRoles)) data.accessRoles = JSON.stringify(body.accessRoles);
-      const ts = await prisma.ticketSettings.upsert({
-        where: { guildId },
-        update: data,
-        create: { guildId, ...data },
-      });
-      reply.send(success(ts, 'Paramètres tickets mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // --- Danger zone ---
-  app.post('/:guildId/settings/reset', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      const guild = await prisma.guild.findUnique({ where: { id: guildId } });
-      if (!guild) return reply.status(404).send(error('Serveur introuvable'));
-      if (body.confirmName !== guild.name) {
-        return reply.status(400).send(error('Nom du serveur incorrect'));
-      }
-      await prisma.$transaction([
-        prisma.economySettings.deleteMany({ where: { guildId } }),
-        prisma.protectionSettings.deleteMany({ where: { guildId } }),
-        prisma.welcomeSettings.deleteMany({ where: { guildId } }),
-        prisma.logSettings.deleteMany({ where: { guildId } }),
-        prisma.xPSettings.deleteMany({ where: { guildId } }),
-        prisma.autoModSettings.deleteMany({ where: { guildId } }),
-        prisma.ticketSettings.deleteMany({ where: { guildId } }),
-        prisma.autoroleSettings.deleteMany({ where: { guildId } }),
-      ]);
-      await prisma.moduleEnabled.upsert({
-        where: { guildId },
-        update: {},
-        create: { guildId },
-      });
-      reply.send(success(null, 'Paramètres réinitialisés'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/:guildId/settings/leave', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      await leaveGuildViaBot(guildId);
-      await prisma.guild.update({ where: { id: guildId }, data: { botPresent: false } });
-      reply.send(success(null, 'Bot retiré du serveur'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.post('/:guildId/settings/delete-data', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      const guild = await prisma.guild.findUnique({ where: { id: guildId } });
-      if (!guild) return reply.status(404).send(error('Serveur introuvable'));
-      if (body.confirmName !== guild.name) {
-        return reply.status(400).send(error('Nom du serveur incorrect'));
-      }
-      await prisma.$transaction([
-        prisma.ticket.deleteMany({ where: { guildId } }),
-        prisma.moderationCase.deleteMany({ where: { guildId } }),
-        prisma.poll.deleteMany({ where: { guildId } }),
-        prisma.giveaway.deleteMany({ where: { guildId } }),
-        prisma.suggestion.deleteMany({ where: { guildId } }),
-        prisma.xPProfile.deleteMany({ where: { guildId } }),
-        prisma.economyWallet.deleteMany({ where: { guildId } }),
-        prisma.auditLog.deleteMany({ where: { guildId } }),
-        prisma.guild.delete({ where: { id: guildId } }),
-      ]);
-      reply.send(success(null, 'Données supprimées'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/members', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const q = request.query as Record<string, string | undefined>;
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 50));
-      const after = q.after || '0';
-      const members = await (await fetch(
-        `https://discord.com/api/v10/guilds/${guildId}/members?limit=${limit}&after=${after}`,
-        { headers: { Authorization: `Bot ${getConfig().DISCORD_TOKEN}` } }
-      )).json() as Array<{ user: { id: string; username: string; avatar: string }; nick: string | null }>;
-      reply.send(success({
-        members: members.map((m) => ({
-          id: m.user.id,
-          username: m.user.username,
-          avatar: m.user.avatar,
-          nick: m.nick,
-        })),
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // --- Auto-modération ---
-  app.get('/:guildId/automod', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      let settings = await prisma.autoModSettings.findUnique({ where: { guildId } });
-      if (!settings) {
-        settings = await prisma.autoModSettings.create({ data: { guildId } });
-      }
-      reply.send(success(settings));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.patch('/:guildId/automod', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as Record<string, unknown>;
-      const arrayFields = [
-        'bannedWordsList', 'forbiddenPingRoles', 'forbiddenMarkdownList',
-        'whitelistRoles', 'whitelistChannels',
-      ];
-      const data: Record<string, unknown> = { ...body };
-      for (const f of arrayFields) {
-        if (Array.isArray(body[f])) data[f] = JSON.stringify(body[f]);
-      }
-      const settings = await prisma.autoModSettings.upsert({
-        where: { guildId },
-        update: data,
-        create: { guildId, ...data },
-      });
-      await invalidateBotAutoModCache(guildId).catch(() => {});
-      reply.send(success(settings, 'Auto-modération mise à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
+  // ─── Leaderboard (combined) ───
   app.get('/:guildId/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const q = request.query as Record<string, string | undefined>;
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 10));
+      const limit = Math.min(100, Math.max(1, parseInt(q.limit ?? '20', 10) || 10));
       const profiles = await prisma.xPProfile.findMany({
         where: { guildId },
         orderBy: { xp: 'desc' },
@@ -2631,46 +1291,7 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.get('/:guildId/resolve-user/:userId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId, userId } = request.params as { guildId: string; userId: string };
-      if (!userId) return reply.send(success({ id: userId, username: userId ?? 'Inconnu', avatar: null }));
-      const member = await getGuildMember(guildId, userId).catch(() => null);
-      if (member) {
-        return reply.send(success({
-          id: userId,
-          username: member.user?.username ?? member.nick ?? 'Inconnu',
-          avatar: member.user?.avatar ?? null,
-        }));
-      }
-      const user = await prisma.user.findUnique({ where: { discordId: userId } });
-      reply.send(success({
-        id: userId,
-        username: user?.username ?? userId,
-        avatar: user?.avatar ?? null,
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  app.get('/:guildId/music/history', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 20));
-      const [entries, total] = await Promise.all([
-        prisma.musicHistoryEntry.findMany({
-          where: { guildId }, orderBy: { playedAt: 'desc' },
-          skip: (page - 1) * limit, take: limit,
-        }),
-        prisma.musicHistoryEntry.count({ where: { guildId } }),
-      ]);
-      reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
   // ─── Forms ───
-
   app.get('/:guildId/forms', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
@@ -2695,15 +1316,15 @@ export async function guildRoutes(app: FastifyInstance) {
       const settings = await prisma.formSettings.upsert({
         where: { guildId },
         update: {
-          enabled: body.enabled ?? undefined,
-          channelId: body.channelId !== undefined ? body.channelId : undefined,
-          logChannel: body.logChannel !== undefined ? body.logChannel : undefined,
+          enabled: body.enabled as boolean | undefined,
+          channelId: body.channelId !== undefined ? (body.channelId as string) : undefined,
+          logChannel: body.logChannel !== undefined ? (body.logChannel as string) : undefined,
         },
         create: {
           guildId,
-          enabled: body.enabled ?? false,
-          channelId: body.channelId ?? null,
-          logChannel: body.logChannel ?? null,
+          enabled: (body.enabled as boolean) ?? false,
+          channelId: (body.channelId as string) ?? null,
+          logChannel: (body.logChannel as string) ?? null,
         },
         include: { templates: true },
       });
@@ -2724,10 +1345,10 @@ export async function guildRoutes(app: FastifyInstance) {
       const template = await prisma.formTemplate.create({
         data: {
           guildId,
-          name: body.name,
-          description: body.description ?? null,
+          name: body.name as string,
+          description: (body.description as string) ?? null,
           fields: JSON.stringify(body.fields ?? []),
-          enabled: body.enabled ?? true,
+          enabled: (body.enabled as boolean) ?? true,
         },
       });
       reply.status(201).send(success({ template }));
@@ -2763,8 +1384,8 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as { guildId: string };
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 20));
+      const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(q.limit ?? '20', 10) || 20));
       const status = q.status ?? undefined;
       const where: any = { guildId };
       if (status) where.status = status;
@@ -2817,13 +1438,10 @@ export async function guildRoutes(app: FastifyInstance) {
   });
 
   // ─── Starboard ───
-
   app.get('/:guildId/starboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
-      let settings = await prisma.starboardSettings.findUnique({
-        where: { guildId },
-      });
+      let settings = await prisma.starboardSettings.findUnique({ where: { guildId } });
       if (!settings) {
         settings = await prisma.starboardSettings.create({
           data: { guildId, enabled: false, starEmoji: '\u2B50', minStars: 3, selfStar: false },
@@ -2837,26 +1455,24 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
-      // Keep the stored `enabled` flag consistent with the configured channel
-      // so the dashboard, bot, and helpers all agree on the active state.
       const derivedEnabled =
-        body.enabled ?? (body.channelId !== undefined ? !!body.channelId : undefined);
+        (body.enabled as boolean) ?? (body.channelId !== undefined ? !!body.channelId : undefined);
       const settings = await prisma.starboardSettings.upsert({
         where: { guildId },
         update: {
           enabled: derivedEnabled,
-          channelId: body.channelId !== undefined ? body.channelId : undefined,
-          starEmoji: body.starEmoji ?? undefined,
-          minStars: body.minStars !== undefined ? parseInt(body.minStars) : undefined,
-          selfStar: body.selfStar ?? undefined,
+          channelId: body.channelId !== undefined ? (body.channelId as string) : undefined,
+          starEmoji: body.starEmoji as string | undefined,
+          minStars: body.minStars !== undefined ? parseInt(body.minStars as string, 10) : undefined,
+          selfStar: body.selfStar as boolean | undefined,
         },
         create: {
           guildId,
           enabled: derivedEnabled ?? false,
-          channelId: body.channelId ?? null,
-          starEmoji: body.starEmoji ?? '\u2B50',
-          minStars: body.minStars ?? 3,
-          selfStar: body.selfStar ?? false,
+          channelId: (body.channelId as string) ?? null,
+          starEmoji: (body.starEmoji as string) ?? '\u2B50',
+          minStars: (body.minStars as number) ?? 3,
+          selfStar: (body.selfStar as boolean) ?? false,
         },
       });
       reply.send(success({ settings }));
@@ -2867,8 +1483,8 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as { guildId: string };
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 20));
+      const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(q.limit ?? '20', 10) || 20));
       const [entries, total] = await Promise.all([
         prisma.starboardEntry.findMany({
           where: { guildId }, orderBy: { starCount: 'desc' },
@@ -2891,15 +1507,12 @@ export async function guildRoutes(app: FastifyInstance) {
   });
 
   // ─── Clans ───
-
   app.get('/:guildId/clans', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const clans = await prisma.clan.findMany({
         where: { guildId },
-        include: {
-          members: true,
-        },
+        include: { members: true },
         orderBy: { createdAt: 'desc' },
       });
       const enriched = await Promise.all(clans.map(async (clan) => {
@@ -2917,11 +1530,7 @@ export async function guildRoutes(app: FastifyInstance) {
           memberCount: clan.members.length,
           totalXp,
           totalWallet,
-          members: clan.members.map((m) => ({
-            ...m,
-            username: '',
-            avatar: null,
-          })),
+          members: clan.members.map((m) => ({ ...m, username: '', avatar: null })),
         };
       }));
       const enrichedWithUsers = await Promise.all(enriched.map(async (clan) => {
@@ -2945,7 +1554,6 @@ export async function guildRoutes(app: FastifyInstance) {
   });
 
   // ─── Minigames ───
-
   app.get('/:guildId/minigames', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
@@ -2959,9 +1567,9 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
-      const toInt = (v: any) => (v === undefined || v === null || v === '' ? undefined : parseInt(v));
+      const toInt = (v: any) => (v === undefined || v === null || v === '' ? undefined : parseInt(v, 10));
       const data = {
-        gamesChannelId: body.gamesChannelId !== undefined ? (body.gamesChannelId || null) : undefined,
+        gamesChannelId: body.gamesChannelId !== undefined ? ((body.gamesChannelId as string) || null) : undefined,
         enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
         betMin: toInt(body.betMin),
         betMax: toInt(body.betMax),
@@ -2984,8 +1592,7 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as { guildId: string };
       const q = request.query as Record<string, string | undefined>;
-      const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 10));
-      // Net winnings = sum of recorded payouts across finished sessions.
+      const limit = Math.min(50, Math.max(1, parseInt(q.limit ?? '20', 10) || 10));
       const grouped = await prisma.minigameSession.groupBy({
         by: ['userId'],
         where: { guildId, status: { not: 'active' } },
@@ -3014,639 +1621,7 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  // ─── Export configuration ───
-  app.get('/:guildId/settings/export', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const guild = await prisma.guild.findUnique({
-        where: { id: guildId },
-        include: {
-          settings: true,
-          modulesEnabled: true,
-          logSettings: true,
-          xpSettings: true,
-          welcomeSettings: true,
-          economySettings: { include: { shopItems: true } },
-          protectionSettings: true,
-          autoroleSettings: { include: { entries: true } },
-          autoModSettings: true,
-          ticketSettings: true,
-        },
-      });
-      if (!guild) return reply.status(404).send(error('Serveur introuvable'));
-
-      const ticketCategories = await prisma.ticketCategory.findMany({ where: { guildId } });
-
-      const exportPayload: Record<string, unknown> = {
-        version: '1.0',
-        exportedAt: new Date().toISOString(),
-        guildId: guild.id,
-        guildName: guild.name,
-      };
-
-      if (guild.settings) {
-        const s = guild.settings;
-        exportPayload.settings = {
-          prefix: s.prefix,
-          locale: s.locale,
-          timezone: s.timezone,
-          modLogChannel: s.modLogChannel,
-          modRoleIds: JSON.parse(s.modRoleIds),
-          adminRoleIds: JSON.parse(s.adminRoleIds),
-          muteRoleId: s.muteRoleId,
-          dashboardAccessRoles: JSON.parse(s.dashboardAccessRoles),
-          dashboardModerationAccess: JSON.parse(s.dashboardModerationAccess),
-          dashboardTicketsAccess: JSON.parse(s.dashboardTicketsAccess),
-          dashboardPollsAccess: JSON.parse(s.dashboardPollsAccess),
-          dashboardSuggestionsAccess: JSON.parse(s.dashboardSuggestionsAccess),
-          dashboardGiveawaysAccess: JSON.parse(s.dashboardGiveawaysAccess),
-          dashboardEconomyAccess: JSON.parse(s.dashboardEconomyAccess),
-          dashboardMusicAccess: JSON.parse(s.dashboardMusicAccess),
-          dashboardLevelsAccess: JSON.parse(s.dashboardLevelsAccess),
-          dashboardWelcomeAccess: JSON.parse(s.dashboardWelcomeAccess),
-          dashboardAutorolesAccess: JSON.parse(s.dashboardAutorolesAccess),
-          dashboardLogsAccess: JSON.parse(s.dashboardLogsAccess),
-          dashboardProtectionAccess: JSON.parse(s.dashboardProtectionAccess),
-          dashboardAuditAccess: JSON.parse(s.dashboardAuditAccess),
-          changelogChannel: s.changelogChannel,
-          suggestionChannelId: s.suggestionChannelId,
-          onboardingDone: s.onboardingDone,
-        };
-      }
-
-      if (guild.modulesEnabled) {
-        const m = guild.modulesEnabled;
-        exportPayload.modulesEnabled = {
-          moderation: m.moderation,
-          protection: m.protection,
-          tickets: m.tickets,
-          logs: m.logs,
-          levels: m.levels,
-          economy: m.economy,
-          music: m.music,
-          giveaways: m.giveaways,
-          polls: m.polls,
-          suggestions: m.suggestions,
-          welcome: m.welcome,
-          autoroles: m.autoroles,
-          embeds: m.embeds,
-          minigames: m.minigames,
-          starboard: m.starboard,
-          forms: m.forms,
-          clans: m.clans,
-          notifications: m.notifications,
-        };
-      }
-
-      if (guild.logSettings) {
-        const l = guild.logSettings;
-        exportPayload.logSettings = {
-          logChannelId: l.logChannelId,
-          events: JSON.parse(l.events),
-          ignoredChannels: JSON.parse(l.ignoredChannels),
-          ignoredRoles: JSON.parse(l.ignoredRoles),
-        };
-      }
-
-      if (guild.xpSettings) {
-        const x = guild.xpSettings;
-        exportPayload.xpSettings = {
-          enabled: x.enabled,
-          xpPerMessageMin: x.xpPerMessageMin,
-          xpPerMessageMax: x.xpPerMessageMax,
-          voiceXp: x.voiceXp,
-          messageCooldown: x.messageCooldown,
-          voiceCooldown: x.voiceCooldown,
-          levelFormula: x.levelFormula,
-          maxLevel: x.maxLevel,
-          ignoredChannels: JSON.parse(x.ignoredChannels),
-          ignoredRoles: JSON.parse(x.ignoredRoles),
-          announcementChannelId: x.announcementChannelId,
-          announcementMessage: x.announcementMessage,
-          xpCurve: x.xpCurve,
-          xpMultiplier: x.xpMultiplier,
-          noXpRoles: JSON.parse(x.noXpRoles),
-          noXpChannels: JSON.parse(x.noXpChannels),
-          boosterRoles: JSON.parse(x.boosterRoles),
-          boosterChannels: JSON.parse(x.boosterChannels),
-          xpInThreads: x.xpInThreads,
-          xpInForumPosts: x.xpInForumPosts,
-          xpVocalMessages: x.xpVocalMessages,
-          showOtherLevels: x.showOtherLevels,
-          resetOnLeave: x.resetOnLeave,
-          resetOnBan: x.resetOnBan,
-          doubleXpLongMessages: x.doubleXpLongMessages,
-          onlineLeaderboard: x.onlineLeaderboard,
-          discordLeaderboard: x.discordLeaderboard,
-          levelColor: x.levelColor,
-          rewardAnnounce: x.rewardAnnounce,
-          rewardMessage: x.rewardMessage,
-        };
-      }
-
-      if (guild.welcomeSettings) {
-        const w = guild.welcomeSettings as Record<string, unknown>;
-        exportPayload.welcomeSettings = {
-          enabled: w.enabled,
-          welcomeChannelId: w.welcomeChannelId,
-          welcomeMessage: w.welcomeMessage,
-          welcomeEmbed: w.welcomeEmbed,
-          welcomeEmbedColor: w.welcomeEmbedColor,
-          welcomeEmbedTitle: w.welcomeEmbedTitle,
-          welcomeEmbedDescription: w.welcomeEmbedDescription,
-          welcomeEmbedFooter: w.welcomeEmbedFooter,
-          welcomeEmbedImage: w.welcomeEmbedImage,
-          welcomeDM: w.welcomeDM,
-          welcomeDMMessage: w.welcomeDMMessage,
-          mentionMember: w.mentionMember,
-          goodbyeEnabled: w.goodbyeEnabled,
-          goodbyeChannelId: w.goodbyeChannelId,
-          goodbyeMessage: w.goodbyeMessage,
-          goodbyeEmbed: w.goodbyeEmbed,
-          goodbyeEmbedColor: w.goodbyeEmbedColor,
-          cardEnabled: w.cardEnabled,
-          cardBackground: w.cardBackground,
-          cardBgColor: w.cardBgColor,
-          cardBgImage: w.cardBgImage,
-          cardTextColor: w.cardTextColor,
-          cardSubtextColor: w.cardSubtextColor,
-          cardAccentColor: w.cardAccentColor,
-          cardBlurBackground: w.cardBlurBackground,
-          cardText: w.cardText,
-          cardSubtext: w.cardSubtext,
-        };
-      }
-
-      if (guild.economySettings) {
-        const e = guild.economySettings;
-        exportPayload.economySettings = {
-          enabled: e.enabled,
-          currencyName: e.currencyName,
-          currencySymbol: e.currencySymbol,
-          dailyAmount: e.dailyAmount,
-          weeklyAmount: e.weeklyAmount,
-          startupBalance: e.startupBalance,
-          workMin: e.workMin,
-          workMax: e.workMax,
-          workCooldown: e.workCooldown,
-          robberyEnabled: e.robberyEnabled,
-          robberyMaxAmount: e.robberyMaxAmount,
-          robberyCooldown: e.robberyCooldown,
-          interestRate: e.interestRate,
-          interestInterval: e.interestInterval,
-          bankCapacity: e.bankCapacity,
-          shopItems: e.shopItems.map((i) => ({
-            id: i.id,
-            name: i.name,
-            description: i.description,
-            price: i.price,
-            type: i.type,
-            roleId: i.roleId,
-            duration: i.duration,
-            effectValue: i.effectValue,
-          })),
-        };
-      }
-
-      if (guild.protectionSettings) {
-        const p = guild.protectionSettings;
-        exportPayload.protectionSettings = {
-          enabled: p.enabled,
-          antiRaid: p.antiRaid,
-          raidThreshold: p.raidThreshold,
-          raidInterval: p.raidInterval,
-          antiSpam: p.antiSpam,
-          spamThreshold: p.spamThreshold,
-          spamInterval: p.spamInterval,
-          antiMassMention: p.antiMassMention,
-          mentionThreshold: p.mentionThreshold,
-          antiLink: p.antiLink,
-          antiAlts: p.antiAlts,
-          altAccountAge: p.altAccountAge,
-          verificationLevel: p.verificationLevel,
-          captchaVerification: p.captchaVerification,
-          verifiedRoleId: p.verifiedRoleId,
-          punishment: p.punishment,
-        };
-      }
-
-      if (guild.autoroleSettings) {
-        const a = guild.autoroleSettings;
-        exportPayload.autoroleSettings = {
-          enabled: a.enabled,
-          onJoin: a.onJoin,
-          onLevelUp: a.onLevelUp,
-          onReaction: a.onReaction,
-          entries: a.entries.map((e) => ({
-            roleId: e.roleId,
-            type: e.type,
-            levelRequired: e.levelRequired,
-            reactionChannelId: e.reactionChannelId,
-            reactionEmoji: e.reactionEmoji,
-          })),
-        };
-      }
-
-      if (guild.autoModSettings) {
-        const am = guild.autoModSettings;
-        exportPayload.autoModSettings = {
-          bannedWords: am.bannedWords,
-          bannedWordsList: JSON.parse(am.bannedWordsList),
-          discordInvites: am.discordInvites,
-          externalLinks: am.externalLinks,
-          excessiveCaps: am.excessiveCaps,
-          capsThreshold: am.capsThreshold,
-          excessiveEmojis: am.excessiveEmojis,
-          emojisThreshold: am.emojisThreshold,
-          excessiveMentions: am.excessiveMentions,
-          mentionsThreshold: am.mentionsThreshold,
-          forbiddenPings: am.forbiddenPings,
-          forbiddenPingRoles: JSON.parse(am.forbiddenPingRoles),
-          messageSpam: am.messageSpam,
-          spamThreshold: am.spamThreshold,
-          spamInterval: am.spamInterval,
-          forbiddenMarkdown: am.forbiddenMarkdown,
-          forbiddenMarkdownList: JSON.parse(am.forbiddenMarkdownList),
-          warnEnabled: am.warnEnabled,
-          muteEnabled: am.muteEnabled,
-          muteDuration: am.muteDuration,
-          kickEnabled: am.kickEnabled,
-          banEnabled: am.banEnabled,
-          autoSanctionThreshold: am.autoSanctionThreshold,
-          autoWarnMuteThreshold: am.autoWarnMuteThreshold,
-          autoWarnBanThreshold: am.autoWarnBanThreshold,
-          autoWarnMuteDuration: am.autoWarnMuteDuration,
-          whitelistRoles: JSON.parse(am.whitelistRoles),
-          whitelistChannels: JSON.parse(am.whitelistChannels),
-          logChannelId: am.logChannelId,
-        };
-      }
-
-      if (guild.ticketSettings) {
-        const t = guild.ticketSettings;
-        exportPayload.ticketSettings = {
-          enabled: t.enabled,
-          categoryId: t.categoryId,
-          logChannelId: t.logChannelId,
-          validationChannelId: t.validationChannelId,
-          transcriptChannelId: t.transcriptChannelId,
-          requireValidation: t.requireValidation,
-          requireOpenReason: t.requireOpenReason,
-          requireCloseReason: t.requireCloseReason,
-          channelFormat: t.channelFormat,
-          moderatorRoles: JSON.parse(t.moderatorRoles),
-          accessRoles: JSON.parse(t.accessRoles),
-          mentionModerators: t.mentionModerators,
-          maxOpenPerUser: t.maxOpenPerUser,
-          autoDelete: t.autoDelete,
-          inactivityAlertHours: t.inactivityAlertHours,
-          welcomeMessageNoReason: t.welcomeMessageNoReason,
-          transcriptFormat: t.transcriptFormat,
-          openMessage: t.openMessage,
-          panelMessage: t.panelMessage,
-          panelButtonText: t.panelButtonText,
-          categories: ticketCategories.map((c) => ({
-            name: c.name,
-            description: c.description,
-            staffRoleIds: JSON.parse(c.staffRoleIds),
-            maxTicketsPerUser: c.maxTicketsPerUser,
-            openingMode: c.openingMode,
-            formId: c.formId,
-            welcomeMessage: c.welcomeMessage,
-            color: c.color,
-            emoji: c.emoji,
-            position: c.position,
-          })),
-        };
-      }
-
-      reply.send(success(exportPayload));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
-  // ─── Import configuration ───
-  const importModulesEnum = z.enum([
-    'settings', 'modulesEnabled', 'logSettings', 'xpSettings', 'welcomeSettings',
-    'economySettings', 'protectionSettings', 'autoroleSettings', 'autoModSettings', 'ticketSettings',
-  ]);
-  const importSchema = z.object({
-    exportData: z.record(z.unknown()),
-    modules: z.array(importModulesEnum).min(1),
-  });
-
-  app.post('/:guildId/settings/import', {
-    preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema), validateBody(importSchema)],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const body = request.body as z.infer<typeof importSchema>;
-      const { exportData, modules } = body;
-
-      if (exportData.version !== '1.0') {
-        return reply.status(400).send(error('Version de configuration incompatible. Attendu: 1.0'));
-      }
-
-      if (exportData.guildId === guildId) {
-        return reply.status(400).send(error('L\'import sur le même serveur n\'est pas supporté. Utilisez les paramètres directement.'));
-      }
-
-      // Check lockout: if the caller removes their own roles from dashboard access
-      const userDiscordId = request.user!.discordId;
-      const guild = await prisma.guild.findUnique({ where: { id: guildId }, select: { ownerId: true } });
-      const isOwner = guild?.ownerId === userDiscordId;
-
-      if (!isOwner && modules.includes('settings')) {
-        const importedSettings = exportData.settings as Record<string, unknown> | undefined;
-        if (importedSettings) {
-          const importedDashboardRoles = importedSettings.dashboardAccessRoles as string[] ?? [];
-          const { getGuildMember, getGuildRoles } = await import('../services/discord');
-          const member = await getGuildMember(guildId, userDiscordId).catch(() => null);
-          if (member) {
-            const roles = await getGuildRoles(guildId).catch(() => [] as Array<{ id: string; permissions?: string }>);
-            const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
-            const hasPerm = (accessField: string) => {
-              const field = `dashboard${accessField.charAt(0).toUpperCase() + accessField.slice(1)}Access`;
-              const importedField = (importedSettings as Record<string, unknown>)[field];
-              if (Array.isArray(importedField) && importedField.length > 0) {
-                return importedField.some((r: string) => memberRoleIds.includes(r));
-              }
-              return true; // empty = admins only, caller is not admin, so lockout
-            };
-
-            let permissions = BigInt(0);
-            for (const role of roles) {
-              if (memberRoleIds.includes(role.id)) {
-                permissions |= BigInt(role.permissions ?? 0);
-              }
-            }
-            const ADMINISTRATOR = BigInt(0x8);
-            const isDiscordAdmin = (permissions & ADMINISTRATOR) !== BigInt(0);
-
-            if (!isDiscordAdmin) {
-              const wouldLockout =
-                (!importedDashboardRoles || importedDashboardRoles.length === 0) ||
-                !importedDashboardRoles.some((r: string) => memberRoleIds.includes(r));
-
-              if (wouldLockout) {
-                return reply.status(400).send(error(
-                  'Cet import vous retirerait l\'accès au dashboard (aucun de vos rôles n\'est dans la liste des accès). ' +
-                  'Ajoutez un de vos rôles à "dashboardAccessRoles" dans la config importée ou demandez à un administrateur Discord de le faire.'
-                ));
-              }
-            }
-          }
-        }
-      }
-
-      // Build transaction operations
-      const operations: Promise<unknown>[] = [];
-
-      for (const mod of modules) {
-        switch (mod) {
-          case 'settings': {
-            const s = exportData.settings as Record<string, unknown> | undefined;
-            if (s) {
-              const updateData: Record<string, unknown> = {};
-              const createData: Record<string, unknown> = { guildId };
-
-              const scalarFields = ['prefix', 'locale', 'timezone', 'modLogChannel', 'muteRoleId',
-                'changelogChannel', 'suggestionChannelId', 'onboardingDone'];
-              for (const f of scalarFields) {
-                if (s[f] !== undefined) { updateData[f] = s[f]; createData[f] = s[f]; }
-              }
-
-              const arrayFields = ['modRoleIds', 'adminRoleIds', 'dashboardAccessRoles',
-                'dashboardModerationAccess', 'dashboardTicketsAccess', 'dashboardPollsAccess',
-                'dashboardSuggestionsAccess', 'dashboardGiveawaysAccess', 'dashboardEconomyAccess',
-                'dashboardMusicAccess', 'dashboardLevelsAccess', 'dashboardWelcomeAccess',
-                'dashboardAutorolesAccess', 'dashboardLogsAccess', 'dashboardProtectionAccess',
-                'dashboardAuditAccess'];
-              for (const f of arrayFields) {
-                if (Array.isArray(s[f])) {
-                  updateData[f] = JSON.stringify(s[f]);
-                  createData[f] = JSON.stringify(s[f]);
-                }
-              }
-
-              operations.push(
-                (prisma.guildSettings as { upsert: Function }).upsert({
-                  where: { guildId },
-                  update: updateData,
-                  create: { guildId, ...createData },
-                })
-              );
-            }
-            break;
-          }
-          case 'modulesEnabled': {
-            const m = exportData.modulesEnabled as Record<string, unknown> | undefined;
-            if (m) {
-              const moduleFields = ['moderation', 'protection', 'tickets', 'logs', 'levels', 'economy',
-                'music', 'giveaways', 'polls', 'suggestions', 'welcome', 'autoroles', 'embeds',
-                'minigames', 'starboard', 'forms', 'clans', 'notifications'];
-              const data: Record<string, boolean> = {};
-              for (const f of moduleFields) {
-                if (typeof m[f] === 'boolean') data[f] = m[f];
-              }
-              if (Object.keys(data).length > 0) {
-                operations.push(
-                  prisma.moduleEnabled.upsert({
-                    where: { guildId },
-                    update: data,
-                    create: { guildId, ...data },
-                  })
-                );
-              }
-            }
-            break;
-          }
-          case 'logSettings': {
-            const ls = exportData.logSettings as Record<string, unknown> | undefined;
-            if (ls) {
-              const data: Record<string, unknown> = {};
-              if (ls.logChannelId !== undefined) data.logChannelId = ls.logChannelId as string | null;
-              if (Array.isArray(ls.events)) data.events = JSON.stringify(ls.events);
-              if (Array.isArray(ls.ignoredChannels)) data.ignoredChannels = JSON.stringify(ls.ignoredChannels);
-              if (Array.isArray(ls.ignoredRoles)) data.ignoredRoles = JSON.stringify(ls.ignoredRoles);
-              operations.push(
-                prisma.logSettings.upsert({
-                  where: { guildId },
-                  update: data,
-                  create: { guildId, ...data },
-                })
-              );
-            }
-            break;
-          }
-          case 'xpSettings': {
-            const x = exportData.xpSettings as Record<string, unknown> | undefined;
-            if (x) {
-              const data: Record<string, unknown> = { ...x };
-              for (const f of ['ignoredChannels', 'ignoredRoles', 'noXpRoles', 'noXpChannels', 'boosterRoles', 'boosterChannels']) {
-                if (Array.isArray(data[f])) data[f] = JSON.stringify(data[f]);
-              }
-              operations.push(
-                prisma.xPSettings.upsert({
-                  where: { guildId },
-                  update: data,
-                  create: { guildId, ...data },
-                })
-              );
-            }
-            break;
-          }
-          case 'welcomeSettings': {
-            const w = exportData.welcomeSettings as Record<string, unknown> | undefined;
-            if (w) {
-              operations.push(
-                prisma.welcomeSettings.upsert({
-                  where: { guildId },
-                  update: w,
-                  create: { guildId, ...w },
-                })
-              );
-            }
-            break;
-          }
-          case 'economySettings': {
-            const ec = exportData.economySettings as Record<string, unknown> | undefined;
-            if (ec) {
-              const { shopItems: shopItemsPayload, ...ecScalar } = ec;
-              const economy = await prisma.economySettings.upsert({
-                where: { guildId },
-                update: ecScalar,
-                create: { guildId, ...ecScalar },
-              });
-              if (Array.isArray(shopItemsPayload)) {
-                operations.push(prisma.shopItem.deleteMany({ where: { economySettingsId: economy.id } }));
-                for (const item of shopItemsPayload) {
-                  const i = item as Record<string, unknown>;
-                  operations.push(prisma.shopItem.create({
-                    data: {
-                      economySettingsId: economy.id,
-                      name: i.name as string,
-                      description: (i.description as string | null) ?? null,
-                      price: i.price as number,
-                      type: (i.type as string) ?? 'ROLE',
-                      roleId: (i.roleId as string | null) ?? null,
-                      duration: (i.duration as string | null) ?? null,
-                      effectValue: (i.effectValue as string | null) ?? null,
-                    },
-                  }));
-                }
-              }
-            }
-            break;
-          }
-          case 'protectionSettings': {
-            const p = exportData.protectionSettings as Record<string, unknown> | undefined;
-            if (p) {
-              operations.push(
-                prisma.protectionSettings.upsert({
-                  where: { guildId },
-                  update: p,
-                  create: { guildId, ...p },
-                })
-              );
-            }
-            break;
-          }
-          case 'autoroleSettings': {
-            const ar = exportData.autoroleSettings as Record<string, unknown> | undefined;
-            if (ar) {
-              const { entries: entriesPayload, ...arScalar } = ar;
-              const settings = await prisma.autoroleSettings.upsert({
-                where: { guildId },
-                update: arScalar,
-                create: { guildId, ...arScalar },
-              });
-              operations.push(prisma.autoroleEntry.deleteMany({ where: { settingsId: settings.id } }));
-              if (Array.isArray(entriesPayload)) {
-                for (const entry of entriesPayload) {
-                  const e = entry as Record<string, unknown>;
-                  operations.push(prisma.autoroleEntry.create({
-                    data: {
-                      settingsId: settings.id,
-                      guildId,
-                      roleId: e.roleId as string,
-                      type: e.type as string,
-                      levelRequired: (e.levelRequired as number | null) ?? null,
-                      reactionChannelId: (e.reactionChannelId as string | null) ?? null,
-                      reactionEmoji: (e.reactionEmoji as string | null) ?? null,
-                    },
-                  }));
-                }
-              }
-            }
-            break;
-          }
-          case 'autoModSettings': {
-            const am = exportData.autoModSettings as Record<string, unknown> | undefined;
-            if (am) {
-              const data: Record<string, unknown> = { ...am };
-              const arrayFields = ['bannedWordsList', 'forbiddenPingRoles', 'forbiddenMarkdownList', 'whitelistRoles', 'whitelistChannels'];
-              for (const f of arrayFields) {
-                if (Array.isArray(data[f])) data[f] = JSON.stringify(data[f]);
-              }
-              operations.push(
-                prisma.autoModSettings.upsert({
-                  where: { guildId },
-                  update: data,
-                  create: { guildId, ...data },
-                })
-              );
-            }
-            break;
-          }
-          case 'ticketSettings': {
-            const t = exportData.ticketSettings as Record<string, unknown> | undefined;
-            if (t) {
-              const { categories: categoriesPayload, ...tScalar } = t;
-              const data: Record<string, unknown> = { ...tScalar };
-              if (Array.isArray(data.moderatorRoles)) data.moderatorRoles = JSON.stringify(data.moderatorRoles);
-              if (Array.isArray(data.accessRoles)) data.accessRoles = JSON.stringify(data.accessRoles);
-              operations.push(
-                prisma.ticketSettings.upsert({
-                  where: { guildId },
-                  update: data,
-                  create: { guildId, ...data },
-                })
-              );
-              if (Array.isArray(categoriesPayload)) {
-                operations.push(prisma.ticketCategory.deleteMany({ where: { guildId } }));
-                for (const cat of categoriesPayload) {
-                  const c = cat as Record<string, unknown>;
-                  operations.push(prisma.ticketCategory.create({
-                    data: {
-                      guildId,
-                      name: c.name as string,
-                      description: (c.description as string | null) ?? null,
-                      staffRoleIds: JSON.stringify((c.staffRoleIds as string[] | null) ?? []),
-                      maxTicketsPerUser: (c.maxTicketsPerUser as number) ?? 5,
-                      openingMode: (c.openingMode as string) ?? 'BUTTON',
-                      formId: (c.formId as string | null) ?? null,
-                      welcomeMessage: (c.welcomeMessage as string | null) ?? null,
-                      color: (c.color as string) ?? '#5865F2',
-                      emoji: (c.emoji as string | null) ?? null,
-                      position: (c.position as number) ?? 0,
-                    },
-                  }));
-                }
-              }
-            }
-            break;
-          }
-        }
-      }
-
-      if (operations.length > 0) {
-        await prisma.$transaction(operations);
-      }
-
-      reply.send(success({ importedModules: modules }, 'Configuration importée avec succès. Vérifiez les IDs de rôles et salons.'));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
-
+  // ─── Invites leaderboard ───
   app.get('/:guildId/invites/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
@@ -3698,4 +1673,14 @@ export async function guildRoutes(app: FastifyInstance) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
+
+  // ─── Register sub-routers ───
+  await app.register(settingsRoutes, { prefix: '/:guildId/settings' });
+  await app.register(moderationRoutes, { prefix: '/:guildId/moderation' });
+  await app.register(ticketsRoutes, { prefix: '/:guildId/tickets' });
+  await app.register(economyRoutes, { prefix: '/:guildId/economy' });
+  await app.register(levelsRoutes, { prefix: '/:guildId/levels' });
+  await app.register(welcomeRoutes, { prefix: '/:guildId/welcome' });
+  await app.register(protectionRoutes, { prefix: '/:guildId/protection' });
+  await app.register(membersRoutes, { prefix: '/:guildId' });
 }

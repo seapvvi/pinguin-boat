@@ -65,8 +65,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get('/servers', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page ?? '') || 1);
-      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
+      const page = Math.max(1, parseInt(q.page ?? '', 10) || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '', 10) || 20);
       const search = String(q.search ?? '').trim();
       const sortBy = String(q.sortBy ?? 'memberCount');
       const sortOrder = String(q.sortOrder ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
@@ -118,8 +118,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get('/users', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page ?? '') || 1);
-      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
+      const page = Math.max(1, parseInt(q.page ?? '', 10) || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '', 10) || 20);
       const search = String(q.search ?? '').trim();
       const sortBy = String(q.sortBy ?? 'createdAt');
       const sortOrder = String(q.sortOrder ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
@@ -159,8 +159,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get('/blacklist/users', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page ?? '') || 1);
-      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
+      const page = Math.max(1, parseInt(q.page ?? '', 10) || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '', 10) || 20);
       const [entries, total] = await Promise.all([
         prisma.blacklistUser.findMany({
           orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
@@ -202,8 +202,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get('/blacklist/guilds', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page ?? '') || 1);
-      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
+      const page = Math.max(1, parseInt(q.page ?? '', 10) || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '', 10) || 20);
       const [entries, total] = await Promise.all([
         prisma.blacklistGuild.findMany({
           orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
@@ -358,8 +358,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get('/changelogs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page ?? '') || 1);
-      const limit = Math.min(50, parseInt(q.limit ?? '') || 10);
+      const page = Math.max(1, parseInt(q.page ?? '', 10) || 1);
+      const limit = Math.min(50, parseInt(q.limit ?? '', 10) || 10);
       const [entries, total] = await Promise.all([
         prisma.changelog.findMany({
           orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
@@ -531,8 +531,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get('/logs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page ?? '') || 1);
-      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
+      const page = Math.max(1, parseInt(q.page ?? '', 10) || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '', 10) || 20);
       const where: any = {};
       if (q.action) where.action = q.action;
       if (q.search) {
@@ -679,8 +679,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get('/blacklist', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page ?? '') || 1);
-      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
+      const page = Math.max(1, parseInt(q.page ?? '', 10) || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '', 10) || 20);
       const [users, guilds] = await Promise.all([
         prisma.blacklistUser.findMany({ orderBy: { createdAt: 'desc' }, take: limit }),
         prisma.blacklistGuild.findMany({ orderBy: { createdAt: 'desc' }, take: limit, include: { guild: { select: { name: true } } } }),
@@ -895,8 +895,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   app.get('/deployments', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const q = request.query as Record<string, string | undefined>;
-      const page = Math.max(1, parseInt(q.page ?? '') || 1);
-      const limit = Math.min(50, parseInt(q.limit ?? '') || 10);
+      const page = Math.max(1, parseInt(q.page ?? '', 10) || 1);
+      const limit = Math.min(50, parseInt(q.limit ?? '', 10) || 10);
       const [deployments, total] = await Promise.all([
         prisma.deployment.findMany({
           orderBy: { startedAt: 'desc' }, skip: (page - 1) * limit, take: limit,

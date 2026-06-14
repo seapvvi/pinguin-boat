@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '@pinguin/db';
-import { getConfig } from '@pinguin/config';
+import { getConfig, getAllowedRedirectUris } from '@pinguin/config';
 import { randomUUID, createHash } from 'crypto';
 import { authenticate } from '../middleware/auth';
 import { success, error, getErrorMessage } from '../utils/response';
@@ -10,10 +10,12 @@ import * as DiscordService from '../services/discord';
 const config = getConfig();
 const MAX_ACTIVE_SESSIONS = 10;
 const APP_URL = config.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '');
+const ALLOWED_REDIRECT_URIS = getAllowedRedirectUris();
 
 const callbackQuerySchema = z.object({
   code: z.string().min(1),
   state: z.string().min(1),
+  redirect_uri: z.string().optional(),
 });
 
 export async function authRoutes(app: FastifyInstance) {
@@ -70,8 +72,12 @@ export async function authRoutes(app: FastifyInstance) {
 
     reply.clearCookie('oauth_state', { path: '/' });
 
+    const redirectUri = query.data.redirect_uri || ALLOWED_REDIRECT_URIS[0];
+    if (!ALLOWED_REDIRECT_URIS.includes(redirectUri)) {
+      return reply.status(400).send(error('redirect_uri non autorisé'));
+    }
+
     try {
-      const redirectUri = `${APP_URL}/auth/callback`;
       const tokenData = await DiscordService.exchangeCode(query.data.code, redirectUri);
       const discordUser = await DiscordService.getUser(tokenData.access_token);
       const guilds = await DiscordService.getUserGuilds(tokenData.access_token);
@@ -177,7 +183,7 @@ export async function authRoutes(app: FastifyInstance) {
               id: g.id,
               name: g.name,
               icon: g.icon || null,
-              ownerId: g.owner ? discordUser.id : null,
+              ownerId: g.owner ? discordUser.id : undefined,
               memberCount: 0,
               botPresent: g.botPresent,
             },
