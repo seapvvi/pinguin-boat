@@ -126,21 +126,20 @@ export async function settingsRoutes(app: FastifyInstance) {
       const body = request.body as Record<string, unknown>;
       const eventsList = body.enabledEvents ?? body.events;
       const ignoreCh = body.ignoreChannels ?? body.ignoredChannels;
-      const ignoreUs = body.ignoreUsers ?? body.ignoredRoles;
       await prisma.logSettings.upsert({
         where: { guildId },
         update: {
           logChannelId: body.logChannelId as string | undefined,
           events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : undefined,
           ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : undefined,
-          ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : undefined,
+          ignoredRoles: Array.isArray(body.ignoredRoles) ? JSON.stringify(body.ignoredRoles) : undefined,
         },
         create: {
           guildId,
           logChannelId: (body.logChannelId as string) || null,
           events: Array.isArray(eventsList) ? JSON.stringify(eventsList) : '[]',
           ignoredChannels: Array.isArray(ignoreCh) ? JSON.stringify(ignoreCh) : '[]',
-          ignoredRoles: Array.isArray(ignoreUs) ? JSON.stringify(ignoreUs) : '[]',
+          ignoredRoles: Array.isArray(body.ignoredRoles) ? JSON.stringify(body.ignoredRoles) : '[]',
         },
       });
       reply.send(success(null, 'Logs mis à jour'));
@@ -198,7 +197,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.post('/reset', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/reset', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
@@ -226,7 +225,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.post('/leave', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/leave', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       await leaveGuildViaBot(guildId);
@@ -235,7 +234,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.post('/delete-data', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/delete-data', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
@@ -629,9 +628,19 @@ export async function settingsRoutes(app: FastifyInstance) {
           case 'xpSettings': {
             const x = exportData.xpSettings as Record<string, unknown> | undefined;
             if (x) {
-              const data: Record<string, unknown> = { ...x };
-              for (const f of ['ignoredChannels', 'ignoredRoles', 'noXpRoles', 'noXpChannels', 'boosterRoles', 'boosterChannels']) {
-                if (Array.isArray(data[f])) data[f] = JSON.stringify(data[f]);
+              const data: Record<string, unknown> = {};
+              const scalarFields = ['enabled', 'xpPerMessageMin', 'xpPerMessageMax', 'voiceXp',
+                'messageCooldown', 'voiceCooldown', 'levelFormula', 'maxLevel',
+                'announcementChannelId', 'announcementMessage', 'xpCurve', 'xpMultiplier',
+                'xpInThreads', 'xpInForumPosts', 'xpVocalMessages', 'showOtherLevels',
+                'resetOnLeave', 'resetOnBan', 'doubleXpLongMessages', 'onlineLeaderboard',
+                'discordLeaderboard', 'levelColor', 'rewardAnnounce', 'rewardMessage'];
+              for (const f of scalarFields) {
+                if (x[f] !== undefined) data[f] = x[f];
+              }
+              const arrayFields = ['ignoredChannels', 'ignoredRoles', 'noXpRoles', 'noXpChannels', 'boosterRoles', 'boosterChannels'];
+              for (const f of arrayFields) {
+                if (Array.isArray(x[f])) data[f] = JSON.stringify(x[f]);
               }
               operations.push(
                 prisma.xPSettings.upsert({
@@ -646,11 +655,22 @@ export async function settingsRoutes(app: FastifyInstance) {
           case 'welcomeSettings': {
             const w = exportData.welcomeSettings as Record<string, unknown> | undefined;
             if (w) {
+              const data: Record<string, unknown> = {};
+              const scalarFields = ['enabled', 'welcomeChannelId', 'welcomeMessage', 'welcomeEmbed',
+                'welcomeEmbedColor', 'welcomeEmbedTitle', 'welcomeEmbedDescription',
+                'welcomeEmbedFooter', 'welcomeEmbedImage', 'welcomeDM', 'welcomeDMMessage',
+                'mentionMember', 'goodbyeEnabled', 'goodbyeChannelId', 'goodbyeMessage',
+                'goodbyeEmbed', 'goodbyeEmbedColor', 'cardEnabled', 'cardBackground',
+                'cardBgColor', 'cardBgImage', 'cardTextColor', 'cardSubtextColor',
+                'cardAccentColor', 'cardBlurBackground', 'cardText', 'cardSubtext'];
+              for (const f of scalarFields) {
+                if (w[f] !== undefined) data[f] = w[f];
+              }
               operations.push(
                 prisma.welcomeSettings.upsert({
                   where: { guildId },
-                  update: w,
-                  create: { guildId, ...w },
+                  update: data,
+                  create: { guildId, ...data },
                 })
               );
             }
@@ -660,40 +680,53 @@ export async function settingsRoutes(app: FastifyInstance) {
             const ec = exportData.economySettings as Record<string, unknown> | undefined;
             if (ec) {
               const { shopItems: shopItemsPayload, ...ecScalar } = ec;
-              const economy = await prisma.economySettings.upsert({
-                where: { guildId },
-                update: ecScalar,
-                create: { guildId, ...ecScalar },
-              });
-              if (Array.isArray(shopItemsPayload)) {
-                operations.push(prisma.shopItem.deleteMany({ where: { economySettingsId: economy.id } }));
-                for (const item of shopItemsPayload) {
-                  const i = item as Record<string, unknown>;
-                  operations.push(prisma.shopItem.create({
-                    data: {
-                      economySettingsId: economy.id,
-                      name: i.name as string,
-                      description: (i.description as string | null) ?? null,
-                      price: i.price as number,
-                      type: (i.type as string) ?? 'ROLE',
-                      roleId: (i.roleId as string | null) ?? null,
-                      duration: (i.duration as string | null) ?? null,
-                      effectValue: (i.effectValue as string | null) ?? null,
-                    },
-                  }));
-                }
-              }
+              operations.push(
+                prisma.$transaction(async (tx) => {
+                  const economy = await tx.economySettings.upsert({
+                    where: { guildId },
+                    update: ecScalar,
+                    create: { guildId, ...ecScalar },
+                  });
+                  if (Array.isArray(shopItemsPayload)) {
+                    await tx.shopItem.deleteMany({ where: { economySettingsId: economy.id } });
+                    for (const item of shopItemsPayload) {
+                      const i = item as Record<string, unknown>;
+                      await tx.shopItem.create({
+                        data: {
+                          economySettingsId: economy.id,
+                          name: i.name as string,
+                          description: (i.description as string | null) ?? null,
+                          price: i.price as number,
+                          type: (i.type as string) ?? 'ROLE',
+                          roleId: (i.roleId as string | null) ?? null,
+                          duration: (i.duration as number | null) ?? null,
+                          effectValue: (i.effectValue as number | null) ?? null,
+                        },
+                      });
+                    }
+                  }
+                })
+              );
             }
             break;
           }
           case 'protectionSettings': {
             const p = exportData.protectionSettings as Record<string, unknown> | undefined;
             if (p) {
+              const data: Record<string, unknown> = {};
+              const scalarFields = ['enabled', 'antiRaid', 'raidThreshold', 'raidInterval',
+                'antiSpam', 'spamThreshold', 'spamInterval', 'antiMassMention',
+                'mentionThreshold', 'antiLink', 'antiAlts', 'altAccountAge',
+                'verificationLevel', 'captchaVerification', 'verifiedRoleId',
+                'punishment', 'emergencyMode'];
+              for (const f of scalarFields) {
+                if (p[f] !== undefined) data[f] = p[f];
+              }
               operations.push(
                 prisma.protectionSettings.upsert({
                   where: { guildId },
-                  update: p,
-                  create: { guildId, ...p },
+                  update: data,
+                  create: { guildId, ...data },
                 })
               );
             }
