@@ -34,7 +34,7 @@ export async function systemRoutes(app: FastifyInstance) {
       });
 
       reply.send(success({ snapshots }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });

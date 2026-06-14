@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '@pinguin/db';
 import { getConfig } from '@pinguin/config';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { authenticate } from '../middleware/auth';
 import { success, error, getErrorMessage } from '../utils/response';
 import * as DiscordService from '../services/discord';
@@ -13,8 +13,7 @@ const APP_URL = config.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '');
 
 const callbackQuerySchema = z.object({
   code: z.string().min(1),
-  state: z.string().optional(),
-  redirect_uri: z.string().url().optional(),
+  state: z.string().min(1),
 });
 
 export async function authRoutes(app: FastifyInstance) {
@@ -72,7 +71,7 @@ export async function authRoutes(app: FastifyInstance) {
     reply.clearCookie('oauth_state', { path: '/' });
 
     try {
-      const redirectUri = query.data.redirect_uri || `${APP_URL}/auth/callback`;
+      const redirectUri = `${APP_URL}/auth/callback`;
       const tokenData = await DiscordService.exchangeCode(query.data.code, redirectUri);
       const discordUser = await DiscordService.getUser(tokenData.access_token);
       const guilds = await DiscordService.getUserGuilds(tokenData.access_token);
@@ -103,37 +102,45 @@ export async function authRoutes(app: FastifyInstance) {
         });
       }
 
-      await prisma.session.deleteMany({
-        where: { userId: user.id, expiresAt: { lt: new Date() } },
-      });
-
-      const activeSessions = await prisma.session.count({
-        where: { userId: user.id },
-      });
-
-      if (activeSessions >= MAX_ACTIVE_SESSIONS) {
-        const oldestSessions = await prisma.session.findMany({
-          where: { userId: user.id },
-          orderBy: { createdAt: 'asc' },
-          take: activeSessions - MAX_ACTIVE_SESSIONS + 1,
-          select: { id: true },
-        });
-        await prisma.session.deleteMany({
-          where: { id: { in: oldestSessions.map((s) => s.id) } },
-        });
-      }
-
       const sessionToken = randomUUID();
+      const hashedToken = createHash('sha256').update(sessionToken).digest('hex');
       const sessionId = randomUUID();
       const expiresAt = new Date(Date.now() + config.SESSION_MAX_AGE * 1000);
 
-      await prisma.session.create({
-        data: {
-          id: sessionId,
-          userId: user.id,
-          token: sessionToken,
-          expiresAt,
-        },
+      await prisma.$transaction(async (tx) => {
+        await tx.session.deleteMany({
+          where: { userId: user.id, expiresAt: { lt: new Date() } },
+        });
+
+        const activeSessions = await tx.session.count({
+          where: { userId: user.id },
+        });
+
+        if (activeSessions >= MAX_ACTIVE_SESSIONS) {
+          const oldestSessions = await tx.session.findMany({
+            where: { userId: user.id },
+            orderBy: { createdAt: 'asc' },
+            take: activeSessions - MAX_ACTIVE_SESSIONS + 1,
+            select: { id: true },
+          });
+          await tx.session.deleteMany({
+            where: { id: { in: oldestSessions.map((s) => s.id) } },
+          });
+        }
+
+        const discordTokenExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+
+        await tx.session.create({
+          data: {
+            id: sessionId,
+            userId: user.id,
+            token: hashedToken,
+            discordAccessToken: tokenData.access_token,
+            discordRefreshToken: tokenData.refresh_token,
+            discordTokenExpiresAt,
+            expiresAt,
+          },
+        });
       });
 
       reply.setCookie('session', sessionToken, {
@@ -170,7 +177,7 @@ export async function authRoutes(app: FastifyInstance) {
               id: g.id,
               name: g.name,
               icon: g.icon || null,
-              ownerId: g.owner ? discordUser.id : 'unknown',
+              ownerId: g.owner ? discordUser.id : null,
               memberCount: 0,
               botPresent: g.botPresent,
             },

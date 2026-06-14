@@ -10,7 +10,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.post('/github', async (request: FastifyRequest, reply: FastifyReply) => {
     const signature = request.headers['x-hub-signature-256'] as string;
     const event = request.headers['x-github-event'] as string;
-    const body = request.body as any;
+    const body = request.body as { ref?: string } | null;
 
     if (!event) {
       return reply.status(400).send(error('En-tête x-github-event manquant'));
@@ -30,7 +30,7 @@ export async function webhookRoutes(app: FastifyInstance) {
         );
 
         reply.send(success(result, 'Déploiement automatique démarré'));
-      } catch (err: any) {
+      } catch (err: unknown) {
         reply.status(500).send(error(sanitizeError(err)));
       }
     } else {

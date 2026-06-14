@@ -10,12 +10,19 @@ const ownerPre = { preHandler: [authenticate, requireOwner] };
 
 const rollbackSchema = z.object({ version: z.string().min(1).optional() });
 
+const paramsSchema = z.object({ id: z.string().uuid() });
+
+const paginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
 export async function deployRoutes(app: FastifyInstance) {
   app.post('/start', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const result = await DeployService.startDeployment(request.user!.id);
       reply.send(success(result, 'Déploiement démarré en arrière-plan'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -28,14 +35,18 @@ export async function deployRoutes(app: FastifyInstance) {
     try {
       await DeployService.rollback(request.user!.id, parsed.data.version);
       reply.send(success(null, 'Rollback effectué'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.get('/status/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id } = request.params as any;
+      const parsed = paramsSchema.safeParse(request.params);
+      if (!parsed.success) {
+        return reply.status(400).send(error('ID de déploiement invalide'));
+      }
+      const { id } = parsed.data;
       const deployment = await prisma.deployment.findUnique({ where: { id } });
       if (!deployment) return reply.status(404).send(error('Déploiement introuvable'));
       reply.send(success({
@@ -46,7 +57,7 @@ export async function deployRoutes(app: FastifyInstance) {
         startedAt: deployment.startedAt,
         completedAt: deployment.completedAt,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -55,19 +66,17 @@ export async function deployRoutes(app: FastifyInstance) {
     try {
       const status = await DeployService.getDeployStatus();
       reply.send(success(status));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.get('/history', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 10));
-      const { deployments, total } = await DeployService.getDeployHistory(page, limit);
-      reply.send(success({ deployments, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) {
+      const query = paginationSchema.parse(request.query);
+      const { deployments, total } = await DeployService.getDeployHistory(query.page, query.limit);
+      reply.send(success({ deployments, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } }));
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });

@@ -263,12 +263,15 @@ model User {
 
 /// Session de connexion
 model Session {
-  id        String   @id @map("id")
-  userId    String   @map("user_id")
-  guildId   String?  @map("guild_id")
-  token     String   @unique @map("token")
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
+  id                    String    @id @map("id")
+  userId                String    @map("user_id")
+  guildId               String?   @map("guild_id")
+  token                 String    @unique @map("token")
+  discordAccessToken    String?   @map("discord_access_token")
+  discordRefreshToken   String?   @map("discord_refresh_token")
+  discordTokenExpiresAt DateTime? @map("discord_token_expires_at")
+  expiresAt             DateTime  @map("expires_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id])
 
@@ -298,7 +301,7 @@ model Guild {
   id          String  @id @map("id")
   name        String  @map("name")
   icon        String? @map("icon")
-  ownerId     String  @map("owner_id")
+  ownerId     String? @map("owner_id")
   memberCount Int     @default(0) @map("member_count")
   botPresent  Boolean @default(true) @map("bot_present")
 

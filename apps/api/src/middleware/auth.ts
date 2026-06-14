@@ -1,4 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
+import { createHash } from 'crypto';
 import { prisma } from '@pinguin/db';
 import { getConfig } from '@pinguin/config';
 
@@ -44,8 +45,10 @@ export async function authenticate(
     return;
   }
 
+  const hashedToken = createHash('sha256').update(token).digest('hex');
+
   const session = await prisma.session.findUnique({
-    where: { token },
+    where: { token: hashedToken },
     include: { user: true },
   });
 
@@ -73,7 +76,7 @@ export async function authenticate(
   if (blacklisted) {
     reply.status(403).send({
       success: false,
-      error: `Votre compte a été blacklisté pour infraction. Raison: ${blacklisted.reason}. Vous pouvez contester en ouvrant un ticket: https://discord.gg/EJHhcYkXMQ`,
+      error: `Votre compte a été blacklisté pour infraction. Raison: ${blacklisted.reason}. Vous pouvez contester en ouvrant un ticket: ${config.DISCORD_SUPPORT_INVITE}`,
     });
     return;
   }

@@ -87,6 +87,28 @@ export async function exchangeCode(code: string, redirectUri: string): Promise<D
   return response.json() as Promise<DiscordTokenResponse>;
 }
 
+export async function refreshDiscordToken(refreshToken: string): Promise<DiscordTokenResponse> {
+  const data = new URLSearchParams({
+    client_id: config.DISCORD_CLIENT_ID,
+    client_secret: config.DISCORD_CLIENT_SECRET,
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  });
+
+  const response = await fetch(`${API_BASE}/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: data.toString(),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Échec du rafraîchissement du token OAuth2: ${text.slice(0, 200)}`);
+  }
+
+  return response.json() as Promise<DiscordTokenResponse>;
+}
+
 export async function getUser(accessToken: string): Promise<DiscordUser> {
   return discordFetch<DiscordUser>('/users/@me', {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -102,9 +124,25 @@ export async function getUserGuilds(
 }
 
 export async function getBotGuilds(): Promise<DiscordBotGuild[]> {
-  return discordFetch<DiscordBotGuild[]>('/users/@me/guilds', {
-    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
-  });
+  const allGuilds: DiscordBotGuild[] = [];
+  let after: string | undefined;
+
+  while (true) {
+    let endpoint = '/users/@me/guilds?limit=200';
+    if (after) endpoint += `&after=${after}`;
+
+    const batch = await discordFetch<DiscordBotGuild[]>(endpoint, {
+      headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    });
+
+    allGuilds.push(...batch);
+    if (batch.length < 200) break;
+
+    const last = batch[batch.length - 1];
+    after = last.id;
+  }
+
+  return allGuilds;
 }
 
 export async function getBotGuild(id: string): Promise<DiscordBotGuild | null> {
@@ -164,12 +202,6 @@ export async function getBotUserId(): Promise<string> {
   cachedBotUserId = me.id;
   return cachedBotUserId;
 }
-
-/** Permissions Discord en string (évite BigInt dans JSON). */
-export const PERM_VIEW_CHANNEL = '1024';
-export const PERM_SEND_MESSAGES = '2048';
-export const PERM_READ_HISTORY = '65536';
-export const PERM_MANAGE_CHANNELS = '16';
 
 export function hasDiscordPermission(
   memberPermissions: string,
@@ -356,13 +388,14 @@ export const DISCORD_PERMISSIONS = {
   ADMINISTRATOR: 1n << 3n,
   MANAGE_GUILD: 1n << 5n,
   MANAGE_ROLES: 1n << 28n,
-  MANAGE_CHANNELS: 1n << 16n,
+  MANAGE_CHANNELS: 1n << 4n,
   KICK_MEMBERS: 1n << 1n,
   BAN_MEMBERS: 1n << 2n,
   MODERATE_MEMBERS: 1n << 40n,
   SEND_MESSAGES: 1n << 11n,
   MANAGE_MESSAGES: 1n << 13n,
   VIEW_CHANNEL: 1n << 10n,
+  READ_MESSAGE_HISTORY: 1n << 16n,
   CONNECT: 1n << 20n,
   SPEAK: 1n << 21n,
 } as const;

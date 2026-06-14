@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { prisma } from '@pinguin/db';
+import { prisma, AuditAction } from '@pinguin/db';
 import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
 import { success, error, sanitizeError, getErrorMessage } from '../utils/response';
@@ -40,7 +40,7 @@ export async function overviewRoutes(app: FastifyInstance) {
       const activeChannels = await prisma.auditLog.count({
         where: {
           createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-          action: 'MESSAGE_CREATE' as any,
+          action: 'MESSAGE_CREATE' as AuditAction,
         },
       }).catch(() => 0);
 

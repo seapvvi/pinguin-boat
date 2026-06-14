@@ -8,7 +8,7 @@ import { success, error, sanitizeError } from '../utils/response';
 import { getQueueState, botControl, botPlay, notifyModuleChange, createTicketChannel, leaveGuildViaBot, invalidateBotAutoModCache } from '../services/bot-proxy';
 import { closeTicketWithTranscript } from '../services/ticket-close';
 import { generateTicketTranscriptHtml } from '../services/pastebin';
-import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, getGuildMember, getBotUserId, PERM_VIEW_CHANNEL, PERM_SEND_MESSAGES, PERM_READ_HISTORY, PERM_MANAGE_CHANNELS, NUMBER_EMOJIS } from '../services/discord';
+import { sendDM, timeoutMember, kickMember, banMember, unbanMember, sendChannelMessage, editMessage, addMessageReaction, createGuildChannel, deleteChannel, editChannel, getGuildChannels, getGuildRoles, getChannelMessages, getGuildMember, getBotUserId, DISCORD_PERMISSIONS, NUMBER_EMOJIS } from '../services/discord';
 import { z } from 'zod';
 
 const config = getConfig();
@@ -49,7 +49,7 @@ export async function guildRoutes(app: FastifyInstance) {
             if (!member) return { ...g, isMember: false, hasDashboardAccess: false };
             
             const isOwner = g.ownerId === userDiscordId;
-            const roles = await getGuildRoles(g.id).catch(() => [] as any[]);
+            const roles = await getGuildRoles(g.id).catch(() => [] as Array<{ id: string; permissions?: string }>);
             const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
             let permissions = BigInt(0);
             for (const role of roles) {
@@ -90,7 +90,7 @@ export async function guildRoutes(app: FastifyInstance) {
         premium: (premiumGuildIds.has(g.id) ? 'BASIC' : 'FREE') as 'BASIC' | 'FREE',
       }));
       reply.send(success({ guilds: enriched }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -145,7 +145,7 @@ export async function guildRoutes(app: FastifyInstance) {
 
   app.get('/:guildId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const guild = await prisma.guild.findUnique({
         where: { id: guildId },
         include: {
@@ -201,8 +201,8 @@ export async function guildRoutes(app: FastifyInstance) {
           interestRate: es.interestRate,
           interestInterval: es.interestInterval,
           bankCapacity: es.bankCapacity,
-          shopItems: (es as any).shopItems?.map((i: any) => ({
-            id: i.id, name: i.name, description: i.description, price: i.price, roleId: i.roleId,
+          shopItems: (es as { shopItems?: Array<Record<string, unknown>> }).shopItems?.map((i) => ({
+            id: i.id as string, name: i.name as string, description: i.description as string | null, price: i.price as number, roleId: i.roleId as string | null,
           })) ?? [],
         },
         levels: guild.xpSettings ? {
@@ -218,7 +218,7 @@ export async function guildRoutes(app: FastifyInstance) {
           ignoredRoles: JSON.parse(guild.xpSettings.ignoredRoles),
           announcementChannelId: guild.xpSettings.announcementChannelId,
           announcementMessage: guild.xpSettings.announcementMessage,
-          roleRewards: (guild as any).xpRoleRewards?.map((rr: any) => ({ level: rr.levelRequired, roleId: rr.roleId, xpMultiplier: rr.xpMultiplier })) ?? [],
+          roleRewards: (guild as { xpRoleRewards?: Array<Record<string, unknown>> }).xpRoleRewards?.map((rr) => ({ level: rr.levelRequired as number, roleId: rr.roleId as string, xpMultiplier: rr.xpMultiplier as number | null })) ?? [],
         } : undefined,
         welcome: guild.welcomeSettings || undefined,
         logs: mapLogsPayload(guild.logSettings, guild.modulesEnabled),
@@ -258,35 +258,35 @@ export async function guildRoutes(app: FastifyInstance) {
         dashboardAuditAccess: guild.settings ? JSON.parse(guild.settings.dashboardAuditAccess || '[]') : [],
       };
       reply.send(success({ guild: payload }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.get('/:guildId/channels', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const channels = await getGuildChannels(guildId);
       reply.send(success({ channels }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.get('/:guildId/roles', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const roles = await getGuildRoles(guildId);
       reply.send(success({ roles }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.put('/:guildId', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
 
       // -- disabledModules --
       if (Array.isArray(body.disabledModules)) {
@@ -424,7 +424,7 @@ export async function guildRoutes(app: FastifyInstance) {
       // -- welcome --
       if (body.welcome) {
         const w = body.welcome;
-        await (prisma.welcomeSettings as any).upsert({
+        await (prisma.welcomeSettings as { upsert: Function }).upsert({
           where: { guildId },
           update: {
             enabled: w.enabled ?? undefined,
@@ -624,8 +624,8 @@ export async function guildRoutes(app: FastifyInstance) {
           robberyEnabled: es.robberyEnabled, robberyMaxAmount: es.robberyMaxAmount,
           robberyCooldown: es.robberyCooldown, interestRate: es.interestRate,
           interestInterval: es.interestInterval, bankCapacity: es.bankCapacity,
-          shopItems: (es as any).shopItems?.map((i: any) => ({
-            id: i.id, name: i.name, description: i.description, price: i.price, roleId: i.roleId,
+          shopItems: (es as { shopItems?: Array<Record<string, unknown>> }).shopItems?.map((i) => ({
+            id: i.id as string, name: i.name as string, description: i.description as string | null, price: i.price as number, roleId: i.roleId as string | null,
           })) ?? [],
         },
         protection: guild.protectionSettings || { enabled: false, emergencyMode: false, antiRaid: false, raidThreshold: 10, raidInterval: 10, antiSpam: false, spamThreshold: 5, spamInterval: 5, antiMassMention: false, mentionThreshold: 5, antiLink: false, antiAlts: false, altAccountAge: 7, verificationLevel: 'NONE', captchaVerification: false, punishment: 'KICK' },
@@ -642,7 +642,7 @@ export async function guildRoutes(app: FastifyInstance) {
           ignoredRoles: JSON.parse(guild.xpSettings.ignoredRoles),
           announcementChannelId: guild.xpSettings.announcementChannelId,
           announcementMessage: guild.xpSettings.announcementMessage,
-          roleRewards: (guild as any).xpRoleRewards?.map((rr: any) => ({ level: rr.levelRequired, roleId: rr.roleId, xpMultiplier: rr.xpMultiplier })) ?? [],
+          roleRewards: (guild as { xpRoleRewards?: Array<Record<string, unknown>> }).xpRoleRewards?.map((rr) => ({ level: rr.levelRequired as number, roleId: rr.roleId as string, xpMultiplier: rr.xpMultiplier as number | null })) ?? [],
         } : undefined,
         welcome: guild.welcomeSettings || undefined,
         logs: mapLogsPayload(guild.logSettings, guild.modulesEnabled),
@@ -676,28 +676,28 @@ export async function guildRoutes(app: FastifyInstance) {
         suggestionChannelId: guild.settings?.suggestionChannelId ?? null,
       };
       reply.send(success({ guild: payload }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.get('/:guildId/settings', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let settings = await prisma.guildSettings.findUnique({ where: { guildId } });
       if (!settings) {
         settings = await prisma.guildSettings.create({ data: { guildId } });
       }
       reply.send(success({ settings }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.put('/:guildId/settings', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       await prisma.guildSettings.upsert({
         where: { guildId },
         update: {
@@ -719,34 +719,34 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.send(success(null, 'Paramètres mis à jour'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.get('/:guildId/modules', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let modules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
       if (!modules) modules = await prisma.moduleEnabled.create({ data: { guildId } });
       reply.send(success({ modules }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.put('/:guildId/modules', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       const fields = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'];
-      const data: any = {};
+      const data: Record<string, unknown> = {};
       for (const f of fields) { if (typeof body[f] === 'boolean') data[f] = body[f]; }
       if (Object.keys(data).length > 0) {
         await prisma.moduleEnabled.upsert({ where: { guildId }, update: data, create: { guildId, ...data } });
       }
       reply.send(success(null, 'Modules mis à jour'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -772,15 +772,15 @@ export async function guildRoutes(app: FastifyInstance) {
         update: updates,
         create: { guildId, ...updates },
       });
-      try { await notifyModuleChange(guildId, validModules.filter((m) => !(result as any)[m])); } catch {}
+      try { await notifyModuleChange(guildId, validModules.filter((m) => !(result as Record<string, boolean | undefined>)[m])); } catch {}
       reply.send(success(result, 'Modules mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.patch('/:guildId/modules/:moduleKey', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, moduleKey } = request.params as any;
-      const { enabled } = request.body as any;
+      const { guildId, moduleKey } = request.params as { guildId: string; moduleKey: string };
+      const { enabled } = request.body as { enabled?: boolean };
       const validModules = ['moderation','protection','tickets','logs','levels','economy','music','giveaways','polls','suggestions','welcome','autoroles','embeds','minigames','starboard','forms','clans','notifications'];
       if (!validModules.includes(moduleKey)) return reply.status(400).send(error('Module inconnu'));
       await prisma.moduleEnabled.upsert({
@@ -790,19 +790,19 @@ export async function guildRoutes(app: FastifyInstance) {
       });
       // Notify the bot of the module change
       const allModules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
-      const disabled = allModules ? validModules.filter((m) => !(allModules as any)[m]) : [];
+      const disabled = allModules ? validModules.filter((m) => !(allModules as Record<string, boolean | undefined>)[m]) : [];
       try { await notifyModuleChange(guildId, disabled); } catch {}
       reply.send(success({ moduleKey, enabled }, 'Module mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/my-permissions', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const discordId = request.user!.discordId;
       const member = await getGuildMember(guildId, discordId).catch(() => null);
       if (!member) return reply.status(403).send(error('Membre introuvable dans ce serveur'));
-      const roles = await getGuildRoles(guildId).catch(() => [] as any[]);
+      const roles = await getGuildRoles(guildId).catch(() => [] as Array<{ id: string; permissions?: string }>);
       const guild = await prisma.guild.findUnique({ where: { id: guildId }, include: { settings: true } });
       const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
       let permissions = BigInt(0);
@@ -827,7 +827,7 @@ export async function guildRoutes(app: FastifyInstance) {
       // Module-specific access
       const hasAccess = (accessField: string) => {
         if (isOwner || isAdmin) return true;
-        const accessRoles = settings ? JSON.parse((settings as any)[accessField] || '[]') : [];
+        const accessRoles = settings ? JSON.parse((settings as Record<string, string>)[accessField] || '[]') : [];
         return accessRoles.some((r: string) => memberRoleIds.includes(r));
       };
       
@@ -857,16 +857,16 @@ export async function guildRoutes(app: FastifyInstance) {
           audit: hasAccess('dashboardAuditAccess'),
         },
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const where = { guildId, deletedAt: null } as any;
+      const where: Record<string, unknown> = { guildId, deletedAt: null };
       if (q.search) {
         where.OR = [
           { userId: { contains: q.search } },
@@ -888,7 +888,7 @@ export async function guildRoutes(app: FastifyInstance) {
         cases: modCases,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -901,7 +901,7 @@ export async function guildRoutes(app: FastifyInstance) {
 
   app.delete('/:guildId/moderation/:caseId', { preHandler: [authenticate, validateParams(z.object({ guildId: z.string(), caseId: z.string() }))] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, caseId } = request.params as any;
+      const { guildId, caseId } = request.params as { guildId: string; caseId: string };
       const modCase = await prisma.moderationCase.findFirst({ where: { id: caseId, guildId } });
       if (!modCase) return reply.status(404).send(error('Cas introuvable'));
       await prisma.moderationCase.update({ where: { id: caseId }, data: { deletedAt: new Date() } });
@@ -913,13 +913,13 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       }).catch(() => {});
       reply.send(success(null, 'Cas supprimé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/moderation', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       const type = body.type as string;
       if (!type || !body.userId || !body.reason)
         return reply.status(400).send(error('Type, utilisateur et raison requis'));
@@ -994,12 +994,12 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(modCase, 'Action exécutée sur Discord'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/moderation/:caseId/revoke', { preHandler: [authenticate, validateParams(z.object({ guildId: z.string(), caseId: z.string() }))] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, caseId } = request.params as any;
+      const { guildId, caseId } = request.params as { guildId: string; caseId: string };
       const modCase = await prisma.moderationCase.findFirst({ where: { id: caseId, guildId } });
       if (!modCase) return reply.status(404).send(error('Cas introuvable'));
 
@@ -1026,16 +1026,16 @@ export async function guildRoutes(app: FastifyInstance) {
       }).catch(() => {});
 
       reply.send(success(null, 'Sanction révoquée'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/blacklist', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
-      const where = { guildId } as any;
+      const where: Record<string, unknown> = { guildId };
       if (q.search) {
         where.userId = { contains: q.search };
       }
@@ -1050,15 +1050,15 @@ export async function guildRoutes(app: FastifyInstance) {
         entries,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.post('/:guildId/blacklist', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       if (!body.userId || !body.reason) {
         return reply.status(400).send(error('ID utilisateur et raison requis'));
       }
@@ -1085,12 +1085,12 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       }).catch(() => {});
       reply.status(201).send(success(entry, 'Utilisateur ajouté à la blacklist'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/:guildId/blacklist/:userId', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, userId } = request.params as any;
+      const { guildId, userId } = request.params as { guildId: string; userId: string };
       const entry = await prisma.guildBlacklistUser.findUnique({
         where: { guildId_userId: { guildId, userId } },
       });
@@ -1109,13 +1109,13 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       }).catch(() => {});
       reply.send(success(null, 'Utilisateur retiré de la blacklist'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/tickets', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
       const where: any = { guildId };
@@ -1132,20 +1132,20 @@ export async function guildRoutes(app: FastifyInstance) {
         tickets,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/tickets', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       if (!body.subject) return reply.status(400).send(error('Sujet requis'));
       const creatorId = body.creatorId || request.user!.discordId;
       await ensureUser(creatorId);
       const catId = body.categoryId || undefined;
       const botUserId = await getBotUserId();
-      const memberPerms = `${PERM_VIEW_CHANNEL}|${PERM_SEND_MESSAGES}|${PERM_READ_HISTORY}`;
-      const botPerms = `${PERM_VIEW_CHANNEL}|${PERM_SEND_MESSAGES}|${PERM_READ_HISTORY}|${PERM_MANAGE_CHANNELS}`;
+      const memberPerms = String(DISCORD_PERMISSIONS.VIEW_CHANNEL | DISCORD_PERMISSIONS.SEND_MESSAGES | DISCORD_PERMISSIONS.READ_MESSAGE_HISTORY);
+      const botPerms = String(DISCORD_PERMISSIONS.VIEW_CHANNEL | DISCORD_PERMISSIONS.SEND_MESSAGES | DISCORD_PERMISSIONS.READ_MESSAGE_HISTORY | DISCORD_PERMISSIONS.MANAGE_CHANNELS);
       let channel: any;
       try {
         channel = await createGuildChannel(guildId, {
@@ -1153,7 +1153,7 @@ export async function guildRoutes(app: FastifyInstance) {
           type: 0,
           parent_id: catId,
           permission_overwrites: [
-            { id: guildId, type: 0, deny: PERM_VIEW_CHANNEL },
+            { id: guildId, type: 0, deny: String(DISCORD_PERMISSIONS.VIEW_CHANNEL) },
             { id: creatorId, type: 1, allow: memberPerms },
             { id: botUserId, type: 1, allow: botPerms },
           ],
@@ -1186,13 +1186,13 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(ticket, 'Ticket créé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/tickets/:ticketId', { preHandler: [authenticate, validateParams(ticketIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, ticketId } = request.params as any;
-      const body = request.body as any;
+      const { guildId, ticketId } = request.params as { guildId: string; ticketId: string };
+      const body = request.body as Record<string, unknown>;
       const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, guildId } });
       if (!ticket) return reply.status(404).send(error('Ticket introuvable'));
       const upd: any = {};
@@ -1227,13 +1227,13 @@ export async function guildRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
       reply.send(success(updated, 'Ticket mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // ─── Ticket stats ───
   app.get('/:guildId/tickets/stats', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
       const [totalOpen, totalClosed, closedTickets, recentClaims] = await Promise.all([
@@ -1308,13 +1308,13 @@ export async function guildRoutes(app: FastifyInstance) {
         avgResolutionTimeMs,
         byCategory,
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // ─── Transcript export ───
   app.post('/:guildId/tickets/:ticketId/transcript', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, ticketId } = request.params as any;
+      const { guildId, ticketId } = request.params as { guildId: string; ticketId: string };
       const body = request.body as { format?: string } | undefined;
       const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, guildId } });
       if (!ticket) return reply.status(404).send(error('Ticket introuvable'));
@@ -1385,13 +1385,13 @@ export async function guildRoutes(app: FastifyInstance) {
           ticketId,
         }));
       }
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // ─── Ticket categories ───
   app.get('/:guildId/tickets/categories', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const categories = await prisma.ticketCategory.findMany({
         where: { guildId },
         orderBy: { position: 'asc' },
@@ -1401,13 +1401,13 @@ export async function guildRoutes(app: FastifyInstance) {
         staffRoleIds: JSON.parse(c.staffRoleIds || '[]'),
       }));
       reply.send(success({ categories: parsed }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/tickets/categories', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       if (!body.name) return reply.status(400).send(error('Nom requis'));
       const maxPos = await prisma.ticketCategory.aggregate({
         where: { guildId },
@@ -1429,16 +1429,16 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success({ category }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/tickets/categories/:categoryId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, categoryId } = request.params as any;
-      const body = request.body as any;
+      const { guildId, categoryId } = request.params as { guildId: string; categoryId: string };
+      const body = request.body as Record<string, unknown>;
       const existing = await prisma.ticketCategory.findFirst({ where: { id: categoryId, guildId } });
       if (!existing) return reply.status(404).send(error('Catégorie introuvable'));
-      const data: any = {};
+      const data: Record<string, unknown> = {};
       if (body.name !== undefined) data.name = body.name;
       if (body.description !== undefined) data.description = body.description;
       if (body.staffRoleIds !== undefined) data.staffRoleIds = JSON.stringify(body.staffRoleIds);
@@ -1451,22 +1451,22 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.position !== undefined) data.position = body.position;
       const category = await prisma.ticketCategory.update({ where: { id: categoryId }, data });
       reply.send(success({ category: { ...category, staffRoleIds: JSON.parse(category.staffRoleIds || '[]') } }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/:guildId/tickets/categories/:categoryId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, categoryId } = request.params as any;
+      const { guildId, categoryId } = request.params as { guildId: string; categoryId: string };
       const existing = await prisma.ticketCategory.findFirst({ where: { id: categoryId, guildId } });
       if (!existing) return reply.status(404).send(error('Catégorie introuvable'));
       await prisma.ticketCategory.delete({ where: { id: categoryId } });
       reply.send(success(null, 'Catégorie supprimée'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.patch('/:guildId/tickets/categories/reorder', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const body = request.body as { orderedIds: string[] };
       if (!Array.isArray(body.orderedIds)) return reply.status(400).send(error('orderedIds requis'));
       await prisma.$transaction(
@@ -1478,23 +1478,23 @@ export async function guildRoutes(app: FastifyInstance) {
         )
       );
       reply.send(success(null, 'Ordre mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/logs', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let ls = await prisma.logSettings.findUnique({ where: { guildId } });
       if (!ls) ls = await prisma.logSettings.create({ data: { guildId } });
       const modules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
       reply.send(success(mapLogsPayload(ls, modules)));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/logs', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       const eventsList = body.enabledEvents ?? body.events;
       const ignoreCh = body.ignoreChannels ?? body.ignoredChannels;
       const ignoreUs = body.ignoreUsers ?? body.ignoredRoles;
@@ -1515,12 +1515,12 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.send(success(null, 'Logs mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/levels', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let xp = await prisma.xPSettings.findUnique({ where: { guildId } });
       if (!xp) {
         await prisma.guild.upsert({
@@ -1532,13 +1532,13 @@ export async function guildRoutes(app: FastifyInstance) {
       }
       const rewards = await prisma.xPRoleReward.findMany({ where: { guildId }, orderBy: { levelRequired: 'asc' } });
       reply.send(success({ settings: xp, roleRewards: rewards }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/levels', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       await prisma.xPSettings.upsert({
         where: { guildId },
         update: {
@@ -1562,24 +1562,24 @@ export async function guildRoutes(app: FastifyInstance) {
         }
       }
       reply.send(success(null, 'Paramètres XP mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/levels/rank-card', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let settings = await prisma.rankCardSettings.findUnique({ where: { guildId } });
       if (!settings) {
         settings = await prisma.rankCardSettings.create({ data: { guildId } });
       }
       reply.send(success({ settings }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/levels/rank-card', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       const settings = await prisma.rankCardSettings.upsert({
         where: { guildId },
         update: {
@@ -1598,13 +1598,13 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId, ...body },
       });
       reply.send(success({ settings }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/levels/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
       const [profiles, total] = await Promise.all([
@@ -1624,12 +1624,12 @@ export async function guildRoutes(app: FastifyInstance) {
         entries,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/economy', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const wallets = await prisma.economyWallet.findMany({
         where: { guildId }, orderBy: { wallet: 'desc' }, take: 10,
         include: { user: { select: { username: true, avatar: true } } },
@@ -1645,13 +1645,13 @@ export async function guildRoutes(app: FastifyInstance) {
         currencyName: 'pièces',
         currencySymbol: '🪙',
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/economy', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const ec = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const ec = request.body as Record<string, unknown>;
       await prisma.economySettings.upsert({
         where: { guildId },
         update: {
@@ -1665,13 +1665,13 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId, ...ec },
       });
       reply.send(success(null, 'Économie sauvegardée'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/economy/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
       const [wallets, total] = await Promise.all([
@@ -1692,13 +1692,13 @@ export async function guildRoutes(app: FastifyInstance) {
         entries,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/giveaways', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
       const [giveaways, total] = await Promise.all([
@@ -1718,12 +1718,12 @@ export async function guildRoutes(app: FastifyInstance) {
         giveaways: data,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/giveaways/:id/stats', { preHandler: [authenticate, validateParams(giveawayIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, id } = request.params as any;
+      const { guildId, id } = request.params as { guildId: string; id: string };
       const g = await prisma.giveaway.findFirst({
         where: { id, guildId },
         include: {
@@ -1753,13 +1753,13 @@ export async function guildRoutes(app: FastifyInstance) {
         })),
         winners: winnerUsers,
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/giveaways', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       if (!body.prize || !body.duration) return reply.status(400).send(error('Prize et durée requis'));
       const channelId = body.channelId;
       if (!channelId) return reply.status(400).send(error('channelId requis'));
@@ -1795,13 +1795,13 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(giveaway, 'Giveaway créé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/giveaways/:id', { preHandler: [authenticate, validateParams(giveawayIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, id } = request.params as any;
-      const body = request.body as any;
+      const { guildId, id } = request.params as { guildId: string; id: string };
+      const body = request.body as Record<string, unknown>;
       const g = await prisma.giveaway.findFirst({ where: { id, guildId } });
       if (!g) return reply.status(404).send(error('Giveaway introuvable'));
 
@@ -1844,24 +1844,24 @@ export async function guildRoutes(app: FastifyInstance) {
       if (body.winnerCount) upd.winnerCount = body.winnerCount;
       const updated = await prisma.giveaway.update({ where: { id }, data: upd });
       reply.send(success(updated, 'Giveaway mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/:guildId/giveaways/:id', { preHandler: [authenticate, validateParams(giveawayIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, id } = request.params as any;
+      const { guildId, id } = request.params as { guildId: string; id: string };
       const g = await prisma.giveaway.findFirst({ where: { id, guildId } });
       if (!g) return reply.status(404).send(error('Giveaway introuvable'));
       await prisma.giveawayEntry.deleteMany({ where: { giveawayId: id } });
       await prisma.giveaway.delete({ where: { id } });
       reply.send(success(null, 'Giveaway supprimé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/polls', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
       const [polls, total] = await Promise.all([
@@ -1905,13 +1905,13 @@ export async function guildRoutes(app: FastifyInstance) {
         polls: data,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/polls', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       if (!body.question || !body.options?.length)
         return reply.status(400).send(error('Question et options requises'));
       const channelId = body.channelId;
@@ -1955,13 +1955,13 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(poll, 'Sondage créé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/polls/:id', { preHandler: [authenticate, validateParams(pollIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, id } = request.params as any;
-      const body = request.body as any;
+      const { guildId, id } = request.params as { guildId: string; id: string };
+      const body = request.body as Record<string, unknown>;
       const p = await prisma.poll.findFirst({ where: { id, guildId }, include: { votes: true } });
       if (!p) return reply.status(404).send(error('Sondage introuvable'));
       const upd: any = {};
@@ -1992,18 +1992,18 @@ export async function guildRoutes(app: FastifyInstance) {
         options: JSON.parse(updated.options),
         endsAt: updated.endsAt?.toISOString() ?? null,
       }, 'Sondage mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/:guildId/polls/:id', { preHandler: [authenticate, validateParams(pollIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, id } = request.params as any;
+      const { guildId, id } = request.params as { guildId: string; id: string };
       const p = await prisma.poll.findFirst({ where: { id, guildId } });
       if (!p) return reply.status(404).send(error('Sondage introuvable'));
       await prisma.pollVote.deleteMany({ where: { pollId: id } });
       await prisma.poll.delete({ where: { id } });
       reply.send(success(null, 'Sondage supprimé'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[POLL DELETE ERROR]', err);
       reply.status(500).send(error(sanitizeError(err)));
     }
@@ -2011,8 +2011,8 @@ export async function guildRoutes(app: FastifyInstance) {
 
   app.post('/:guildId/suggestions/send', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       if (!body.content || !body.channelId) {
         return reply.status(400).send(error('content et channelId requis'));
       }
@@ -2041,13 +2041,13 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success(suggestion, 'Suggestion envoyée'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/suggestions', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
       const where: any = { guildId };
@@ -2065,19 +2065,19 @@ export async function guildRoutes(app: FastifyInstance) {
         content: s.content,
         votes: { up: s.upvotes, down: s.downvotes },
         status: s.status,
-        staffResponse: s.staffResponse ? { moderatorId: s.staffResponderId || '', response: s.staffResponse, action: s.status as any } : null,
+        staffResponse: s.staffResponse ? { moderatorId: s.staffResponderId || '', response: s.staffResponse, action: s.status as string } : null,
       }));
       reply.send(success({
         suggestions,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/suggestions/:id', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, id } = request.params as any;
-      const body = request.body as any;
+      const { guildId, id } = request.params as { guildId: string; id: string };
+      const body = request.body as Record<string, unknown>;
       const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
       if (!s) return reply.status(404).send(error('Suggestion introuvable'));
       const upd: any = {};
@@ -2115,13 +2115,13 @@ export async function guildRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
       reply.send(success(updated, 'Suggestion mise à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/suggestions/:id/respond', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, id } = request.params as any;
-      const body = request.body as any;
+      const { guildId, id } = request.params as { guildId: string; id: string };
+      const body = request.body as Record<string, unknown>;
       const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
       if (!s) return reply.status(404).send(error('Suggestion introuvable'));
       const action = body.action;
@@ -2158,13 +2158,13 @@ export async function guildRoutes(app: FastifyInstance) {
         }).catch(() => {});
       }
       reply.send(success(updated, 'Réponse enregistrée'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/suggestions/:id/vote', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, id } = request.params as any;
-      const body = request.body as any;
+      const { guildId, id } = request.params as { guildId: string; id: string };
+      const body = request.body as Record<string, unknown>;
       const vote = body.vote;
       if (!['up', 'down'].includes(vote)) return reply.status(400).send(error('Vote invalide'));
       const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
@@ -2183,32 +2183,32 @@ export async function guildRoutes(app: FastifyInstance) {
         data: { upvotes, downvotes, voters: JSON.stringify(voters) },
       });
       reply.send(success(updated, 'Vote enregistré'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/:guildId/suggestions/:id', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, id } = request.params as any;
+      const { guildId, id } = request.params as { guildId: string; id: string };
       const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
       if (!s) return reply.status(404).send(error('Suggestion introuvable'));
       await prisma.suggestion.delete({ where: { id } });
       reply.send(success(null, 'Suggestion supprimée'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/welcome', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let welcome = await prisma.welcomeSettings.findUnique({ where: { guildId } });
       if (!welcome) welcome = await prisma.welcomeSettings.create({ data: { guildId } });
       reply.send(success({ settings: welcome }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/welcome', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       const welcomeDM = body.welcomeDM ?? body.dmWelcome ?? false;
       const welcomeDMMessage = body.welcomeDMMessage ?? body.dmWelcomeMessage ?? null;
       const data = {
@@ -2239,7 +2239,7 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId, ...data },
       });
       reply.send(success(null, 'Paramètres de bienvenue mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   function transformAutoroleSettings(ar: any) {
@@ -2254,26 +2254,26 @@ export async function guildRoutes(app: FastifyInstance) {
 
   app.get('/:guildId/autoroles', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let ar = await prisma.autoroleSettings.findUnique({ where: { guildId }, include: { entries: true } });
       if (!ar) ar = await prisma.autoroleSettings.create({ data: { guildId }, include: { entries: true } });
       reply.send(success({ settings: transformAutoroleSettings(ar) }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/protection', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let ps = await prisma.protectionSettings.findUnique({ where: { guildId } });
       if (!ps) ps = await prisma.protectionSettings.create({ data: { guildId } });
       reply.send(success({ settings: ps }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/protection', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       await prisma.protectionSettings.upsert({
         where: { guildId },
         update: {
@@ -2297,12 +2297,12 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId, ...body },
       });
       reply.send(success(null, 'Protection mise à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/protection/emergency', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const body = (request.body as { enable?: boolean }) ?? {};
       const enable = body.enable !== false;
       await prisma.protectionSettings.upsert({
@@ -2313,13 +2313,13 @@ export async function guildRoutes(app: FastifyInstance) {
       const { botEmergencyMode } = await import('../services/bot-proxy');
       await botEmergencyMode(guildId, enable).catch(() => {});
       reply.send(success({ emergencyMode: enable }, enable ? 'Mode urgence activé' : 'Mode urgence désactivé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/autoroles', { preHandler: [authenticate, validateParams(guildIdSchema), validateBody(autoroleSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       await prisma.autoroleSettings.upsert({
         where: { guildId },
         update: { enabled: body.enabled ?? undefined },
@@ -2344,12 +2344,12 @@ export async function guildRoutes(app: FastifyInstance) {
         }
       }
       reply.send(success(null, 'Paramètres d\'autorôles mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/embeds', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const body = request.body as { embeds?: any[] };
       if (!Array.isArray(body.embeds)) {
         return reply.status(400).send(error('embeds (tableau) requis'));
@@ -2377,13 +2377,13 @@ export async function guildRoutes(app: FastifyInstance) {
         ),
       ]);
       reply.send(success(null, 'Embeds mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/audit', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
       const [logs, total] = await Promise.all([
@@ -2395,14 +2395,14 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.auditLog.count({ where: { guildId } }),
       ]);
       reply.send(success({ entries: logs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Auto-mod history ---
   app.get('/:guildId/automod/history', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const perPage = Math.min(100, Math.max(1, parseInt(q.perPage) || 20));
       const typeFilter = q.type as string | undefined;
@@ -2439,32 +2439,32 @@ export async function guildRoutes(app: FastifyInstance) {
       });
 
       reply.send(success({ entries, pagination: { page, limit: perPage, total, totalPages: Math.ceil(total / perPage) } }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Music routes (proxy to bot internal API) ---
 
   app.get('/:guildId/music/queue', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const data = await getQueueState(guildId);
       reply.send(success(data));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/music/control', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       await botControl(guildId, body.action, body.value);
       reply.send(success({ action: body.action }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Ticket settings ---
   app.get('/:guildId/tickets/settings', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let ts = await prisma.ticketSettings.findUnique({ where: { guildId } });
       if (!ts) ts = await prisma.ticketSettings.create({ data: { guildId } });
       reply.send(success({
@@ -2472,12 +2472,12 @@ export async function guildRoutes(app: FastifyInstance) {
         moderatorRoles: JSON.parse(ts.moderatorRoles || '[]'),
         accessRoles: JSON.parse(ts.accessRoles || '[]'),
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.patch('/:guildId/tickets/settings', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
       const data: Record<string, unknown> = { ...body };
       if (Array.isArray(body.moderatorRoles)) data.moderatorRoles = JSON.stringify(body.moderatorRoles);
@@ -2488,14 +2488,14 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId, ...data },
       });
       reply.send(success(ts, 'Paramètres tickets mis à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Danger zone ---
   app.post('/:guildId/settings/reset', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       const guild = await prisma.guild.findUnique({ where: { id: guildId } });
       if (!guild) return reply.status(404).send(error('Serveur introuvable'));
       if (body.confirmName !== guild.name) {
@@ -2517,22 +2517,22 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId },
       });
       reply.send(success(null, 'Paramètres réinitialisés'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/settings/leave', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       await leaveGuildViaBot(guildId);
       await prisma.guild.update({ where: { id: guildId }, data: { botPresent: false } });
       reply.send(success(null, 'Bot retiré du serveur'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/settings/delete-data', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       const guild = await prisma.guild.findUnique({ where: { id: guildId } });
       if (!guild) return reply.status(404).send(error('Serveur introuvable'));
       if (body.confirmName !== guild.name) {
@@ -2550,45 +2550,45 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.guild.delete({ where: { id: guildId } }),
       ]);
       reply.send(success(null, 'Données supprimées'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/members', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 50));
       const after = q.after || '0';
       const members = await (await fetch(
         `https://discord.com/api/v10/guilds/${guildId}/members?limit=${limit}&after=${after}`,
         { headers: { Authorization: `Bot ${getConfig().DISCORD_TOKEN}` } }
-      )).json() as any[];
+      )).json() as Array<{ user: { id: string; username: string; avatar: string }; nick: string | null }>;
       reply.send(success({
-        members: members.map((m: any) => ({
+        members: members.map((m) => ({
           id: m.user.id,
           username: m.user.username,
           avatar: m.user.avatar,
           nick: m.nick,
         })),
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Auto-modération ---
   app.get('/:guildId/automod', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let settings = await prisma.autoModSettings.findUnique({ where: { guildId } });
       if (!settings) {
         settings = await prisma.autoModSettings.create({ data: { guildId } });
       }
       reply.send(success(settings));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.patch('/:guildId/automod', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
       const arrayFields = [
         'bannedWordsList', 'forbiddenPingRoles', 'forbiddenMarkdownList',
@@ -2605,13 +2605,13 @@ export async function guildRoutes(app: FastifyInstance) {
       });
       await invalidateBotAutoModCache(guildId).catch(() => {});
       reply.send(success(settings, 'Auto-modération mise à jour'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 10));
       const profiles = await prisma.xPProfile.findMany({
         where: { guildId },
@@ -2628,12 +2628,12 @@ export async function guildRoutes(app: FastifyInstance) {
         level: p.level,
       }));
       reply.send(success({ entries }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/resolve-user/:userId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId, userId } = request.params as any;
+      const { guildId, userId } = request.params as { guildId: string; userId: string };
       if (!userId) return reply.send(success({ id: userId, username: userId ?? 'Inconnu', avatar: null }));
       const member = await getGuildMember(guildId, userId).catch(() => null);
       if (member) {
@@ -2649,13 +2649,13 @@ export async function guildRoutes(app: FastifyInstance) {
         username: user?.username ?? userId,
         avatar: user?.avatar ?? null,
       }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/music/history', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 20));
       const [entries, total] = await Promise.all([
@@ -2666,14 +2666,14 @@ export async function guildRoutes(app: FastifyInstance) {
         prisma.musicHistoryEntry.count({ where: { guildId } }),
       ]);
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // ─── Forms ───
 
   app.get('/:guildId/forms', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let settings = await prisma.formSettings.findUnique({
         where: { guildId },
         include: { templates: true },
@@ -2685,13 +2685,13 @@ export async function guildRoutes(app: FastifyInstance) {
         });
       }
       reply.send(success({ settings }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/forms', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       const settings = await prisma.formSettings.upsert({
         where: { guildId },
         update: {
@@ -2708,13 +2708,13 @@ export async function guildRoutes(app: FastifyInstance) {
         include: { templates: true },
       });
       reply.send(success({ settings }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/:guildId/forms/templates', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       if (!body.name) return reply.status(400).send(error('Le nom du formulaire est requis'));
       await prisma.formSettings.upsert({
         where: { guildId },
@@ -2731,14 +2731,14 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.status(201).send(success({ template }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/forms/templates/:templateId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { templateId } = request.params as any;
-      const body = request.body as any;
-      const data: any = {};
+      const { templateId } = request.params as { templateId: string };
+      const body = request.body as Record<string, unknown>;
+      const data: Record<string, unknown> = {};
       if (body.name !== undefined) data.name = body.name;
       if (body.description !== undefined) data.description = body.description;
       if (body.fields !== undefined) data.fields = JSON.stringify(body.fields);
@@ -2748,21 +2748,21 @@ export async function guildRoutes(app: FastifyInstance) {
         data,
       });
       reply.send(success({ template }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/:guildId/forms/templates/:templateId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { templateId } = request.params as any;
+      const { templateId } = request.params as { templateId: string };
       await prisma.formTemplate.delete({ where: { id: templateId } });
       reply.send(success(null, 'Formulaire supprimé'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/forms/submissions', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 20));
       const status = q.status ?? undefined;
@@ -2794,33 +2794,33 @@ export async function guildRoutes(app: FastifyInstance) {
         user: userMap.get(s.userId) ?? { discordId: s.userId, username: s.userId, avatar: null },
       }));
       reply.send(success({ submissions: enriched, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.patch('/:guildId/forms/submissions/:submissionId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { submissionId } = request.params as any;
-      const body = request.body as any;
-      const data: any = {};
+      const { submissionId } = request.params as { submissionId: string };
+      const body = request.body as Record<string, unknown>;
+      const data: Record<string, unknown> = {};
       if (body.status !== undefined) data.status = body.status;
       if (body.reviewedBy !== undefined) data.reviewedBy = body.reviewedBy;
       if (body.status === 'approved' || body.status === 'rejected') {
         data.reviewedAt = new Date();
-        data.reviewedBy = data.reviewedBy ?? (request as any).user?.discordId;
+        data.reviewedBy = data.reviewedBy ?? (request as { user?: { discordId?: string } }).user?.discordId;
       }
       const submission = await prisma.formSubmission.update({
         where: { id: submissionId },
         data,
       });
       reply.send(success({ submission }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // ─── Starboard ───
 
   app.get('/:guildId/starboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let settings = await prisma.starboardSettings.findUnique({
         where: { guildId },
       });
@@ -2830,13 +2830,13 @@ export async function guildRoutes(app: FastifyInstance) {
         });
       }
       reply.send(success({ settings }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/starboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       // Keep the stored `enabled` flag consistent with the configured channel
       // so the dashboard, bot, and helpers all agree on the active state.
       const derivedEnabled =
@@ -2860,13 +2860,13 @@ export async function guildRoutes(app: FastifyInstance) {
         },
       });
       reply.send(success({ settings }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/starboard/entries', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const page = Math.max(1, parseInt(q.page) || 1);
       const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 20));
       const [entries, total] = await Promise.all([
@@ -2887,14 +2887,14 @@ export async function guildRoutes(app: FastifyInstance) {
         author: userMap.get(e.authorId) ?? { discordId: e.authorId, username: e.authorId, avatar: null },
       }));
       reply.send(success({ entries: enriched, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // ─── Clans ───
 
   app.get('/:guildId/clans', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const clans = await prisma.clan.findMany({
         where: { guildId },
         include: {
@@ -2941,24 +2941,24 @@ export async function guildRoutes(app: FastifyInstance) {
       }));
       const sorted = enrichedWithUsers.sort((a, b) => b.totalXp - a.totalXp);
       reply.send(success({ clans: sorted }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // ─── Minigames ───
 
   app.get('/:guildId/minigames', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       let settings = await prisma.minigameSettings.findUnique({ where: { guildId } });
       if (!settings) settings = await prisma.minigameSettings.create({ data: { guildId } });
       reply.send(success({ settings }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/:guildId/minigames', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const body = request.body as any;
+      const { guildId } = request.params as { guildId: string };
+      const body = request.body as Record<string, unknown>;
       const toInt = (v: any) => (v === undefined || v === null || v === '' ? undefined : parseInt(v));
       const data = {
         gamesChannelId: body.gamesChannelId !== undefined ? (body.gamesChannelId || null) : undefined,
@@ -2977,13 +2977,13 @@ export async function guildRoutes(app: FastifyInstance) {
         create: { guildId, ...data },
       });
       reply.send(success({ settings }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/minigames/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
-      const q = request.query as any;
+      const { guildId } = request.params as { guildId: string };
+      const q = request.query as Record<string, string | undefined>;
       const limit = Math.min(50, Math.max(1, parseInt(q.limit) || 10));
       // Net winnings = sum of recorded payouts across finished sessions.
       const grouped = await prisma.minigameSession.groupBy({
@@ -3011,13 +3011,13 @@ export async function guildRoutes(app: FastifyInstance) {
         games: r.games,
       }));
       reply.send(success({ entries }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // ─── Export configuration ───
   app.get('/:guildId/settings/export', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const guild = await prisma.guild.findUnique({
         where: { id: guildId },
         include: {
@@ -3145,7 +3145,7 @@ export async function guildRoutes(app: FastifyInstance) {
       }
 
       if (guild.welcomeSettings) {
-        const w = guild.welcomeSettings as any;
+        const w = guild.welcomeSettings as Record<string, unknown>;
         exportPayload.welcomeSettings = {
           enabled: w.enabled,
           welcomeChannelId: w.welcomeChannelId,
@@ -3321,7 +3321,7 @@ export async function guildRoutes(app: FastifyInstance) {
       }
 
       reply.send(success(exportPayload));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // ─── Import configuration ───
@@ -3338,7 +3338,7 @@ export async function guildRoutes(app: FastifyInstance) {
     preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema), validateBody(importSchema)],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const body = request.body as z.infer<typeof importSchema>;
       const { exportData, modules } = body;
 
@@ -3362,11 +3362,11 @@ export async function guildRoutes(app: FastifyInstance) {
           const { getGuildMember, getGuildRoles } = await import('../services/discord');
           const member = await getGuildMember(guildId, userDiscordId).catch(() => null);
           if (member) {
-            const roles = await getGuildRoles(guildId).catch(() => [] as any[]);
+            const roles = await getGuildRoles(guildId).catch(() => [] as Array<{ id: string; permissions?: string }>);
             const memberRoleIds: string[] = Array.isArray(member.roles) ? member.roles : [];
             const hasPerm = (accessField: string) => {
               const field = `dashboard${accessField.charAt(0).toUpperCase() + accessField.slice(1)}Access`;
-              const importedField = (importedSettings as any)[field];
+              const importedField = (importedSettings as Record<string, unknown>)[field];
               if (Array.isArray(importedField) && importedField.length > 0) {
                 return importedField.some((r: string) => memberRoleIds.includes(r));
               }
@@ -3399,7 +3399,7 @@ export async function guildRoutes(app: FastifyInstance) {
       }
 
       // Build transaction operations
-      const operations: any[] = [];
+      const operations: Promise<unknown>[] = [];
 
       for (const mod of modules) {
         switch (mod) {
@@ -3429,7 +3429,7 @@ export async function guildRoutes(app: FastifyInstance) {
               }
 
               operations.push(
-                (prisma.guildSettings as any).upsert({
+                (prisma.guildSettings as { upsert: Function }).upsert({
                   where: { guildId },
                   update: updateData,
                   create: { guildId, ...createData },
@@ -3520,16 +3520,17 @@ export async function guildRoutes(app: FastifyInstance) {
               if (Array.isArray(shopItemsPayload)) {
                 operations.push(prisma.shopItem.deleteMany({ where: { economySettingsId: economy.id } }));
                 for (const item of shopItemsPayload) {
+                  const i = item as Record<string, unknown>;
                   operations.push(prisma.shopItem.create({
                     data: {
                       economySettingsId: economy.id,
-                      name: (item as any).name,
-                      description: (item as any).description ?? null,
-                      price: (item as any).price,
-                      type: (item as any).type ?? 'ROLE',
-                      roleId: (item as any).roleId ?? null,
-                      duration: (item as any).duration ?? null,
-                      effectValue: (item as any).effectValue ?? null,
+                      name: i.name as string,
+                      description: (i.description as string | null) ?? null,
+                      price: i.price as number,
+                      type: (i.type as string) ?? 'ROLE',
+                      roleId: (i.roleId as string | null) ?? null,
+                      duration: (i.duration as string | null) ?? null,
+                      effectValue: (i.effectValue as string | null) ?? null,
                     },
                   }));
                 }
@@ -3562,15 +3563,16 @@ export async function guildRoutes(app: FastifyInstance) {
               operations.push(prisma.autoroleEntry.deleteMany({ where: { settingsId: settings.id } }));
               if (Array.isArray(entriesPayload)) {
                 for (const entry of entriesPayload) {
+                  const e = entry as Record<string, unknown>;
                   operations.push(prisma.autoroleEntry.create({
                     data: {
                       settingsId: settings.id,
                       guildId,
-                      roleId: (entry as any).roleId,
-                      type: (entry as any).type,
-                      levelRequired: (entry as any).levelRequired ?? null,
-                      reactionChannelId: (entry as any).reactionChannelId ?? null,
-                      reactionEmoji: (entry as any).reactionEmoji ?? null,
+                      roleId: e.roleId as string,
+                      type: e.type as string,
+                      levelRequired: (e.levelRequired as number | null) ?? null,
+                      reactionChannelId: (e.reactionChannelId as string | null) ?? null,
+                      reactionEmoji: (e.reactionEmoji as string | null) ?? null,
                     },
                   }));
                 }
@@ -3613,19 +3615,20 @@ export async function guildRoutes(app: FastifyInstance) {
               if (Array.isArray(categoriesPayload)) {
                 operations.push(prisma.ticketCategory.deleteMany({ where: { guildId } }));
                 for (const cat of categoriesPayload) {
+                  const c = cat as Record<string, unknown>;
                   operations.push(prisma.ticketCategory.create({
                     data: {
                       guildId,
-                      name: (cat as any).name,
-                      description: (cat as any).description ?? null,
-                      staffRoleIds: JSON.stringify((cat as any).staffRoleIds ?? []),
-                      maxTicketsPerUser: (cat as any).maxTicketsPerUser ?? 5,
-                      openingMode: (cat as any).openingMode ?? 'BUTTON',
-                      formId: (cat as any).formId ?? null,
-                      welcomeMessage: (cat as any).welcomeMessage ?? null,
-                      color: (cat as any).color ?? '#5865F2',
-                      emoji: (cat as any).emoji ?? null,
-                      position: (cat as any).position ?? 0,
+                      name: c.name as string,
+                      description: (c.description as string | null) ?? null,
+                      staffRoleIds: JSON.stringify((c.staffRoleIds as string[] | null) ?? []),
+                      maxTicketsPerUser: (c.maxTicketsPerUser as number) ?? 5,
+                      openingMode: (c.openingMode as string) ?? 'BUTTON',
+                      formId: (c.formId as string | null) ?? null,
+                      welcomeMessage: (c.welcomeMessage as string | null) ?? null,
+                      color: (c.color as string) ?? '#5865F2',
+                      emoji: (c.emoji as string | null) ?? null,
+                      position: (c.position as number) ?? 0,
                     },
                   }));
                 }
@@ -3641,12 +3644,12 @@ export async function guildRoutes(app: FastifyInstance) {
       }
 
       reply.send(success({ importedModules: modules }, 'Configuration importée avec succès. Vérifiez les IDs de rôles et salons.'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/:guildId/invites/leaderboard', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
 
       const leaderboard = await prisma.$queryRaw<Array<{
         inviter_id: string;
@@ -3691,7 +3694,7 @@ export async function guildRoutes(app: FastifyInstance) {
       });
 
       reply.send(success({ leaderboard: entries }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });

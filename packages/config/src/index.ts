@@ -14,6 +14,7 @@ const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1),
   DISCORD_OWNER_ID: z.string().min(1),
   DISCORD_PUBLIC_KEY: z.string().min(1),
+  DISCORD_SUPPORT_INVITE: z.string().url().optional().default(''),
 
   // Database
   DATABASE_URL: z.string().trim().url(),

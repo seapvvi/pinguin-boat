@@ -22,7 +22,7 @@ export async function blacklistRoutes(app: FastifyInstance) {
         orderBy: { createdAt: 'desc' },
       });
       reply.send(success({ blacklist }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -46,7 +46,7 @@ export async function blacklistRoutes(app: FastifyInstance) {
       });
 
       reply.send(success({ entry }, 'Utilisateur ajouté à la blacklist'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -68,7 +68,7 @@ export async function blacklistRoutes(app: FastifyInstance) {
       });
 
       reply.send(success(null, 'Utilisateur retiré de la blacklist'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });

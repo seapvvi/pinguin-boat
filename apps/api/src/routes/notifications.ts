@@ -3,7 +3,7 @@ import { prisma } from '@pinguin/db';
 import { authenticate } from '../middleware/auth';
 import { requireGuildAdmin } from '../middleware/guild-auth';
 import { validateParams, validateBody } from '../middleware/validate';
-import { success, error, sanitizeError } from '../utils/response';
+import { success, error, sanitizeError, getErrorMessage } from '../utils/response';
 import { sendTestNotification } from '../services/bot-proxy';
 import { z } from 'zod';
 
@@ -40,7 +40,7 @@ export async function notificationRoutes(app: FastifyInstance) {
         orderBy: { createdAt: 'desc' },
       });
       reply.send(success({ notifications }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -63,8 +63,8 @@ export async function notificationRoutes(app: FastifyInstance) {
       });
 
       reply.send(success({ notification }, 'Notification de stream créée'));
-    } catch (err: any) {
-      if (err.code === 'P2002') {
+    } catch (err: unknown) {
+      if (err instanceof Error && 'code' in err && (err as { code: string }).code === 'P2002') {
         return reply.status(409).send(error('Cette notification existe déjà pour ce serveur'));
       }
       reply.status(500).send(error(sanitizeError(err)));
@@ -105,7 +105,7 @@ export async function notificationRoutes(app: FastifyInstance) {
       });
 
       reply.send(success({ notification }, 'Notification mise à jour'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -131,7 +131,7 @@ export async function notificationRoutes(app: FastifyInstance) {
       });
 
       reply.send(success(null, 'Notification supprimée'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -156,8 +156,8 @@ export async function notificationRoutes(app: FastifyInstance) {
 
       await sendTestNotification(guildId, id);
       reply.send(success(null, 'Notification de test envoyée'));
-    } catch (err: any) {
-      if (err.message === 'BOT_OFFLINE') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'BOT_OFFLINE') {
         return reply.status(503).send(error('Le bot n\'est pas dans ce serveur'));
       }
       reply.status(500).send(error(sanitizeError(err)));

@@ -27,7 +27,7 @@ export async function internalRoutes(app: FastifyInstance) {
         guildName: body.guildName,
       });
       reply.send(success(result, 'Ticket fermé'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });

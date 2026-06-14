@@ -30,8 +30,8 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.delete('/blacklist/:targetId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { targetId } = request.params as any;
-      const q = request.query as any;
+      const { targetId } = request.params as { targetId: string };
+      const q = request.query as Record<string, string | undefined>;
       const targetType = String(q.targetType ?? '').toUpperCase();
       if (targetType === 'GUILD') {
         await prisma.blacklistGuild.deleteMany({ where: { guildId: targetId } });
@@ -64,9 +64,9 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.get('/servers', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, parseInt(q.limit) || 20);
+      const q = request.query as Record<string, string | undefined>;
+      const page = Math.max(1, parseInt(q.page ?? '') || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
       const search = String(q.search ?? '').trim();
       const sortBy = String(q.sortBy ?? 'memberCount');
       const sortOrder = String(q.sortOrder ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
@@ -117,9 +117,9 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.get('/users', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, parseInt(q.limit) || 20);
+      const q = request.query as Record<string, string | undefined>;
+      const page = Math.max(1, parseInt(q.page ?? '') || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
       const search = String(q.search ?? '').trim();
       const sortBy = String(q.sortBy ?? 'createdAt');
       const sortOrder = String(q.sortOrder ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
@@ -158,9 +158,9 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.get('/blacklist/users', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, parseInt(q.limit) || 20);
+      const q = request.query as Record<string, string | undefined>;
+      const page = Math.max(1, parseInt(q.page ?? '') || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
       const [entries, total] = await Promise.all([
         prisma.blacklistUser.findMany({
           orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
@@ -173,7 +173,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/blacklist/users', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if (!body.targetId || !body.reason) return reply.status(400).send(error('targetId et reason requis'));
       const existing = await prisma.blacklistUser.findUnique({ where: { targetId: body.targetId } });
       if (existing) return reply.status(409).send(error('Utilisateur déjà blacklisté'));
@@ -190,7 +190,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.delete('/blacklist/users/:targetId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { targetId } = request.params as any;
+      const { targetId } = request.params as { targetId: string };
       const entry = await prisma.blacklistUser.findUnique({ where: { targetId } });
       if (!entry) return reply.status(404).send(error('Entrée introuvable'));
       await prisma.blacklistUser.delete({ where: { targetId } });
@@ -201,9 +201,9 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.get('/blacklist/guilds', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, parseInt(q.limit) || 20);
+      const q = request.query as Record<string, string | undefined>;
+      const page = Math.max(1, parseInt(q.page ?? '') || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
       const [entries, total] = await Promise.all([
         prisma.blacklistGuild.findMany({
           orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
@@ -217,7 +217,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/blacklist/guilds', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if (!body.targetId || !body.reason) return reply.status(400).send(error('targetId et reason requis'));
       const existing = await prisma.blacklistGuild.findUnique({ where: { guildId: body.targetId } });
       if (existing) return reply.status(409).send(error('Serveur déjà blacklisté'));
@@ -231,7 +231,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.delete('/blacklist/guilds/:guildId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const entry = await prisma.blacklistGuild.findUnique({ where: { guildId } });
       if (!entry) return reply.status(404).send(error('Entrée introuvable'));
       await prisma.blacklistGuild.delete({ where: { guildId } });
@@ -242,7 +242,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/force-leave/:guildId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const guild = await prisma.guild.findUnique({ where: { id: guildId } });
       if (!guild) return reply.status(404).send(error('Serveur introuvable'));
       
@@ -265,8 +265,8 @@ export async function ownerRoutes(app: FastifyInstance) {
         cpuCores: cpus.length,
         cpuModel: cpus[0]?.model || 'unknown',
         hostname: os.hostname(),
-        networkInterfaces: Object.keys(networkInterfaces).reduce((acc: any, key) => {
-          acc[key] = networkInterfaces[key]?.map((i: any) => ({ address: i.address, family: i.family })) || [];
+        networkInterfaces: Object.keys(networkInterfaces).reduce((acc: Record<string, { address: string; family: string }[]>, key: string) => {
+          acc[key] = networkInterfaces[key]?.map((i: { address: string; family: string }) => ({ address: i.address, family: i.family })) || [];
           return acc;
         }, {}),
         disk: { free: 0, total: 0 },
@@ -278,14 +278,14 @@ export async function ownerRoutes(app: FastifyInstance) {
     try {
       const services = SystemService.listServices();
       reply.send(success({ services }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.post('/services/:service/:action', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { service, action } = request.params as any;
+      const { service, action } = request.params as { service: string; action: string };
       const validServices = ['bot', 'api', 'web'];
       const validActions = ['start', 'stop', 'restart'];
       if (!validServices.includes(service)) {
@@ -312,14 +312,14 @@ export async function ownerRoutes(app: FastifyInstance) {
 
       await logOwnerAction(request, `SERVICE_${action.toUpperCase()}`, { service });
       reply.send(success({ service, action, status: 'ok' }, `Service ${service} ${action}é avec succès`));
-    } catch (err: any) {
-      reply.status(500).send(error(err.message || 'Erreur d’action service'));
+    } catch (err: unknown) {
+      reply.status(500).send(error(getErrorMessage(err) || 'Erreur d’action service'));
     }
   });
 
   app.post('/services/restart/:service', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { service } = request.params as any;
+      const { service } = request.params as { service: string };
       const validServices = ['bot', 'api', 'web'];
       if (!validServices.includes(service))
         return reply.status(400).send(error(`Service invalide. Valides: ${validServices.join(', ')}`));
@@ -357,9 +357,9 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.get('/changelogs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(50, parseInt(q.limit) || 10);
+      const q = request.query as Record<string, string | undefined>;
+      const page = Math.max(1, parseInt(q.page ?? '') || 1);
+      const limit = Math.min(50, parseInt(q.limit ?? '') || 10);
       const [entries, total] = await Promise.all([
         prisma.changelog.findMany({
           orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
@@ -373,7 +373,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/changelogs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if (!body.title || !body.content)
         return reply.status(400).send(error('Titre et contenu requis'));
       const entry = await prisma.changelog.create({
@@ -393,19 +393,18 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.patch('/changelogs/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id } = request.params as any;
-      const body = request.body as any;
+      const { id } = request.params as { id: string };
+      const body = request.body as Record<string, unknown>;
       const existing = await prisma.changelog.findUnique({ where: { id } });
       if (!existing) return reply.status(404).send(error('Changelog introuvable'));
-      const ex = existing as any;
-      const updated = await (prisma.changelog.update as any)({
+      const updated = await prisma.changelog.update({
         where: { id },
         data: {
-          title: body.title ?? ex.title,
-          content: body.content ?? ex.content,
-          version: body.version !== undefined ? body.version : ex.version,
-          published: body.published !== undefined ? body.published : ex.published,
-          pinned: body.pinned !== undefined ? body.pinned : ex.pinned,
+          title: (body.title as string | undefined) ?? existing.title,
+          content: (body.content as string | undefined) ?? existing.content,
+          version: body.version !== undefined ? (body.version as string) : existing.version,
+          published: body.published !== undefined ? (body.published as boolean) : existing.published,
+          pinned: body.pinned !== undefined ? (body.pinned as boolean) : existing.pinned,
         },
       });
       reply.send(success(updated, 'Changelog mis à jour'));
@@ -414,7 +413,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.delete('/changelogs/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id } = request.params as any;
+      const { id } = request.params as { id: string };
       const existing = await prisma.changelog.findUnique({ where: { id } });
       if (!existing) return reply.status(404).send(error('Changelog introuvable'));
       await prisma.changelog.delete({ where: { id } });
@@ -432,7 +431,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.put('/premium/grant', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if ((!body.userId && !body.guildId) || !body.plan)
         return reply.status(400).send(error('userId ou guildId requis, et plan'));
       if (body.userId) {
@@ -462,7 +461,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.put('/premium/revoke', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if (body.userId) {
         const user = await prisma.user.findUnique({ where: { discordId: body.userId } });
         if (user) {
@@ -486,8 +485,8 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.put('/feature-flags/:key', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { key } = request.params as any;
-      const body = request.body as any;
+      const { key } = request.params as { key: string };
+      const body = request.body as Record<string, unknown>;
       const flag = await prisma.featureFlag.upsert({
         where: { key },
         update: { enabled: body.enabled ?? false },
@@ -499,7 +498,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/announcement', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if (!body.message) return reply.status(400).send(error('Message requis'));
       const announcementChannel = 'announcements';
       try {
@@ -507,11 +506,12 @@ export async function ownerRoutes(app: FastifyInstance) {
         let sent = 0;
         for (const guild of guilds) {
           try {
-            const channels: any[] = await (await fetch(
+            interface DiscordChannel { id: string; name: string; type: number; }
+            const channels = await (await fetch(
               `https://discord.com/api/v10/guilds/${guild.id}/channels`,
               { headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` } }
-            )).json() as any[];
-            const target = channels.find((c: any) => c.name === announcementChannel && c.type === 0);
+            )).json() as DiscordChannel[];
+            const target = channels.find((c: DiscordChannel) => c.name === announcementChannel && c.type === 0);
             if (target) {
               await fetch(`https://discord.com/api/v10/channels/${target.id}/messages`, {
                 method: 'POST',
@@ -530,9 +530,9 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.get('/logs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, parseInt(q.limit) || 20);
+      const q = request.query as Record<string, string | undefined>;
+      const page = Math.max(1, parseInt(q.page ?? '') || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
       const where: any = {};
       if (q.action) where.action = q.action;
       if (q.search) {
@@ -608,7 +608,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/donors', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if (!body.userId || !body.username) {
         return reply.status(400).send(error('userId et username requis'));
       }
@@ -643,8 +643,8 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.patch('/donors/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id } = request.params as any;
-      const body = request.body as any;
+      const { id } = request.params as { id: string };
+      const body = request.body as Record<string, unknown>;
       const existing = await prisma.donor.findUnique({ where: { id } });
       if (!existing) return reply.status(404).send(error('Donateur introuvable'));
       const amount = body.amount !== undefined ? Number(body.amount) : existing.amount;
@@ -666,7 +666,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.delete('/donors/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { id } = request.params as any;
+      const { id } = request.params as { id: string };
       const donor = await prisma.donor.findFirst({ where: { OR: [{ id }, { userId: id }] } });
       if (!donor) return reply.status(404).send(error('Donateur introuvable'));
       await prisma.donor.delete({ where: { id: donor.id } });
@@ -678,9 +678,9 @@ export async function ownerRoutes(app: FastifyInstance) {
   // Path aliases for web client
   app.get('/blacklist', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, parseInt(q.limit) || 20);
+      const q = request.query as Record<string, string | undefined>;
+      const page = Math.max(1, parseInt(q.page ?? '') || 1);
+      const limit = Math.min(100, parseInt(q.limit ?? '') || 20);
       const [users, guilds] = await Promise.all([
         prisma.blacklistUser.findMany({ orderBy: { createdAt: 'desc' }, take: limit }),
         prisma.blacklistGuild.findMany({ orderBy: { createdAt: 'desc' }, take: limit, include: { guild: { select: { name: true } } } }),
@@ -696,7 +696,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.get('/servers/:guildId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { guildId } = request.params as any;
+      const { guildId } = request.params as { guildId: string };
       const [guild, blacklist] = await Promise.all([
         prisma.guild.findUnique({
           where: { id: guildId },
@@ -730,7 +730,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.get('/users/:targetId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { targetId } = request.params as any;
+      const { targetId } = request.params as { targetId: string };
       const user = await prisma.user.findUnique({
         where: { discordId: targetId },
         include: { _count: { select: { sessions: true, ticketsCreated: true, moderationCases: true } } },
@@ -753,7 +753,7 @@ export async function ownerRoutes(app: FastifyInstance) {
   });
   app.post('/blacklist', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if (!body.targetId || !body.reason) return reply.status(400).send(error('targetId et reason requis'));
       if (body.targetType === 'GUILD') {
         const existing = await prisma.blacklistGuild.findUnique({ where: { guildId: body.targetId } });
@@ -776,8 +776,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   });
 
   app.post('/servers/:guildId/force-leave', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    (request.params as any).guildId = (request.params as any).guildId;
-    const { guildId } = request.params as any;
+    (request.params as Record<string, string>).guildId = (request.params as Record<string, string>).guildId;
+    const { guildId } = request.params as { guildId: string };
     const guild = await prisma.guild.findUnique({ where: { id: guildId } });
     if (!guild) return reply.status(404).send(error('Serveur introuvable'));
     try {
@@ -795,8 +795,8 @@ export async function ownerRoutes(app: FastifyInstance) {
   });
 
   app.post('/premium/grant', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    (request as any).method = 'PUT';
-    const body = request.body as any;
+    (request as { method: string }).method = 'PUT';
+    const body = request.body as Record<string, unknown>;
     if (body.userId) {
       const user = await prisma.user.findUnique({ where: { discordId: body.userId } });
       if (!user) return reply.status(404).send(error('Utilisateur introuvable'));
@@ -813,7 +813,7 @@ export async function ownerRoutes(app: FastifyInstance) {
   });
 
   app.post('/premium/revoke', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
     if (body.userId) {
       const user = await prisma.user.findUnique({ where: { discordId: body.userId } });
       if (user) await prisma.premiumSubscription.deleteMany({ where: { userId: user.id } });
@@ -842,8 +842,8 @@ export async function ownerRoutes(app: FastifyInstance) {
       await logOwnerAction(request, 'ROLLBACK', {}, true);
       reply.send(success(null, 'Rollback effectué — rebuild manuel requis'));
       setImmediate(() => SystemService.restartAllServices(true));
-    } catch (err: any) {
-      reply.status(500).send(error(err.message));
+    } catch (err: unknown) {
+      reply.status(500).send(error(getErrorMessage(err)));
     }
   });
 
@@ -862,7 +862,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/2fa/verify', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if (!body.code) return reply.status(400).send(error('Code requis'));
       const twoFA = await prisma.owner2FA.findUnique({ where: { userId: request.user!.id } });
       if (!twoFA) return reply.status(400).send(error('2FA non configuré'));
@@ -878,7 +878,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/2fa/disable', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       if (!body.code) return reply.status(400).send(error('Code requis'));
       const twoFA = await prisma.owner2FA.findUnique({ where: { userId: request.user!.id } });
       if (!twoFA) return reply.status(400).send(error('2FA non configuré'));
@@ -894,9 +894,9 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.get('/deployments', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(50, parseInt(q.limit) || 10);
+      const q = request.query as Record<string, string | undefined>;
+      const page = Math.max(1, parseInt(q.page ?? '') || 1);
+      const limit = Math.min(50, parseInt(q.limit ?? '') || 10);
       const [deployments, total] = await Promise.all([
         prisma.deployment.findMany({
           orderBy: { startedAt: 'desc' }, skip: (page - 1) * limit, take: limit,
@@ -946,7 +946,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.delete('/sessions/:sessionId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const { sessionId } = request.params as any;
+      const { sessionId } = request.params as { sessionId: string };
       await prisma.session.delete({ where: { id: sessionId } });
       await logOwnerAction(request, 'KICK_SESSION', { sessionId });
       reply.send(success(null, 'Session révoquée'));
@@ -955,7 +955,7 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   // --- Broadcast popup custom ---
   const pendingPopups = new Map<string, { message: string; duration: number; createdAt: number }>();
-  (global as any).__ownerPendingPopups = pendingPopups;
+  (globalThis as Record<string, unknown>).__ownerPendingPopups = pendingPopups;
 
   app.post('/broadcast-popup', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -995,12 +995,12 @@ export async function ownerRoutes(app: FastifyInstance) {
       let note = await prisma.ownerNote.findFirst();
       if (!note) note = await prisma.ownerNote.create({ data: { content: '' } });
       reply.send(success({ content: note.content, updatedAt: note.updatedAt }));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.patch('/notes', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as any;
+      const body = request.body as Record<string, unknown>;
       let note = await prisma.ownerNote.findFirst();
       if (note) {
         note = await prisma.ownerNote.update({ where: { id: note.id }, data: { content: body.content ?? '' } });
@@ -1008,7 +1008,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         note = await prisma.ownerNote.create({ data: { content: body.content ?? '' } });
       }
       reply.send(success({ content: note.content, updatedAt: note.updatedAt }, 'Notes sauvegardées'));
-    } catch (err: any) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 }
 

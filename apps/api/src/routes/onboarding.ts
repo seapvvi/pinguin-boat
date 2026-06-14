@@ -10,6 +10,11 @@ import { z } from 'zod';
 
 const guildIdSchema = z.object({ guildId: z.string().min(1) });
 
+const paginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export async function onboardingRoutes(app: FastifyInstance) {
   app.get('/guilds/:guildId/onboarding-data', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -25,13 +30,13 @@ export async function onboardingRoutes(app: FastifyInstance) {
         getGuildRoles(guildId).catch(() => []),
       ]);
 
-      const textChannels = (channels as any[] || [])
-        .filter((c: any) => c.type === 0)
-        .map((c: any) => ({ id: c.id, name: c.name }));
+      const textChannels = (channels || [])
+        .filter((c: { type: number; id: string; name: string }) => c.type === 0)
+        .map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }));
 
-      const allRoles = (roles as any[] || [])
-        .filter((r: any) => r.name !== '@everyone')
-        .map((r: any) => ({ id: r.id, name: r.name }));
+      const allRoles = (roles || [])
+        .filter((r: { name: string; id: string }) => r.name !== '@everyone')
+        .map((r: { id: string; name: string }) => ({ id: r.id, name: r.name }));
 
       reply.send(success({
         guildSettings: guildSettings ? {
@@ -59,7 +64,7 @@ export async function onboardingRoutes(app: FastifyInstance) {
         channels: textChannels,
         roles: allRoles,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -73,7 +78,7 @@ export async function onboardingRoutes(app: FastifyInstance) {
         create: { guildId, onboardingDone: true },
       });
       reply.send(success(null, 'Onboarding marqué comme terminé'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
@@ -96,22 +101,20 @@ export async function onboardingRoutes(app: FastifyInstance) {
         },
       });
       reply.send(success(source, 'Source enregistrée'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
   app.get('/admin/onboarding/sources', { preHandler: [authenticate, requireOwner] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const q = request.query as any;
-      const page = Math.max(1, parseInt(q.page) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit) || 20));
+      const query = paginationSchema.parse(request.query);
 
       const [sources, total] = await Promise.all([
         prisma.onboardingSource.findMany({
           orderBy: { createdAt: 'desc' },
-          skip: (page - 1) * limit,
-          take: limit,
+          skip: (query.page - 1) * query.limit,
+          take: query.limit,
         }),
         prisma.onboardingSource.count(),
       ]);
@@ -135,9 +138,9 @@ export async function onboardingRoutes(app: FastifyInstance) {
           count: s._count._all,
         })),
         otherDetails,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) },
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });

@@ -26,8 +26,10 @@ import { botFetch } from './services/bot-proxy';
 
 const config = getConfig();
 
+let app: ReturnType<typeof Fastify>;
+
 async function main() {
-  const app = Fastify({ logger: true });
+  app = Fastify({ logger: true });
 
   await app.register(cors, {
     origin: config.CORS_ORIGIN,
@@ -146,7 +148,15 @@ async function main() {
     limit: z.coerce.number().int().min(1).max(50).default(10),
   });
 
-  app.get('/api/stats', { preHandler: [authenticate] }, async (request, reply) => {
+  app.get('/api/stats', {
+    preHandler: [authenticate],
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (request, reply) => {
     try {
       const discordId = request.user!.discordId;
       const isOwner = discordId === config.DISCORD_OWNER_ID;
@@ -195,7 +205,15 @@ async function main() {
     }
   });
 
-  app.get('/api/changelogs', { preHandler: [authenticate] }, async (request, reply) => {
+  app.get('/api/changelogs', {
+    preHandler: [authenticate],
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (request, reply) => {
     try {
       const query = paginationQuerySchema.parse(request.query);
       const [entries, total] = await Promise.all([
@@ -230,12 +248,12 @@ async function main() {
 
 main();
 
-process.on('SIGTERM', async () => {
+async function shutdown(signal: string) {
+  app.log.info(`Signal ${signal} reçu, arrêt gracieux...`);
+  await app.close();
   await prisma.$disconnect();
   process.exit(0);
-});
+}
 
-process.on('SIGINT', async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
