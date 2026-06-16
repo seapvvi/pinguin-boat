@@ -5,9 +5,11 @@ import {
   Message,
   PermissionFlagsBits,
   TextChannel,
+  ChannelType,
 } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { sendCaptcha, hasPendingCaptcha } from './captcha';
+import { getLogger } from '@pinguin/shared';
 
 const joinTimestamps = new Map<string, number[]>();
 const messageTimestamps = new Map<string, number[]>();
@@ -66,7 +68,19 @@ export async function handleMemberJoin(member: GuildMember): Promise<void> {
           }
         }
         lockedChannels.set(guildId, channelIds);
-        setTimeout(() => unlockGuild(guildId, member.guild), 10 * 60 * 1000);
+        // Persist lock to DB so it survives bot restarts
+        await prisma.protectionSettings.upsert({
+          where: { guildId },
+          update: { emergencyMode: true },
+          create: { guildId, emergencyMode: true, enabled: true },
+        });
+        setTimeout(async () => {
+          await unlockGuild(guildId, member.guild);
+          await prisma.protectionSettings.update({
+            where: { guildId },
+            data: { emergencyMode: false },
+          }).catch(() => {});
+        }, 10 * 60 * 1000);
       }
     }
     await applyPunishment(member, settings.punishment, 'Protection anti-raid');

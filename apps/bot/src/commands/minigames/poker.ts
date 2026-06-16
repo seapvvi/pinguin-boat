@@ -650,6 +650,7 @@ async function handlePlayerAction(
   
   // Check if round is complete
   if (allPlayersMatched(gameState) || gameState.currentPlayerIndex === -1) {
+    collector.stop();
     await advancePhase(interaction, session, gameState, message, economySettings);
   } else {
     collector.stop();

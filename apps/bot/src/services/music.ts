@@ -207,7 +207,7 @@ async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
     musicLogger.info('Now playing', { guildId, title: track.title, url: track.url });
 
 
-    prisma.musicHistoryEntry.create({
+    await prisma.musicHistoryEntry.create({
       data: {
         guildId,
         trackTitle: track.title,

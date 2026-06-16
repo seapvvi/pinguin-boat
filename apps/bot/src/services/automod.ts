@@ -1,7 +1,36 @@
 import { Message, PermissionFlagsBits } from 'discord.js';
 import { prisma } from '@pinguin/db';
 
-const settingsCache = new Map<string, { data: any; at: number }>();
+interface AutoModSettingsData {
+  bannedWords: boolean;
+  bannedWordsList: string;
+  discordInvites: boolean;
+  externalLinks: boolean;
+  excessiveCaps: boolean;
+  capsThreshold: number;
+  excessiveEmojis: boolean;
+  emojisThreshold: number;
+  excessiveMentions: boolean;
+  mentionsThreshold: number;
+  messageSpam: boolean;
+  spamThreshold: number;
+  spamInterval: number;
+  forbiddenPings: boolean;
+  forbiddenPingRoles: string;
+  forbiddenMarkdown: boolean;
+  forbiddenMarkdownList: string;
+  whitelistRoles: string;
+  whitelistChannels: string;
+  autoSanctionThreshold: number;
+  banEnabled: boolean;
+  kickEnabled: boolean;
+  muteEnabled: boolean;
+  muteDuration: number;
+  warnEnabled: boolean;
+  logChannelId: string | null;
+}
+
+const settingsCache = new Map<string, { data: AutoModSettingsData | null; at: number }>();
 const infractions = new Map<string, number>();
 const CACHE_MS = 30_000;
 
@@ -32,12 +61,12 @@ function parseList(raw: unknown): string[] {
     .filter(Boolean);
 }
 
-async function getSettings(guildId: string) {
+async function getSettings(guildId: string): Promise<AutoModSettingsData | null> {
   const c = settingsCache.get(guildId);
   if (c && Date.now() - c.at < CACHE_MS) return c.data;
   const s = await prisma.autoModSettings.findUnique({ where: { guildId } });
-  settingsCache.set(guildId, { data: s, at: Date.now() });
-  return s;
+  settingsCache.set(guildId, { data: s as AutoModSettingsData | null, at: Date.now() });
+  return s as AutoModSettingsData | null;
 }
 
 function isWhitelisted(message: Message, whitelistRoles: string[], whitelistChannels: string[]): boolean {
@@ -64,15 +93,15 @@ function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-async function applySanction(message: Message, settings: any, count: number): Promise<string> {
+async function applySanction(message: Message, settings: AutoModSettingsData, count: number): Promise<string> {
   if (!message.member) return 'NONE';
   const reason = `Auto-modération (${count} infractions)`;
 
-  let sanction: 'ban' | 'kick' | 'mute' | 'warn' = 'warn';
+  let sanction: 'ban' | 'kick' | 'mute' | 'warn' | 'none' = 'warn';
   if (settings.banEnabled) sanction = 'ban';
   else if (settings.kickEnabled) sanction = 'kick';
   else if (settings.muteEnabled) sanction = 'mute';
-  else if (settings.warnEnabled === false) sanction = 'warn';
+  else if (settings.warnEnabled === false) sanction = 'none';
 
   if (sanction === 'ban') {
     await message.member.ban({ reason }).catch(() => {});
@@ -86,6 +115,9 @@ async function applySanction(message: Message, settings: any, count: number): Pr
     const minutes = Math.max(Number(settings.muteDuration) || 10, 1);
     await message.member.timeout(minutes * 60 * 1000, reason).catch(() => {});
     return 'MUTE';
+  }
+  if (sanction === 'none') {
+    return 'NONE';
   }
 
   await prisma.moderationCase.create({
@@ -179,11 +211,15 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
     const key = `${message.guild.id}:${message.author.id}`;
     const now = Date.now();
     const windowMs = Math.max(settings.spamInterval, 1) * 1000;
-    const entry = (global as any).__automodSpam ??= new Map<string, number[]>();
-    const times: number[] = entry.get(key) ?? [];
+    const spamCache = getSpamCache();
+    const times: number[] = spamCache.get(key) ?? [];
     times.push(now);
     const recent = times.filter((t) => now - t < windowMs);
-    entry.set(key, recent);
+    if (recent.length === 0) {
+      spamCache.delete(key);
+    } else {
+      spamCache.set(key, recent);
+    }
     if (recent.length >= settings.spamThreshold) {
       violation = true;
       reason = 'Spam';
@@ -218,19 +254,19 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
 
   if (!violation) return false;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ch = message.channel as any;
+  const ch = message.channel;
 
-  if (violation && reason === 'Spam' && typeof ch.bulkDelete === 'function') {
+  if (violation && reason === 'Spam' && ch.isTextBased() && 'bulkDelete' in ch) {
     const windowMs = Math.max(settings.spamInterval, 1) * 1000;
     const cutoff = Date.now() - windowMs;
-    const toDelete = ch.messages?.cache
-      ? (ch.messages.cache as import('discord.js').Collection<string, import('discord.js').Message>)
-          .filter((m: import('discord.js').Message) => m.author.id === message.author.id && m.createdTimestamp >= cutoff)
-          .map((m: import('discord.js').Message) => m.id)
+    const textChannel = ch as import('discord.js').TextChannel;
+    const toDelete = textChannel.messages?.cache
+      ? textChannel.messages.cache
+          .filter((m) => m.author.id === message.author.id && m.createdTimestamp >= cutoff)
+          .map((m) => m.id)
       : [message.id];
     if (toDelete.length > 1) {
-      await (ch.bulkDelete(toDelete.slice(0, 100), true) as Promise<unknown>).catch(() => message.delete().catch(() => {}));
+      await textChannel.bulkDelete(toDelete.slice(0, 100), true).catch(() => message.delete().catch(() => {}));
     } else {
       await message.delete().catch(() => {});
     }
@@ -238,9 +274,9 @@ export async function checkAutoMod(message: Message): Promise<boolean> {
     await message.delete().catch(() => {});
   }
 
-  if (typeof ch.send === 'function') {
-    (ch.send({ content: `<@${message.author.id}> ⚠️ Ce message a été supprimé (${reason}).` }) as Promise<import('discord.js').Message>)
-      .then((warn) => { setTimeout(() => warn.delete().catch(() => {}), 5000); })
+  if (ch.isTextBased() && !ch.isDMBased()) {
+    (ch as import('discord.js').TextChannel).send({ content: `<@${message.author.id}> ⚠️ Ce message a été supprimé (${reason}).` })
+      .then((warnMsg) => { setTimeout(() => warnMsg.delete().catch(() => {}), 5000); })
       .catch(() => {});
   }
 
@@ -299,6 +335,14 @@ function violationType(reason: string): string {
     'Markdown interdit': 'BANNED_WORDS',
   }
   return map[reason] ?? 'SPAM'
+}
+
+function getSpamCache(): Map<string, number[]> {
+  const globalCache = (global as Record<string, unknown>);
+  if (!globalCache.__automodSpam) {
+    globalCache.__automodSpam = new Map<string, number[]>();
+  }
+  return globalCache.__automodSpam as Map<string, number[]>;
 }
 
 export function invalidateAutoModCache(guildId: string): void {

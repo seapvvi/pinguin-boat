@@ -347,9 +347,22 @@ export async function addMessageReaction(channelId: string, messageId: string, e
 }
 
 export async function getChannelMessages(channelId: string, limit = 100): Promise<any[]> {
-  return discordFetch<any[]>(`/channels/${channelId}/messages?limit=${limit}`, {
-    headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
-  });
+  const messages: any[] = [];
+  const batchSize = Math.min(limit, 100);
+  let lastId: string | undefined;
+
+  while (messages.length < limit) {
+    let endpoint = `/channels/${channelId}/messages?limit=${batchSize}`;
+    if (lastId) endpoint += `&before=${lastId}`;
+    const batch = await discordFetch<any[]>(endpoint, {
+      headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
+    });
+    messages.push(...batch);
+    if (batch.length < batchSize) break;
+    lastId = batch[batch.length - 1].id;
+  }
+
+  return messages.slice(0, limit);
 }
 
 export async function createGuildChannel(guildId: string, options: { name: string; type?: number; parent_id?: string; permission_overwrites?: any[]; topic?: string }): Promise<any> {

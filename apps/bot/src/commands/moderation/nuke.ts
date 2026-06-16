@@ -40,8 +40,13 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     ephemeral: true,
   });
 
-  const filter = (i: any) => i.user.id === interaction.user.id;
-  const collected = await interaction.channel?.awaitMessageComponent({ filter, time: 30000 }).catch(() => null);
+  const filter = (i: { user: { id: string } }) => i.user.id === interaction.user.id;
+  const channelForAwait = interaction.channel;
+  if (!channelForAwait) {
+    await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Salon introuvable.')], components: [] });
+    return;
+  }
+  const collected = await channelForAwait.awaitMessageComponent({ filter, time: 30000 }).catch(() => null);
 
   if (!collected) {
     await interaction.editReply({ embeds: [errorEmbed('Annulé', 'Temps écoulé. Opération annulée.')], components: [] });
@@ -63,8 +68,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     const parentId = channel.parentId;
     const permissionOverwrites = channel.permissionOverwrites.cache.map((p) => ({
       id: p.id,
-      allow: p.allow.bitfield.toString(),
-      deny: p.deny.bitfield.toString(),
+      allow: p.allow.bitfield,
+      deny: p.deny.bitfield,
       type: p.type,
     }));
 
@@ -83,8 +88,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
 
     const overwriteData = permissionOverwrites.map((p) => ({
       id: p.id,
-      allow: BigInt(p.allow),
-      deny: BigInt(p.deny),
+      allow: p.allow,
+      deny: p.deny,
       type: p.type as OverwriteType,
     }));
 

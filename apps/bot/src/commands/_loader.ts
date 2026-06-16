@@ -28,7 +28,8 @@ export function loadCommands(client: Client): void {
         }
 
         if (client.commands.has(command.data.name)) {
-          throw new Error(`Commande dupliquée détectée : "${command.data.name}" déjà chargée depuis une autre catégorie/fichier, seconde occurrence dans ${category}/${file}`);
+          logger.warn(`Commande dupliquée ignorée : "${command.data.name}" déjà chargée (seconde occurrence dans ${category}/${file})`);
+          continue;
         }
         client.commands.set(command.data.name, command);
         logger.info(`Commande chargée: ${command.data.name}`);

@@ -100,7 +100,12 @@ export function startInternalBotApi(client: Client): void {
           res.end(JSON.stringify({ error: 'Guild not found' }));
           return;
         }
-        const member = guild.members.me!;
+        const member = guild.members.me;
+        if (!member) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: 'Bot member not found in guild' }));
+          return;
+        }
         const textChannel = guild.channels.cache.find(c => c.isTextBased() && c.id !== voiceChannelId) as TextChannel;
         if (!textChannel) {
           res.statusCode = 400;
@@ -125,8 +130,19 @@ export function startInternalBotApi(client: Client): void {
 
         switch (action) {
           case 'PLAY': {
-            const member = client.guilds.cache.get(guildId)?.members.me!;
-            const textChannel = client.guilds.cache.get(guildId)?.channels.cache.find(c => c.isTextBased()) as TextChannel;
+            const guild = client.guilds.cache.get(guildId);
+            if (!guild) {
+              res.statusCode = 404;
+              res.end(JSON.stringify({ error: 'Guild not found' }));
+              return;
+            }
+            const member = guild.members.me;
+            if (!member) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Bot member not found in guild' }));
+              return;
+            }
+            const textChannel = guild.channels.cache.find(c => c.isTextBased()) as TextChannel;
             if (member && textChannel && value) {
               try {
                 const track = await music.play(guildId, String(value), member, textChannel);

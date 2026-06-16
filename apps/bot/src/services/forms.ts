@@ -63,7 +63,7 @@ export async function createFormTemplate(
   guildId: string,
   name: string,
   description: string | null,
-  fields: any[]
+  fields: Record<string, unknown>[]
 ) {
   invalidateFormCache(guildId);
   
@@ -98,7 +98,7 @@ export async function updateFormTemplate(
   updates: {
     name?: string;
     description?: string;
-    fields?: any[];
+    fields?: Record<string, unknown>[];
     enabled?: boolean;
   }
 ) {
@@ -110,7 +110,7 @@ export async function updateFormTemplate(
   
   invalidateFormCache(template.guildId);
   
-  const data: any = {};
+  const data: Record<string, unknown> = {};
   if (updates.name !== undefined) data.name = updates.name;
   if (updates.description !== undefined) data.description = updates.description;
   if (updates.fields !== undefined) data.fields = JSON.stringify(updates.fields);
@@ -131,7 +131,7 @@ export async function deleteFormTemplate(templateId: string) {
     invalidateFormCache(template.guildId);
   }
   
-  return await prisma.formTemplate.delete({
+  return await prisma.formTemplate.deleteMany({
     where: { id: templateId },
   });
 }
@@ -140,7 +140,7 @@ export async function createFormSubmission(
   guildId: string,
   templateId: string,
   userId: string,
-  responses: any[]
+  responses: Record<string, unknown>[]
 ) {
   return await prisma.formSubmission.create({
     data: {

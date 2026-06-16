@@ -92,6 +92,16 @@ export function stopAllInterestCrons(): void {
   runningIntervals.clear();
 }
 
+export function cleanupInterestCrons(guildIds: Set<string>): void {
+  for (const [guildId, interval] of runningIntervals.entries()) {
+    if (!guildIds.has(guildId)) {
+      clearInterval(interval);
+      runningIntervals.delete(guildId);
+      logger.info(`[Economy] Cron d'intérêts nettoyé pour guild supprimée ${guildId}`);
+    }
+  }
+}
+
 export async function initializeInterestCrons(guildIds: string[]): Promise<void> {
   for (const guildId of guildIds) {
     try {

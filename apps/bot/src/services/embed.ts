@@ -23,38 +23,38 @@ const COLORS = {
   form: 0x6bcb77 as ColorResolvable,
 };
 
-export function createEmbed(type: keyof typeof COLORS = 'default', title?: string, description?: string) {
+export function createEmbed(type: keyof typeof COLORS = 'default') {
   return new EmbedBuilder()
     .setColor(COLORS[type])
     .setTimestamp();
 }
 
 export function successEmbed(title: string, description?: string) {
-  return createEmbed('success', title, description)
+  return createEmbed('success')
     .setTitle(title)
     .setDescription(description ?? null);
 }
 
 export function errorEmbed(title: string, description?: string) {
-  return createEmbed('error', title, description)
+  return createEmbed('error')
     .setTitle(title)
     .setDescription(description ?? null);
 }
 
 export function warningEmbed(title: string, description?: string) {
-  return createEmbed('warning', title, description)
+  return createEmbed('warning')
     .setTitle(title)
     .setDescription(description ?? null);
 }
 
 export function infoEmbed(title: string, description?: string) {
-  return createEmbed('info', title, description)
+  return createEmbed('info')
     .setTitle(title)
     .setDescription(description ?? null);
 }
 
 export function enrichedErrorEmbed(title: string, description: string, expected?: string) {
-  const embed = createEmbed('error', title)
+  const embed = createEmbed('error')
     .setTitle('❌ ' + title)
     .setDescription(description);
 

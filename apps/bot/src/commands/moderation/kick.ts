@@ -22,8 +22,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     return;
   }
 
-  const user = interaction.options.get('user')?.user!;
-  const reason = interaction.options.get('reason')?.value as string;
+  const user = interaction.options.getUser('user', true);
+  const reason = interaction.options.getString('reason', true);
 
   if (!interaction.guild) return;
   const member = interaction.guild.members.cache.get(user.id);

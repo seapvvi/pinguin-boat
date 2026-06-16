@@ -1,7 +1,14 @@
 import { getConfig } from '@pinguin/config';
 import { logger } from '@pinguin/shared';
 
-const INTERNAL_SECRET = process.env.BOT_INTERNAL_SECRET || 'dev-secret';
+function getInternalSecret(): string {
+  const secret = process.env.BOT_INTERNAL_SECRET;
+  if (!secret) {
+    logger.error('[TicketClose] BOT_INTERNAL_SECRET is not set');
+    throw new Error('BOT_INTERNAL_SECRET is not configured');
+  }
+  return secret;
+}
 
 export async function closeTicketViaApi(
   ticketId: string,
@@ -15,7 +22,7 @@ export async function closeTicketViaApi(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-internal-secret': INTERNAL_SECRET,
+        'x-internal-secret': getInternalSecret(),
       },
       body: JSON.stringify({ closedById, guildName }),
     });

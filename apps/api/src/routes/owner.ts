@@ -779,16 +779,12 @@ export async function ownerRoutes(app: FastifyInstance) {
   });
 
   app.post('/servers/:guildId/force-leave', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    (request.params as Record<string, string>).guildId = (request.params as Record<string, string>).guildId;
     const { guildId } = request.params as { guildId: string };
     const guild = await prisma.guild.findUnique({ where: { id: guildId } });
     if (!guild) return reply.status(404).send(error('Serveur introuvable'));
     try {
-      const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bot ${config.DISCORD_TOKEN}` },
-      });
-      if (!res.ok) throw new Error(`Discord API: ${res.status}`);
+      const { leaveGuildViaBot } = await import('../services/bot-proxy');
+      await leaveGuildViaBot(guildId);
     } catch (err: unknown) {
       return reply.status(500).send(error(getErrorMessage(err)));
     }
@@ -798,7 +794,6 @@ export async function ownerRoutes(app: FastifyInstance) {
   });
 
   app.post('/premium/grant', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    (request as { method: string }).method = 'PUT';
     const body = request.body as { userId?: string; plan?: string };
     if (body.userId) {
       const user = await prisma.user.findUnique({ where: { discordId: body.userId } });
@@ -917,9 +912,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       const dbUrl = process.env.DATABASE_URL || '';
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
-      await promisify(exec)(`pg_dump "${dbUrl}" > "${backupPath}"`, { shell: true as unknown as string }).catch(() => {
-        fs.writeFileSync(backupPath, `-- backup placeholder ${new Date().toISOString()}\n`);
-      });
+      await promisify(exec)(`pg_dump "${dbUrl}" > "${backupPath}"`, { shell: true as unknown as string, timeout: 30000 });
       await logOwnerAction(request, 'BACKUP_CREATED', { path: backupPath }, true);
       reply.send(success({ path: backupPath, timestamp: new Date().toISOString() }, 'Sauvegarde effectuée'));
     } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }

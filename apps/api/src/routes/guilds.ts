@@ -1157,13 +1157,15 @@ export async function guildRoutes(app: FastifyInstance) {
   app.post('/:guildId/suggestions/:id/vote', { preHandler: [authenticate, validateParams(suggestionIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId, id } = request.params as { guildId: string; id: string };
+      const discordId = request.user!.discordId;
+      const isMember = await getGuildMember(guildId, discordId).then(() => true).catch(() => false);
+      if (!isMember) return reply.status(403).send(error('Vous devez être membre du serveur pour voter'));
       const body = request.body as Record<string, unknown>;
       const vote = body.vote as string;
       if (!['up', 'down'].includes(vote)) return reply.status(400).send(error('Vote invalide'));
       const s = await prisma.suggestion.findFirst({ where: { id, guildId } });
       if (!s || s.status !== 'PENDING') return reply.status(400).send(error('Suggestion introuvable ou déjà traitée'));
       const voters: Record<string, 'up' | 'down'> = JSON.parse(s.voters || '{}');
-      const discordId = request.user!.discordId;
       if (voters[discordId] === vote) {
         delete voters[discordId];
       } else {

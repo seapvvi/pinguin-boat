@@ -33,8 +33,6 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
   );
 
-// Le check ModuleEnabled s'applique via la propriété "module" du command.
-// Comme cette commande se trouve dans le dossier utility, on l'associe à utility.
 export const module = 'utility';
 
 export async function execute(
@@ -64,14 +62,18 @@ export async function execute(
   const cacheToken = `/commands/${moduleName}/`;
   const cacheKeys = listRequireCacheKeysContaining(cacheToken);
 
-  const commandsBefore = new Map(client.commands);
-
   for (const k of cacheKeys) {
     delete (require.cache as unknown as Record<string, unknown>)[k];
   }
 
-  // 2) Recharger via le loader existant
+  // 2) Supprimer les commandes du module ciblé avant reload
+  for (const [name, cmd] of client.commands) {
+    if (cmd.module === moduleName) {
+      client.commands.delete(name);
+    }
+  }
 
+  // 3) Recharger via le loader existant
   const loaderModule = await import('../_loader');
 
   const loadCommands = loaderModule.loadCommands;
@@ -87,13 +89,15 @@ export async function execute(
     return;
   }
 
+  // Capture the command set before reload to detect what was added
+  const beforeReload = new Set(client.commands.keys());
   loadCommands(client);
 
-  // 3) Détecter les commandes ajoutées
+  // 4) Détecter les commandes rechargées
   const reloaded: string[] = [];
 
   for (const [name] of client.commands) {
-    if (!commandsBefore.has(name)) reloaded.push(name);
+    if (!beforeReload.has(name)) reloaded.push(name);
   }
 
   if (reloaded.length === 0) {
@@ -122,4 +126,3 @@ export async function execute(
     ephemeral: true,
   });
 }
-

@@ -132,78 +132,114 @@ export async function useConsumable(guildId: string, userId: string, itemId: str
   // Appliquer l'effet selon le type
   switch (item.type) {
     case 'XP_BOOST': {
-      const boostEndsAt = new Date(Date.now() + (item.duration || 3600) * 1000);
-      const removed = await removeItemFromInventory(guildId, userId, itemId, 1);
-      if (!removed) {
+      return await prisma.$transaction(async (tx) => {
+        const invEntry = await tx.inventoryEntry.findUnique({
+          where: { guildId_userId_itemId: { guildId, userId, itemId } },
+        });
+        if (!invEntry || invEntry.quantity < 1) {
+          return { success: false, message: "Erreur lors de la consommation de l'item." };
+        }
+
+        if (invEntry.quantity === 1) {
+          await tx.inventoryEntry.delete({
+            where: { guildId_userId_itemId: { guildId, userId, itemId } },
+          });
+        } else {
+          await tx.inventoryEntry.update({
+            where: { guildId_userId_itemId: { guildId, userId, itemId } },
+            data: { quantity: { decrement: 1 } },
+          });
+        }
+
+        const boostEndsAt = new Date(Date.now() + (item.duration || 3600) * 1000);
+        await tx.economyWallet.update({
+          where: { guildId_userId: { guildId, userId } },
+          data: {
+            xpBoostEndsAt: boostEndsAt,
+            xpBoostMultiplier: item.effectValue || 2,
+          },
+        });
+
         return {
-          success: false,
-          message: "Erreur lors de la consommation de l'item.",
+          success: true,
+          message: `Boost XP activé ! Multiplicateur x${item.effectValue || 2} pour ${item.duration || 3600} secondes.`,
+          effect: {
+            type: 'XP_BOOST',
+            value: item.effectValue || 2,
+            duration: item.duration || 3600,
+          },
         };
-      }
-      await prisma.economyWallet.update({
-        where: { guildId_userId: { guildId, userId } },
-        data: {
-          xpBoostEndsAt: boostEndsAt,
-          xpBoostMultiplier: item.effectValue || 2,
-        },
       });
-      return {
-        success: true,
-        message: `Boost XP activé ! Multiplicateur x${item.effectValue || 2} pour ${item.duration || 3600} secondes.`,
-        effect: {
-          type: 'XP_BOOST',
-          value: item.effectValue || 2,
-          duration: item.duration || 3600,
-        },
-      };
     }
 
     case 'ANTI_THEFT': {
-      const antiTheftEndsAt = new Date(Date.now() + (item.duration || 3600) * 1000);
-      const removed = await removeItemFromInventory(guildId, userId, itemId, 1);
-      if (!removed) {
+      return await prisma.$transaction(async (tx) => {
+        const invEntry = await tx.inventoryEntry.findUnique({
+          where: { guildId_userId_itemId: { guildId, userId, itemId } },
+        });
+        if (!invEntry || invEntry.quantity < 1) {
+          return { success: false, message: "Erreur lors de la consommation de l'item." };
+        }
+
+        if (invEntry.quantity === 1) {
+          await tx.inventoryEntry.delete({
+            where: { guildId_userId_itemId: { guildId, userId, itemId } },
+          });
+        } else {
+          await tx.inventoryEntry.update({
+            where: { guildId_userId_itemId: { guildId, userId, itemId } },
+            data: { quantity: { decrement: 1 } },
+          });
+        }
+
+        const antiTheftEndsAt = new Date(Date.now() + (item.duration || 3600) * 1000);
+        await tx.economyWallet.update({
+          where: { guildId_userId: { guildId, userId } },
+          data: { antiTheftEndsAt },
+        });
+
         return {
-          success: false,
-          message: "Erreur lors de la consommation de l'item.",
+          success: true,
+          message: `Protection anti-vol activée pour ${item.duration || 3600} secondes !`,
+          effect: {
+            type: 'ANTI_THEFT',
+            duration: item.duration || 3600,
+          },
         };
-      }
-      await prisma.economyWallet.update({
-        where: { guildId_userId: { guildId, userId } },
-        data: {
-          antiTheftEndsAt,
-        },
       });
-      return {
-        success: true,
-        message: `Protection anti-vol activée pour ${item.duration || 3600} secondes !`,
-        effect: {
-          type: 'ANTI_THEFT',
-          duration: item.duration || 3600,
-        },
-      };
     }
 
     case 'LOTTO_TICKET': {
-      const removed = await removeItemFromInventory(guildId, userId, itemId, 1);
-      if (!removed) {
+      return await prisma.$transaction(async (tx) => {
+        const invEntry = await tx.inventoryEntry.findUnique({
+          where: { guildId_userId_itemId: { guildId, userId, itemId } },
+        });
+        if (!invEntry || invEntry.quantity < 1) {
+          return { success: false, message: "Erreur lors de la consommation de l'item." };
+        }
+
+        if (invEntry.quantity === 1) {
+          await tx.inventoryEntry.delete({
+            where: { guildId_userId_itemId: { guildId, userId, itemId } },
+          });
+        } else {
+          await tx.inventoryEntry.update({
+            where: { guildId_userId_itemId: { guildId, userId, itemId } },
+            data: { quantity: { decrement: 1 } },
+          });
+        }
+
+        await tx.economyWallet.update({
+          where: { guildId_userId: { guildId, userId } },
+          data: { lottoTicketsCount: { increment: 1 } },
+        });
+
         return {
-          success: false,
-          message: "Erreur lors de la consommation de l'item.",
+          success: true,
+          message: "Ticket de loto utilisé ! Participation au prochain tirage enregistrée.",
+          effect: { type: 'LOTTO_TICKET' },
         };
-      }
-      await prisma.economyWallet.update({
-        where: { guildId_userId: { guildId, userId } },
-        data: {
-          lottoTicketsCount: { increment: 1 },
-        },
       });
-      return {
-        success: true,
-        message: "Ticket de loto utilisé ! Participation au prochain tirage enregistrée.",
-        effect: {
-          type: 'LOTTO_TICKET',
-        },
-      };
     }
 
     default:

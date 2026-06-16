@@ -16,7 +16,7 @@ async function handleFormSubmit(interaction: ModalSubmitInteraction, client: Cli
   }
 
   interface FormField { label: string; required?: boolean; }
-  interface FormResponse { label: string; value: string; }
+  interface FormResponse extends Record<string, string> { label: string; value: string; }
 
   let fields: FormField[];
   try {
@@ -25,6 +25,9 @@ async function handleFormSubmit(interaction: ModalSubmitInteraction, client: Cli
     await interaction.reply({ embeds: [errorEmbed('Erreur', 'Formulaire corrompu.')], ephemeral: true });
     return;
   }
+
+  await interaction.deferReply({ ephemeral: true });
+
   const responses: FormResponse[] = [];
 
   for (const field of fields) {
@@ -35,7 +38,6 @@ async function handleFormSubmit(interaction: ModalSubmitInteraction, client: Cli
     });
   }
 
-  // Create submission
   const submission = await createFormSubmission(
     interaction.guild.id,
     templateId,
@@ -43,7 +45,6 @@ async function handleFormSubmit(interaction: ModalSubmitInteraction, client: Cli
     responses
   );
 
-  // Send to submission channel
   const settings = await getFormSettings(interaction.guild.id);
   if (settings.channelId) {
     try {
@@ -58,7 +59,7 @@ async function handleFormSubmit(interaction: ModalSubmitInteraction, client: Cli
           .setDescription(template.description || '')
           .setTimestamp();
 
-        responses.forEach((response, index) => {
+        responses.forEach((response) => {
           embed.addFields({
             name: response.label,
             value: response.value || '*Non renseigné*',
@@ -85,7 +86,6 @@ async function handleFormSubmit(interaction: ModalSubmitInteraction, client: Cli
     }
   }
 
-  // Send to log channel if configured
   if (settings.logChannel) {
     try {
       const logChannel = await interaction.guild.channels.fetch(settings.logChannel);
@@ -99,9 +99,8 @@ async function handleFormSubmit(interaction: ModalSubmitInteraction, client: Cli
     }
   }
 
-  await interaction.reply({
+  await interaction.editReply({
     embeds: [successEmbed('Formulaire soumis', 'Votre réponse a été enregistrée avec succès !')],
-    ephemeral: true,
   });
 }
 

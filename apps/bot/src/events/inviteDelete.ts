@@ -1,8 +1,8 @@
-import { Invite } from 'discord.js';
+import { Invite, Client } from 'discord.js';
 import { removeInvite } from '../services/invite-cache';
 import { logger } from '@pinguin/shared';
 
-export async function execute(invite: Invite): Promise<void> {
+export async function execute(invite: Invite, _client: Client): Promise<void> {
   const guild = invite.guild;
   if (!guild) return;
 

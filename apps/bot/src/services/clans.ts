@@ -288,6 +288,8 @@ export async function completeWar(warId: string) {
         where: { clanId: winnerId, guildId: war.guildId },
       });
 
+      const prizePerMember = Math.floor(war.prizePool / Math.max(1, members.length));
+
       for (const member of members) {
         await ensureUser(member.userId);
 
@@ -299,8 +301,8 @@ export async function completeWar(warId: string) {
           await tx.economyWallet.update({
             where: { guildId_userId: { guildId: war.guildId, userId: member.userId } },
             data: {
-              wallet: { increment: war.prizePool },
-              totalEarned: { increment: war.prizePool },
+              wallet: { increment: prizePerMember },
+              totalEarned: { increment: prizePerMember },
             },
           });
         } else {
@@ -308,9 +310,9 @@ export async function completeWar(warId: string) {
             data: {
               guildId: war.guildId,
               userId: member.userId,
-              wallet: war.prizePool,
+              wallet: prizePerMember,
               bank: 0,
-              totalEarned: war.prizePool,
+              totalEarned: prizePerMember,
             },
           });
         }
@@ -319,7 +321,7 @@ export async function completeWar(warId: string) {
           data: {
             guildId: war.guildId,
             toUserId: member.userId,
-            amount: war.prizePool,
+            amount: prizePerMember,
             type: 'EARN',
             description: `Victoire de guerre de clan — ${war.challenger.name} vs ${war.opponent.name}`,
           },

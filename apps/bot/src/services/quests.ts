@@ -101,7 +101,7 @@ export async function generateWeeklyQuests(guildId: string): Promise<void> {
   const now = new Date();
   const dayOfWeek = now.getDay();
   const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-  const startOfWeek = new Date(now.setDate(diff));
+  const startOfWeek = new Date(now.getFullYear(), now.getMonth(), diff);
   startOfWeek.setHours(0, 0, 0, 0);
   const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -211,14 +211,11 @@ export async function updateQuestProgress(
         },
       });
 
-      const settings = await getEconomySettings(guildId);
-      const wallet = await getOrCreateWallet(guildId, userId, settings.startupBalance);
-
       await prisma.economyWallet.update({
         where: { guildId_userId: { guildId, userId } },
         data: {
-          wallet: wallet.wallet + quest.reward,
-          totalEarned: wallet.totalEarned + quest.reward,
+          wallet: { increment: quest.reward },
+          totalEarned: { increment: quest.reward },
         },
       });
 
@@ -255,37 +252,41 @@ export async function claimQuestReward(guildId: string, userId: string, questId:
     return false;
   }
 
-  if (progress.completedAt) {
-    return false;
-  }
+  const claimed = await prisma.$transaction(async (tx) => {
+    const current = await tx.questProgress.findUnique({
+      where: { id: progress.id },
+    });
+    if (!current || current.status !== QuestStatus.COMPLETED || current.completedAt) {
+      return false;
+    }
 
-  const settings = await getEconomySettings(guildId);
-  const wallet = await getOrCreateWallet(guildId, userId, settings.startupBalance);
+    await tx.economyWallet.update({
+      where: { guildId_userId: { guildId, userId } },
+      data: {
+        wallet: { increment: progress.quest.reward },
+        totalEarned: { increment: progress.quest.reward },
+      },
+    });
 
-  await prisma.economyWallet.update({
-    where: { guildId_userId: { guildId, userId } },
-    data: {
-      wallet: wallet.wallet + progress.quest.reward,
-      totalEarned: wallet.totalEarned + progress.quest.reward,
-    },
+    await tx.economyTransaction.create({
+      data: {
+        guildId,
+        toUserId: userId,
+        amount: progress.quest.reward,
+        type: 'EARN',
+        description: `Récompense de quête: ${progress.quest.title}`,
+      },
+    });
+
+    await tx.questProgress.update({
+      where: { id: progress.id },
+      data: { completedAt: new Date() },
+    });
+
+    return true;
   });
 
-  await prisma.economyTransaction.create({
-    data: {
-      guildId,
-      toUserId: userId,
-      amount: progress.quest.reward,
-      type: 'EARN',
-      description: `Récompense de quête: ${progress.quest.title}`,
-    },
-  });
-
-  await prisma.questProgress.update({
-    where: { id: progress.id },
-    data: { completedAt: new Date() },
-  });
-
-  return true;
+  return claimed;
 }
 
 export async function cleanupExpiredQuests(): Promise<void> {
