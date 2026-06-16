@@ -218,8 +218,8 @@ export default function ModerationPage() {
               api.get<{ data: { id: string; username: string; avatar?: string | null } }>(`/api/guilds/${guildId}/resolve-user/${c.moderatorId}`),
             ]);
             setDetailUsers({
-              user: (userRes as any)?.data as { id: string; username: string; avatar?: string | null } | undefined,
-              moderator: (modRes as any)?.data as { id: string; username: string; avatar?: string | null } | undefined,
+              user: userRes?.data,
+              moderator: modRes?.data,
             });
           }}
           className="text-[var(--text-secondary)] hover:text-[var(--accent)]"

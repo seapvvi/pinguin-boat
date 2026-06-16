@@ -144,11 +144,11 @@ export function ModulePermissions({ guildId, values, onChange }: ModulePermissio
       .then((res) => {
         if (res.success && res.data) {
           const mapped = res.data.roles
-            .filter((r: any) => String(r.name) !== '@everyone')
-            .map((r: any) => ({
+            .filter((r: Record<string, unknown>) => String(r.name) !== '@everyone')
+            .map((r: Record<string, unknown>) => ({
               id: String(r.id),
               name: String(r.name),
-              color: r.color ? `#${r.color.toString(16).padStart(6, '0')}` : '#99aab5',
+              color: r.color ? `#${(r.color as number).toString(16).padStart(6, '0')}` : '#99aab5',
             }));
           setRoles(mapped);
         }

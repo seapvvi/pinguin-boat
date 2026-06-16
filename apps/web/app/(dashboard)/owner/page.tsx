@@ -180,12 +180,12 @@ export default function OwnerDashboardPage() {
     return () => { if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current); };
   }, [load, loadDonors, loadChangelogs, loadNotes]);
 
-  const handleAction = async (action: string, fn: () => Promise<any>) => {
+  const handleAction = async (action: string, fn: () => Promise<{ success?: boolean; data?: Record<string, unknown>; message?: string }>) => {
     setActionLoading(action);
     setActionError(null);
     try {
       const res = await fn();
-      if (action === 'deploy' && res?.data?.id) setDeployId(res.data.id);
+      if (action === 'deploy' && res?.data?.id) setDeployId(res.data.id as string);
       if (!res?.success) throw new Error(res?.message || 'Action échouée');
       await load();
     } catch (err) {
@@ -200,14 +200,14 @@ export default function OwnerDashboardPage() {
     setDonorError(null);
     try {
       if (editingDonor) {
-        await api.patch<any>(`/api/owner/donors/${editingDonor.id}`, {
+        await api.patch(`/api/owner/donors/${editingDonor.id}`, {
           username: donorForm.username,
           amount: parseFloat(donorForm.amount) || 0,
           message: donorForm.message || null,
           avatarUrl: donorForm.avatarUrl || null,
         });
       } else {
-        await api.post<any>('/api/owner/donors', {
+        await api.post('/api/owner/donors', {
           userId: donorForm.userId,
           username: donorForm.username,
           amount: parseFloat(donorForm.amount) || 0,
@@ -218,8 +218,8 @@ export default function OwnerDashboardPage() {
       setDonorForm({ userId: '', username: '', amount: '', message: '', avatarUrl: '' });
       setEditingDonor(null);
       await loadDonors();
-    } catch (e: any) {
-      setDonorError(e?.message || 'Erreur');
+    } catch (e: unknown) {
+      setDonorError(e instanceof Error ? e.message : 'Erreur');
     } finally {
       setDonorSaving(false);
     }
@@ -227,7 +227,7 @@ export default function OwnerDashboardPage() {
 
   const handleDeleteDonor = async (id: string) => {
     try {
-      await api.delete<any>(`/api/owner/donors/${id}`);
+      await api.delete(`/api/owner/donors/${id}`);
       await loadDonors();
     } catch { }
   };
@@ -236,15 +236,15 @@ export default function OwnerDashboardPage() {
     setClSaving(true);
     setClError(null);
     try {
-      await api.post<any>('/api/owner/changelogs', {
+      await api.post('/api/owner/changelogs', {
         title: clForm.title,
         content: clForm.content,
         version: clForm.version || null,
       });
       setClForm({ title: '', content: '', version: '' });
       await loadChangelogs();
-    } catch (e: any) {
-      setClError(e?.message || 'Erreur');
+    } catch (e: unknown) {
+      setClError(e instanceof Error ? e.message : 'Erreur');
     } finally {
       setClSaving(false);
     }
@@ -252,7 +252,7 @@ export default function OwnerDashboardPage() {
 
   const handleDeleteChangelog = async (id: string) => {
     try {
-      await api.delete<any>(`/api/owner/changelogs/${id}`);
+      await api.delete(`/api/owner/changelogs/${id}`);
       await loadChangelogs();
     } catch { }
   };
@@ -264,7 +264,7 @@ export default function OwnerDashboardPage() {
     notesTimer.current = setTimeout(async () => {
       setNotesSaving(true);
       try {
-        await api.patch<any>('/api/owner/notes', { content: val });
+        await api.patch('/api/owner/notes', { content: val });
         setNotesSaved(true);
         setTimeout(() => setNotesSaved(false), 2000);
       } catch { } finally { setNotesSaving(false); }
@@ -557,17 +557,20 @@ export default function OwnerDashboardPage() {
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    label={({ payload, percent }: any) => `${sourceLabels[payload.source] || payload.source} (${(percent * 100).toFixed(0)}%)`}
+                    label={({ payload, percent }: { payload?: { source: string }; percent?: number }) => {
+                      const src = payload?.source ?? '';
+                      return `${sourceLabels[src] || src} (${((percent ?? 0) * 100).toFixed(0)}%)`;
+                    }}
                   >
-                    {(sourceData.breakdown ?? []).map((_: any, i: number) => (
+                    {(sourceData.breakdown ?? []).map((_: { source: string; count: number }, i: number) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--bg-surface-alt)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}
-                    formatter={(value: any, name: any) => [value ?? 0, sourceLabels[name] ?? name ?? '']}
+                    formatter={(value, name) => [value ?? 0, sourceLabels[String(name ?? '')] ?? String(name ?? '')]}
                   />
-                  <Legend formatter={(value: any) => <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{sourceLabels[value] ?? value}</span>} />
+                  <Legend formatter={(value) => <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{sourceLabels[String(value)] ?? String(value)}</span>} />
                 </PieChart>
               </ResponsiveContainer>
             </div>

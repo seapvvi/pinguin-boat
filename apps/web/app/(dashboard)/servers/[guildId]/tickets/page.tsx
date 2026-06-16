@@ -20,6 +20,12 @@ import { CategoryBuilder } from '@/components/tickets/CategoryBuilder';
 import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+import type { TicketCategoryData } from '@/components/tickets/CategoryBuilder';
+
+interface TicketCategory extends TicketCategoryData {
+  supportRoleIds?: string[];
+}
+
 type TabKey = 'overview' | 'categories' | 'settings' | 'stats';
 
 const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
@@ -68,16 +74,22 @@ export default function TicketsPage() {
   const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [editingCategory, setEditingCategory] = useState<TicketCategory | null>(null);
   const [expandedCategory] = useState<string | null>(null);
 
   const [stats, setStats] = useState<{
     totalOpen: number; totalClosed: number;
     avgResponseTimeMs: number; avgResolutionTimeMs: number;
-    byCategory: any[];
+    byCategory: {
+      categoryId: string;
+      categoryName: string;
+      count: number;
+      avgResponseTimeMs: number;
+      avgResolutionTimeMs: number;
+    }[];
   } | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
@@ -100,7 +112,7 @@ export default function TicketsPage() {
     setLoadingCategories(true);
     try {
       const res = await fetchTicketCategories(guildId);
-      if (res.success && res.data) setCategories(res.data.categories ?? []);
+      if (res.success && res.data) setCategories(res.data.categories as unknown as TicketCategory[] ?? []);
     } catch {} finally { setLoadingCategories(false); }
   }, [guildId]);
 
@@ -108,7 +120,7 @@ export default function TicketsPage() {
     setLoadingStats(true);
     try {
       const res = await fetchTicketStats(guildId);
-      if (res.success && res.data) setStats(res.data as any);
+      if (res.success && res.data) setStats(res.data);
     } catch {} finally { setLoadingStats(false); }
   }, [guildId]);
 
@@ -149,7 +161,7 @@ export default function TicketsPage() {
 
   const columns: Column<TicketData>[] = [
     { key: 'subject', label: 'Sujet', render: (t) => <span className="text-sm font-medium">{t.id.slice(0, 8)}…</span> },
-    { key: 'category', label: 'Catégorie', render: (t) => <Badge>{(t as any).categoryId ?? '—'}</Badge> },
+    { key: 'category', label: 'Catégorie', render: (t) => <Badge>{t.categoryId ?? '—'}</Badge> },
     { key: 'status', label: 'Statut', sortable: true, render: (t) => <Badge variant={statusVariants[t.status]}>{statusLabels[t.status]}</Badge> },
     { key: 'creatorId', label: 'Créateur', render: (t) => <span className="font-mono text-xs">{t.creatorId.slice(0, 8)}…</span> },
     { key: 'createdAt', label: 'Date', sortable: true, render: (t) => <span className="text-xs text-[var(--text-secondary)]">{formatDate(t.createdAt)}</span> },
@@ -284,7 +296,7 @@ export default function TicketsPage() {
                   headerAction={
                     <div className="flex items-center gap-1">
                       <Badge variant="info">{cat.openingMode ?? 'BUTTON'}</Badge>
-                      {cat.maxTicketsPerUser > 0 && (
+                      {(cat.maxTicketsPerUser ?? 0) > 0 && (
                         <span className="text-xs text-[var(--text-secondary)]">max {cat.maxTicketsPerUser}/user</span>
                       )}
                       <Button variant="ghost" size="sm" onClick={() => { setEditingCategory(cat); setCategoryModalOpen(true); }}>
@@ -301,8 +313,8 @@ export default function TicketsPage() {
                   )}
                   <div className="text-xs text-[var(--text-secondary)]">
                     <span>ID: {cat.id}</span>
-                    {cat.supportRoleIds?.length > 0 && (
-                      <span className="ml-3">Rôles support: {cat.supportRoleIds.length}</span>
+                    {(cat.supportRoleIds?.length ?? 0) > 0 && (
+                      <span className="ml-3">Rôles support: {cat.supportRoleIds?.length}</span>
                     )}
                   </div>
                 </SectionCard>
@@ -311,7 +323,7 @@ export default function TicketsPage() {
           )}
 
           <Modal open={categoryModalOpen} onClose={() => { setCategoryModalOpen(false); setEditingCategory(null); }} title={editingCategory ? 'Modifier la catégorie' : 'Nouvelle catégorie'}>
-            <CategoryBuilder guildId={guildId} category={editingCategory} onSave={handleSaveCategory} onCancel={() => { setCategoryModalOpen(false); setEditingCategory(null); }} />
+            <CategoryBuilder guildId={guildId} category={editingCategory ?? undefined} onSave={handleSaveCategory} onCancel={() => { setCategoryModalOpen(false); setEditingCategory(null); }} />
           </Modal>
         </div>
       )}
@@ -377,7 +389,7 @@ export default function TicketsPage() {
                       <YAxis tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} label={{ value: 'Minutes', angle: -90, position: 'insideLeft', style: { fill: 'var(--text-secondary)', fontSize: 12 } }} />
                       <Tooltip
                         contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 0, fontSize: '13px' }}
-                        formatter={(value: any, name: any) => [`${value} min`, name === 'responseMin' ? 'Réponse' : 'Résolution']}
+                        formatter={(value, name) => [`${value} min`, name === 'responseMin' ? 'Réponse' : 'Résolution']}
                       />
                       <Bar dataKey="responseMin" name="Réponse" fill="#14b8a6" />
                       <Bar dataKey="resolutionMin" name="Résolution" fill="#3b82f6" />
@@ -422,7 +434,7 @@ export default function TicketsPage() {
               </div>
               <div>
                 <span className="text-xs text-[var(--text-secondary)]">Catégorie</span>
-                <p className="text-sm">{(selectedTicket as any).categoryId ?? '—'}</p>
+                <p className="text-sm">{selectedTicket.categoryId ?? '—'}</p>
               </div>
               <div>
                 <span className="text-xs text-[var(--text-secondary)]">Créateur</span>

@@ -13,6 +13,52 @@ import { ModulePermissions } from '@/components/settings/ModulePermissions';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
+import type { APIResponse } from '@pinguin/shared';
+
+interface GuildPayload {
+  name?: string;
+  locale?: string;
+  settings?: { locale?: string; timezone?: string; modLogChannel?: string; muteRoleId?: string };
+  timezone?: string;
+  modLogChannelId?: string;
+  muteRoleId?: string;
+  dashboardAccessRoles?: string[];
+  dashboardModerationAccess?: string[];
+  dashboardTicketsAccess?: string[];
+  dashboardPollsAccess?: string[];
+  dashboardSuggestionsAccess?: string[];
+  dashboardGiveawaysAccess?: string[];
+  dashboardEconomyAccess?: string[];
+  dashboardMusicAccess?: string[];
+  dashboardLevelsAccess?: string[];
+  dashboardWelcomeAccess?: string[];
+  dashboardAutorolesAccess?: string[];
+  dashboardLogsAccess?: string[];
+  dashboardProtectionAccess?: string[];
+  dashboardAuditAccess?: string[];
+  guild?: {
+    name?: string;
+    locale?: string;
+    settings?: { locale?: string; timezone?: string; modLogChannel?: string; muteRoleId?: string };
+    timezone?: string;
+    modLogChannelId?: string;
+    muteRoleId?: string;
+    dashboardAccessRoles?: string[];
+    dashboardModerationAccess?: string[];
+    dashboardTicketsAccess?: string[];
+    dashboardPollsAccess?: string[];
+    dashboardSuggestionsAccess?: string[];
+    dashboardGiveawaysAccess?: string[];
+    dashboardEconomyAccess?: string[];
+    dashboardMusicAccess?: string[];
+    dashboardLevelsAccess?: string[];
+    dashboardWelcomeAccess?: string[];
+    dashboardAutorolesAccess?: string[];
+    dashboardLogsAccess?: string[];
+    dashboardProtectionAccess?: string[];
+    dashboardAuditAccess?: string[];
+  };
+}
 
 interface DashboardSettings {
   locale?: string;
@@ -78,7 +124,7 @@ export default function GuildSettingsPage() {
   const [exporting, setExporting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importData, setImportData] = useState<any>(null);
+  const [importData, setImportData] = useState<{ version: string; guildId: string; settings: Record<string, unknown> } | null>(null);
   const [importModules, setImportModules] = useState<string[]>([]);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importError, setImportError] = useState('');
@@ -86,11 +132,11 @@ export default function GuildSettingsPage() {
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    api.get<Record<string, unknown>>(`/api/guilds/${guildId}`)
+    api.get<APIResponse<GuildPayload>>(`/api/guilds/${guildId}`)
       .then((res) => {
         if (res.success && res.data) {
-          const d = res.data as any;
-          const guild = d.guild ?? d;
+          const d = res.data;
+          const guild = (d.guild ?? d) as GuildPayload;
           const s: DashboardSettings = {
             locale: guild.locale ?? guild.settings?.locale ?? 'fr',
             timezone: guild.timezone ?? guild.settings?.timezone ?? 'Europe/Paris',
@@ -165,7 +211,7 @@ export default function GuildSettingsPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const res = await api.get<any>(`/api/guilds/${guildId}/settings/export`);
+      const res = await api.get<APIResponse<Record<string, unknown>>>(`/api/guilds/${guildId}/settings/export`);
       if (res.success && res.data) {
         const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -175,8 +221,8 @@ export default function GuildSettingsPage() {
         a.click();
         URL.revokeObjectURL(url);
       }
-    } catch (err: any) {
-      setImportError(err.message || 'Erreur lors de l\'export');
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : 'Erreur lors de l\'export');
     } finally {
       setExporting(false);
     }
@@ -229,8 +275,8 @@ export default function GuildSettingsPage() {
         setImportModules([]);
         window.location.reload();
       }
-    } catch (err: any) {
-      setImportError(err.message || 'Erreur lors de l\'import');
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : 'Erreur lors de l\'import');
     } finally {
       setImporting(false);
     }

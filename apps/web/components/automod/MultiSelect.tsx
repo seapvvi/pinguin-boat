@@ -30,8 +30,8 @@ export function MultiSelect({ type, guildId, value, onChange, label, adminWarnin
         if (res.success && res.data) {
           setItems(
             res.data.channels
-              .filter((c: any) => [0, 2, 4, 5].includes(Number(c.type)))
-              .map((c: any) => ({ id: String(c.id), name: `#${String(c.name)}` }))
+              .filter((c: Record<string, unknown>) => [0, 2, 4, 5].includes(Number(c.type)))
+              .map((c: Record<string, unknown>) => ({ id: String(c.id), name: `#${String(c.name)}` }))
           )
         }
       } else {
@@ -39,8 +39,8 @@ export function MultiSelect({ type, guildId, value, onChange, label, adminWarnin
         if (res.success && res.data) {
           setItems(
             res.data.roles
-              .filter((r: any) => String(r.name) !== '@everyone')
-              .map((r: any) => ({ id: String(r.id), name: String(r.name) }))
+              .filter((r: Record<string, unknown>) => String(r.name) !== '@everyone')
+              .map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) }))
           )
         }
       }

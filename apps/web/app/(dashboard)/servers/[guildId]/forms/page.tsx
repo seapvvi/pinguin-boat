@@ -70,7 +70,7 @@ export default function FormsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [subPage, setSubPage] = useState(1);
@@ -94,12 +94,13 @@ export default function FormsPage() {
     setError(null);
     try {
       const res = await fetchFormSettings(guildId);
-      const data = (res as any)?.data;
+      const data = res.data;
       if (data?.settings) {
-        setSettings(data.settings);
-        setTemplates(data.settings.templates ?? []);
-        setChannelId(data.settings.channelId ?? '');
-        setLogChannel(data.settings.logChannel ?? '');
+        const s = data.settings as Record<string, unknown>;
+        setSettings(s);
+        setTemplates(s.templates as unknown as Template[] ?? []);
+        setChannelId(s.channelId as string ?? '');
+        setLogChannel(s.logChannel as string ?? '');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
@@ -111,9 +112,9 @@ export default function FormsPage() {
   const loadSubmissions = useCallback(async (p: number) => {
     try {
       const res = await fetchFormSubmissions(guildId, { page: String(p), limit: '15' });
-      const data = (res as any)?.data;
+      const data = res.data;
       if (data) {
-        setSubmissions(data.submissions ?? []);
+        setSubmissions(data.submissions as unknown as Submission[] ?? []);
         setSubTotalPages(data.pagination?.totalPages ?? 1);
       }
     } catch { }
@@ -139,8 +140,8 @@ export default function FormsPage() {
       });
       toast.success('Configuration enregistrée');
       await load();
-    } catch (e: any) {
-      const msg = e?.message || 'Erreur';
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erreur';
       setError(msg);
       toast.error(msg);
     } finally {
@@ -189,8 +190,8 @@ export default function FormsPage() {
       }
       setShowTemplateModal(false);
       await load();
-    } catch (e: any) {
-      const msg = e?.message || 'Erreur';
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erreur';
       setError(msg);
       toast.error(msg);
     } finally {
@@ -204,8 +205,8 @@ export default function FormsPage() {
       await deleteFormTemplate(guildId, id);
       toast.success('Formulaire supprimé');
       await load();
-    } catch (e: any) {
-      const msg = e?.message || 'Erreur';
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erreur';
       setError(msg);
       toast.error(msg);
     }
@@ -216,8 +217,8 @@ export default function FormsPage() {
       await updateFormTemplate(guildId, t.id, { enabled: !t.enabled });
       toast.success(t.enabled ? 'Formulaire désactivé' : 'Formulaire activé');
       await load();
-    } catch (e: any) {
-      toast.error(e?.message || 'Erreur');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erreur');
     }
   };
 

@@ -14,9 +14,23 @@ interface FormTemplate {
   name: string;
 }
 
+export interface TicketCategoryData {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  emoji?: string;
+  openingMode?: string;
+  maxTicketsPerUser?: number;
+  staffRoleIds?: string[];
+  welcomeMessage?: string;
+  formId?: string;
+  supportRoleIds?: string[];
+}
+
 interface CategoryBuilderProps {
   guildId: string;
-  category?: any;
+  category?: TicketCategoryData;
   onSave: () => void;
   onCancel: () => void;
 }
@@ -67,7 +81,7 @@ export function CategoryBuilder({ guildId, category, onSave, onCancel }: Categor
       setColor(category.color ?? '#5865F2');
       setStaffRoleIds(parseRoleIds(category.staffRoleIds));
       setMaxTicketsPerUser(category.maxTicketsPerUser ?? 5);
-      setOpeningMode(category.openingMode ?? 'BUTTON');
+      setOpeningMode((category.openingMode ?? 'BUTTON') as 'BUTTON' | 'SELECT' | 'FORM');
       setWelcomeMessage(category.welcomeMessage ?? '');
       setFormId(category.formId ?? '');
     }
