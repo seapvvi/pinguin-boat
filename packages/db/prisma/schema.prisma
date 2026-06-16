@@ -346,6 +346,7 @@ model Guild {
   clanMembers      ClanMember[]
   clanWars         ClanWar[]
   streamNotifications StreamNotification[]
+  guildBackups    GuildBackup[]
   guildBlacklistUsers GuildBlacklistUser[]
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1742,6 +1743,23 @@ model InviteTrack {
   @@index([guildId, joinedId])
   @@index([inviterId])
   @@map("invite_tracks")
+}
+
+/// Sauvegarde des salons et rôles d'un serveur
+model GuildBackup {
+  id           String   @id @default(cuid()) @map("id")
+  guildId      String   @map("guild_id")
+  name         String   @map("name")
+  data         String   @map("data")
+  channelCount Int      @default(0) @map("channel_count")
+  roleCount    Int      @default(0) @map("role_count")
+  size         Float    @default(0) @map("size")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+  @@map("guild_backups")
 }
 
 /// Configuration de la carte de rang personnalisée

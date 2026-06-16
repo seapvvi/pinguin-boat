@@ -15,6 +15,7 @@ export const ticketIdSchema = z.object({ guildId: z.string().min(1), ticketId: z
 export const suggestionIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
 export const giveawayIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
 export const pollIdSchema = z.object({ guildId: z.string().min(1), id: z.string().min(1) });
+export const backupIdSchema = z.object({ guildId: z.string().min(1), backupId: z.string().min(1) });
 
 export const autoroleSchema = z.object({
   enabled: z.boolean().optional(),

@@ -15,6 +15,7 @@ import { economyRoutes } from './guild/economy';
 import { levelsRoutes } from './guild/levels';
 import { welcomeRoutes } from './guild/welcome';
 import { protectionRoutes } from './guild/protection';
+import { backupRoutes } from './guild/backup';
 import { settingsRoutes } from './guild/settings';
 import { membersRoutes } from './guild/members';
 
@@ -1684,5 +1685,6 @@ export async function guildRoutes(app: FastifyInstance) {
   await app.register(levelsRoutes, { prefix: '/:guildId/levels' });
   await app.register(welcomeRoutes, { prefix: '/:guildId/welcome' });
   await app.register(protectionRoutes, { prefix: '/:guildId/protection' });
+  await app.register(backupRoutes, { prefix: '/:guildId/backup' });
   await app.register(membersRoutes, { prefix: '/:guildId' });
 }

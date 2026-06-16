@@ -109,7 +109,7 @@ export default function BackupPage() {
             <Plus size={14} />
             {backups.length >= MAX_BACKUPS
               ? `Limite atteinte (${backups.length}/${MAX_BACKUPS})`
-              : 'Créer un backup'}
+              : 'Créer une backup'}
           </Button>
         }
       >
