@@ -534,7 +534,7 @@ export async function toggleModule(
   enabled: boolean
 ): Promise<{ success: boolean; moduleKey: string; enabled: boolean }> {
   return api.patch<{ success: boolean; moduleKey: string; enabled: boolean }>(
-    `/api/guilds/${guildId}/modules/${moduleKey}`,
+    `/api/guilds/${guildId}/settings/modules/${moduleKey}`,
     { enabled }
   );
 }

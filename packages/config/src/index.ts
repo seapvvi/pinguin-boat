@@ -58,7 +58,7 @@ const envSchema = z.object({
   DEPLOY_CURRENT_LINK: z.string().default('/opt/pinguinboat/current'),
 
   // Owner
-  OWNER_PASSWORD: z.string().min(8),
+  OWNER_PASSWORD: z.string().trim().min(8),
 
   // Feature Flags
   ALPHA_ALL_FREE: z

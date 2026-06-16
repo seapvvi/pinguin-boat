@@ -4,6 +4,10 @@ import { toast } from 'sonner';
 import { Toggle, Skeleton } from '@pinguin/ui';
 import { fetchGuildSettings, toggleModule as apiToggleModule } from '@/lib/api';
 
+const KEY_MAP: Record<string, string> = {
+  automod: 'moderation',
+};
+
 interface ModuleToggleProps {
   guildId: string;
   moduleKey: string;
@@ -16,7 +20,8 @@ export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleT
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const normalizedModuleKey = moduleKey.trim().toLowerCase();
+  const rawKey = moduleKey.trim().toLowerCase();
+  const normalizedModuleKey = KEY_MAP[rawKey] ?? rawKey;
 
   useEffect(() => {
     fetchGuildSettings(guildId)
@@ -40,8 +45,13 @@ export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleT
     } catch (e) {
       setEnabled(!value);
       const msg = e instanceof Error ? e.message : 'Erreur lors de la mise à jour';
-      setError(msg);
-      toast.error(msg);
+      const is404 = msg.includes('404') || msg.includes('Not Found') || msg.includes('not found');
+      toast.error(
+        is404
+          ? `Module "${label}" introuvable. Contactez le support.`
+          : msg
+      );
+      setError(is404 ? `Route introuvable pour le module "${moduleKey}"` : msg);
     } finally {
       setToggling(false);
     }

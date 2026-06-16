@@ -17,11 +17,15 @@ const config = getConfig();
 const ownerPre = { preHandler: [authenticate, requireOwner] };
 
 export async function ownerRoutes(app: FastifyInstance) {
-  app.post('/verify-password', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+  const verifyPasswordSchema = z.object({
+    password: z.string().trim().min(1),
+  });
+
+  app.post('/verify-password', { preHandler: [authenticate, validateBody(verifyPasswordSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as { password?: string };
+      const body = request.body as z.infer<typeof verifyPasswordSchema>;
       const expected = config.OWNER_PASSWORD;
-      if (!body.password || body.password !== expected) {
+      if (body.password !== expected) {
         reply.status(401).send({ success: false, message: 'Mot de passe incorrect.' });
         return;
       }

@@ -61,11 +61,12 @@ export function Toggle({ checked, onChange, disabled = false, label, size = 'md'
             height: trackH,
             borderRadius: 0,
             border: checked ? '2px solid var(--accent-primary)' : '2px solid var(--border-color-strong)',
-            backgroundColor: checked ? 'var(--accent-primary)' : 'transparent',
-            transition: 'background-color 150ms ease, border-color 150ms ease',
-            padding: 0,
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            boxSizing: 'content-box',
+      backgroundColor: checked ? 'var(--accent-primary)' : 'var(--toggle-bg-off)',
+      transition: 'background-color 150ms ease, border-color 150ms ease',
+      padding: 0,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      boxSizing: 'content-box',
+      boxShadow: checked ? 'none' : 'inset 0 0 0 1px color-mix(in srgb, var(--text-secondary) 15%, transparent)',
           }}
         >
           <motion.span
@@ -79,7 +80,7 @@ export function Toggle({ checked, onChange, disabled = false, label, size = 'md'
               width: thumbSize,
               height: thumbSize,
               borderRadius: 0,
-              backgroundColor: checked ? '#ffffff' : 'var(--text-secondary)',
+              backgroundColor: '#ffffff',
             }}
           />
         </button>

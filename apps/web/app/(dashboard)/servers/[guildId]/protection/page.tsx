@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { motion } from 'motion/react';
-import { Swords, MessageSquare, Hash, Users, Sliders, AlertTriangle } from 'lucide-react';
+import { Swords, Users, Sliders, AlertTriangle, DatabaseBackup } from 'lucide-react';
 import { Toggle, Input, Select, Button } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
@@ -56,9 +57,6 @@ export default function ProtectionPage() {
     try {
       const enabled =
         local.antiRaid ||
-        local.antiSpam ||
-        local.antiMassMention ||
-        local.antiLink ||
         local.antiAlts ||
         local.captchaVerification ||
         emergencyActive;
@@ -116,39 +114,6 @@ export default function ProtectionPage() {
             </SectionCard>
 
             <SectionCard
-              title="Anti-spam"
-              icon={<MessageSquare size={16} />}
-              headerAction={<Toggle checked={local.antiSpam} onChange={(v) => update('antiSpam', v)} />}
-              expandable
-              accent={local.antiSpam ? '#ef4444' : undefined}
-            >
-              <div className="space-y-4">
-                <Input label="Seuil de spam (messages/seconde)" type="number" value={String(local.spamThreshold)} onChange={(e) => update('spamThreshold', Number(e.target.value))} />
-                <Input label="Intervalle de spam (secondes)" type="number" value={String(local.spamInterval)} onChange={(e) => update('spamInterval', Number(e.target.value))} />
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="Anti-mass mention"
-              icon={<Hash size={16} />}
-              headerAction={<Toggle checked={local.antiMassMention} onChange={(v) => update('antiMassMention', v)} />}
-              expandable
-              accent={local.antiMassMention ? '#ef4444' : undefined}
-            >
-              <Input label="Seuil de mentions" type="number" value={String(local.mentionThreshold)} onChange={(e) => update('mentionThreshold', Number(e.target.value))} />
-            </SectionCard>
-
-            <SectionCard
-              title="Anti-liens"
-              icon={<Hash size={16} />}
-              headerAction={<Toggle checked={local.antiLink} onChange={(v) => update('antiLink', v)} />}
-              expandable
-              accent={local.antiLink ? '#ef4444' : undefined}
-            >
-              <p className="text-xs text-[var(--text-secondary)]">Bloque les liens dans les messages.</p>
-            </SectionCard>
-
-            <SectionCard
               title="Anti-alts"
               icon={<Users size={16} />}
               headerAction={<Toggle checked={local.antiAlts} onChange={(v) => update('antiAlts', v)} />}
@@ -195,7 +160,7 @@ export default function ProtectionPage() {
             </SectionCard>
           </ModuleGrid>
 
-          <SectionCard
+            <SectionCard
               title="Mode urgence"
               icon={<AlertTriangle size={16} />}
               description="Verrouille le serveur en cas d'attaque"
@@ -231,6 +196,18 @@ export default function ProtectionPage() {
                 </Button>
               </div>
             </SectionCard>
+
+          <SectionCard
+            title="Backups du serveur"
+            icon={<DatabaseBackup size={16} />}
+            description="Sauvegardez et restaurez les salons et rôles de votre serveur."
+          >
+            <Link href={`/servers/${guildId}/protection/backup`} className="w-full">
+              <Button variant="secondary" className="w-full">
+                Gérer les backups →
+              </Button>
+            </Link>
+          </SectionCard>
         </PageLayout>
       </PermissionGate>
     </motion.div>

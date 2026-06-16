@@ -38,6 +38,7 @@ import {
   Bell,
   Mail,
   Terminal,
+  DatabaseBackup,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -90,6 +91,7 @@ const categoryDefs: CategoryDef[] = [
       { label: 'Modération', icon: <Shield size={18} />, href: '/moderation', guildPage: true },
       { label: 'Auto-Modération', icon: <Shield size={18} />, href: '/automod', guildPage: true },
       { label: 'Protection', icon: <Swords size={18} />, href: '/protection', guildPage: true },
+      { label: 'Backups', icon: <DatabaseBackup size={18} />, href: '/protection/backup', guildPage: true },
       { label: 'Tickets', icon: <Ticket size={18} />, href: '/tickets', guildPage: true },
       { label: 'Logs', icon: <ScrollText size={18} />, href: '/logs', guildPage: true },
       { label: 'Musique', icon: <Radio size={18} />, href: '/music', guildPage: true },

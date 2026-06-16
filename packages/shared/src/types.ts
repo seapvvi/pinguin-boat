@@ -51,13 +51,6 @@ export interface ProtectionSettings {
   antiRaid: boolean;
   raidThreshold: number;
   raidInterval: number;
-  antiSpam: boolean;
-  spamThreshold: number;
-  spamInterval: number;
-  antiLink: boolean;
-  allowedLinks: string[];
-  antiMassMention: boolean;
-  mentionThreshold: number;
   antiAlts: boolean;
   altAccountAge: number;
   verificationLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
