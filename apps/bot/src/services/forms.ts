@@ -1,6 +1,6 @@
-import { prisma } from '@pinguin/db';
+import { prisma, type FormSettings } from '@pinguin/db';
 
-const cache = new Map<string, { data: any; at: number }>();
+const cache = new Map<string, { data: FormSettings & { templates: unknown[] }; at: number }>();
 const CACHE_MS = 30_000;
 
 export async function getFormSettings(guildId: string) {

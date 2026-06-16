@@ -1,8 +1,8 @@
-import { prisma } from '@pinguin/db';
+import { prisma, type EconomySettings, type ShopItem } from '@pinguin/db';
 import { ensureUser } from './user';
 import { isEventActive } from './events';
 
-const cache = new Map<string, { data: any; at: number }>();
+const cache = new Map<string, { data: EconomySettings & { shopItems: ShopItem[] }; at: number }>();
 const CACHE_MS = 30_000;
 
 export async function getEconomySettings(guildId: string) {

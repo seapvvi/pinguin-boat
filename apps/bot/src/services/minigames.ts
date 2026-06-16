@@ -1,6 +1,6 @@
-import { prisma } from '@pinguin/db';
+import { prisma, type MinigameSettings } from '@pinguin/db';
 
-const cache = new Map<string, { data: any; at: number }>();
+const cache = new Map<string, { data: MinigameSettings; at: number }>();
 const CACHE_MS = 30_000;
 
 export async function getMinigameSettings(guildId: string) {

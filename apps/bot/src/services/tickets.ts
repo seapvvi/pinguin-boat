@@ -90,13 +90,7 @@ export async function openTicket(options: OpenTicketOptions): Promise<{ success:
     },
   });
 
-  // Store transcriptChannelId if set in TicketSettings
-  if (ticketSettings?.transcriptChannelId) {
-    await prisma.ticket.update({
-      where: { id: ticket.id },
-      data: { transcriptId: ticketSettings.transcriptChannelId },
-    });
-  }
+  // transcriptId is set later when the transcript is generated; do not store channelId here
 
   // Mention moderators if enabled
   if (ticketSettings?.mentionModerators && guildSettings?.modRoleIds) {

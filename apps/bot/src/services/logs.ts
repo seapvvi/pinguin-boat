@@ -1,7 +1,7 @@
 import { Client, TextChannel, EmbedBuilder, Guild, PartialUser, User } from 'discord.js';
-import { prisma } from '@pinguin/db';
+import { prisma, type LogSettings } from '@pinguin/db';
 
-const settingsCache = new Map<string, { data: any; at: number }>();
+const settingsCache = new Map<string, { data: LogSettings | null; at: number }>();
 const CACHE_MS = 30_000;
 
 function parseJson(raw: string): string[] {

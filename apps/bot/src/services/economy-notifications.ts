@@ -124,6 +124,13 @@ export function stopNotificationCron(guildId: string): void {
   if (interval) {
     clearInterval(interval);
     runningIntervals.delete(guildId);
+    // Clean up notification tracking entries for this guild
+    for (const key of NOTIFIED_DAILY) {
+      if (key.startsWith(`${guildId}:`)) NOTIFIED_DAILY.delete(key);
+    }
+    for (const key of NOTIFIED_WEEKLY) {
+      if (key.startsWith(`${guildId}:`)) NOTIFIED_WEEKLY.delete(key);
+    }
     logger.info(`[Economy] Cron de notifications arrêté pour ${guildId}`);
   }
 }
@@ -134,6 +141,8 @@ export function stopAllNotificationCrons(): void {
     logger.info(`[Economy] Cron de notifications arrêté pour ${guildId}`);
   }
   runningIntervals.clear();
+  NOTIFIED_DAILY.clear();
+  NOTIFIED_WEEKLY.clear();
 }
 
 export async function initializeNotificationCrons(client: Client, guildIds: string[]): Promise<void> {

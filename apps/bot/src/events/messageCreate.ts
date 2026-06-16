@@ -19,6 +19,12 @@ export async function execute(message: Message, client: Client): Promise<void> {
   if (await handleProtectionMessage(message)) return;
   if (await checkAutoMod(message)) return;
 
+  // Quest progression (economy) — must run regardless of levels module
+  const economyActive = await isEconomyActive(message.guild.id);
+  if (economyActive) {
+    await updateQuestProgress(message.guild.id, message.author.id, 'SEND_MESSAGES', 1);
+  }
+
   const levelsEnabled = await isModuleEnabled(message.guild.id, 'levels');
   if (!levelsEnabled) return;
 
@@ -62,10 +68,5 @@ export async function execute(message: Message, client: Client): Promise<void> {
         await channel.send(msg);
       }
     }
-  }
-
-  const economyActive = await isEconomyActive(message.guild.id);
-  if (economyActive) {
-    await updateQuestProgress(message.guild.id, message.author.id, 'SEND_MESSAGES', 1);
   }
 }

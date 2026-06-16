@@ -84,11 +84,12 @@ export async function generateCard(
   } else if (settings.cardBackground === 'IMAGE' && settings.cardBgImage) {
     try {
       const img = await loadImage(settings.cardBgImage);
-      ctx.drawImage(img, 0, 0, WIDTH, HEIGHT);
       if (settings.cardBlurBackground) {
         ctx.filter = 'blur(8px)';
         ctx.drawImage(img, 0, 0, WIDTH, HEIGHT);
         ctx.filter = 'none';
+      } else {
+        ctx.drawImage(img, 0, 0, WIDTH, HEIGHT);
       }
     } catch {
       ctx.fillStyle = settings.cardBgColor;
