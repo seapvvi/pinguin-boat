@@ -54,11 +54,9 @@ export default function SupportPage() {
           et me permettent de consacrer plus de temps au développement de nouvelles fonctionnalités.
           Chaque contribution compte, même la plus petite. Merci du fond du cœur.
         </p>
-        <button type="button" onClick={() => setShowPopup(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-          <Button>
-            <ExternalLink size={14} className="mr-2" /> Faire un don
-          </Button>
-        </button>
+        <Button variant="primary" onClick={() => setShowPopup(true)}>
+          <ExternalLink size={14} className="mr-2" /> Faire un don
+        </Button>
         {showPopup && <KofiPopup onClose={() => setShowPopup(false)} />}
         <p className="text-xs text-[var(--text-secondary)]">
           Tout don de 5€ ou plus débloque immédiatement tous les avantages ci-dessous.
