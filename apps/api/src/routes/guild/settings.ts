@@ -5,6 +5,7 @@ import { authenticate } from '../../middleware/auth';
 import { requireGuildAdmin } from '../../middleware/guild-auth';
 import { validateParams, validateBody } from '../../middleware/validate';
 import { success, error, sanitizeError } from '../../utils/response';
+import { ItemType, AutoroleType } from '@pinguin/db';
 import { guildIdSchema, mapLogsPayload, importSchema, importModulesEnum } from '../../utils/guild-helpers';
 import { notifyModuleChange, invalidateBotAutoModCache, leaveGuildViaBot } from '../../services/bot-proxy';
 import { getGuildMember, getGuildRoles } from '../../services/discord';
@@ -697,7 +698,7 @@ export async function settingsRoutes(app: FastifyInstance) {
                           name: i.name as string,
                           description: (i.description as string | null) ?? null,
                           price: i.price as number,
-                          type: (i.type as string) ?? 'ROLE',
+                          type: (i.type as ItemType) ?? 'ROLE',
                           roleId: (i.roleId as string | null) ?? null,
                           duration: (i.duration as number | null) ?? null,
                           effectValue: (i.effectValue as number | null) ?? null,
@@ -750,7 +751,7 @@ export async function settingsRoutes(app: FastifyInstance) {
                       settingsId: settings.id,
                       guildId,
                       roleId: e.roleId as string,
-                      type: e.type as string,
+                      type: e.type as AutoroleType,
                       levelRequired: (e.levelRequired as number | null) ?? null,
                       reactionChannelId: (e.reactionChannelId as string | null) ?? null,
                       reactionEmoji: (e.reactionEmoji as string | null) ?? null,

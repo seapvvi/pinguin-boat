@@ -1,4 +1,4 @@
-import Fastify, { FastifyError } from 'fastify';
+import Fastify, { FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
@@ -55,7 +55,7 @@ async function main() {
     },
   });
 
-  app.setErrorHandler((error: FastifyError, _request, reply) => {
+  app.setErrorHandler((error: FastifyError, _request: FastifyRequest, reply: FastifyReply) => {
     app.log.error(error);
     const statusCode = error.statusCode || 500;
 
@@ -93,7 +93,7 @@ async function main() {
     guild_id: z.string().optional(),
   });
 
-  app.get('/api/bot/invite', async (request, reply) => {
+  app.get('/api/bot/invite', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const query = inviteQuerySchema.parse(request.query);
       const clientId = config.DISCORD_CLIENT_ID;
@@ -110,7 +110,7 @@ async function main() {
     }
   });
 
-  app.get('/api/donors', async (_request, reply) => {
+  app.get('/api/donors', async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const donors = await prisma.donor.findMany({
         where: { isPublic: true, isDonor: true },
@@ -129,7 +129,7 @@ async function main() {
     timestamp: new Date().toISOString(),
   }));
 
-  app.get('/api/health/bot', { preHandler: [authenticate] }, async (_request, reply) => {
+  app.get('/api/health/bot', { preHandler: [authenticate] }, async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       await botFetch('/internal/ping');
       reply.send({ success: true, status: 'ONLINE' });
@@ -156,7 +156,7 @@ async function main() {
         timeWindow: '1 minute',
       },
     },
-  }, async (request, reply) => {
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const discordId = request.user!.discordId;
       const isOwner = discordId === config.DISCORD_OWNER_ID;
@@ -213,7 +213,7 @@ async function main() {
         timeWindow: '1 minute',
       },
     },
-  }, async (request, reply) => {
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const query = paginationQuerySchema.parse(request.query);
       const [entries, total] = await Promise.all([
