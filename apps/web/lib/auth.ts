@@ -1,27 +1,6 @@
 import type { AuthCallbackDTO, APIResponse } from '@pinguin/shared';
 import { api } from './api';
 
-const SESSION_KEY = 'pinguin_session_token';
-
-export function setSessionToken(token: string): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(SESSION_KEY, token);
-  }
-}
-
-export function getSessionToken(): string | null {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem(SESSION_KEY);
-  }
-  return null;
-}
-
-export function clearSessionToken(): void {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(SESSION_KEY);
-  }
-}
-
 export interface User {
   id: string;
   username: string;
@@ -64,7 +43,7 @@ export async function logout(): Promise<void> {
   try {
     await api.post('/api/auth/logout', {});
   } finally {
-    clearSessionToken();
+    // session cookie is removed server-side via Set-Cookie
   }
 }
 

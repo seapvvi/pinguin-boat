@@ -3,7 +3,7 @@ import { prisma } from '@pinguin/db';
 import { authenticate } from '../middleware/auth';
 import { requireGuildAdmin } from '../middleware/guild-auth';
 import { validateParams, validateBody } from '../middleware/validate';
-import { success, error, sanitizeError, getErrorMessage } from '../utils/response';
+import { success, error, sanitizeError } from '../utils/response';
 import { sendTestNotification } from '../services/bot-proxy';
 import { z } from 'zod';
 

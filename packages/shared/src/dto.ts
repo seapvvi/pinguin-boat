@@ -29,7 +29,6 @@ export interface LoginResponseDTO {
 }
 
 export interface AuthCallbackDTO {
-  token: string;
   userId: string;
   username: string;
   discriminator: string;

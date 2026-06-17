@@ -5,7 +5,7 @@ import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
 import { requireOwner } from '../middleware/owner';
 import { validateBody } from '../middleware/validate';
-import { success, error, sanitizeError, getErrorMessage } from '../utils/response';
+import { success, error, sanitizeError } from '../utils/response';
 import { getSystemMetrics, getGlobalStats } from '../services/metrics';
 import * as TwoFA from '../services/owner2fa';
 import * as fs from 'fs';
@@ -36,7 +36,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         return;
       }
       reply.send({ success: true });
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/blacklist/:targetId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -61,7 +61,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       if (!u.count && !g.count) return reply.status(404).send(error('Entrée introuvable'));
       await logOwnerAction(request, 'BLACKLIST_REMOVE', { targetId }, true);
       reply.send(success(null, 'Entrée retirée de la blacklist'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/stats', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -70,7 +70,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       const metrics = getSystemMetrics();
       const premiumRevenue = await prisma.premiumSubscription.count({ where: { status: 'ACTIVE' } });
       reply.send(success({ ...stats, premiumRevenue, ...metrics }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/servers', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -123,7 +123,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         blacklisted: blacklistedGuilds.has(s.id),
       }));
       reply.send(success({ servers: payload, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/users', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -164,7 +164,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         blacklisted: blacklistedIds.has(u.discordId),
       }));
       reply.send(success({ users: payload, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/blacklist/users', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -179,7 +179,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         prisma.blacklistUser.count(),
       ]);
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/blacklist/users', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -196,7 +196,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       });
       await logOwnerAction(request, 'BLACKLIST_USER', { targetId: body.targetId, reason: body.reason });
       reply.status(201).send(success(entry, 'Utilisateur blacklisté'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/blacklist/users/:targetId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -207,7 +207,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       await prisma.blacklistUser.delete({ where: { targetId } });
       await logOwnerAction(request, 'UNBLACKLIST_USER', { targetId });
       reply.send(success(null, 'Utilisateur retiré de la blacklist'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/blacklist/guilds', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -223,7 +223,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         prisma.blacklistGuild.count(),
       ]);
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/blacklist/guilds', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -237,7 +237,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       });
       await logOwnerAction(request, 'BLACKLIST_GUILD', { guildId: body.targetId, reason: body.reason });
       reply.status(201).send(success(entry, 'Serveur blacklisté'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/blacklist/guilds/:guildId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -248,7 +248,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       await prisma.blacklistGuild.delete({ where: { guildId } });
       await logOwnerAction(request, 'UNBLACKLIST_GUILD', { guildId });
       reply.send(success(null, 'Serveur retiré de la blacklist'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/force-leave/:guildId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -263,7 +263,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       await prisma.guild.update({ where: { id: guildId }, data: { botPresent: false } });
       await logOwnerAction(request, 'FORCE_LEAVE_MARK', { guildId, guildName: guild.name });
       reply.send(success(null, `Serveur marqué comme quitté. Le bot n'est plus sur ${guild.name}. Pour retirer complètement le bot, demandez à un administrateur du serveur de le retirer manuellement ou utilisez la commande /kick dans le serveur.`));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/metrics', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -282,7 +282,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         }, {}),
         disk: { free: 0, total: 0 },
       }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/services', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -325,7 +325,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       await logOwnerAction(request, `SERVICE_${action.toUpperCase()}`, { service });
       reply.send(success({ service, action, status: 'ok' }, `Service ${service} ${action}é avec succès`));
     } catch (err: unknown) {
-      reply.status(500).send(error(getErrorMessage(err) || 'Erreur d’action service'));
+      reply.status(500).send(error(sanitizeError(err) || 'Erreur d’action service'));
     }
   });
 
@@ -346,7 +346,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       SystemService.restartService(svc);
       await logOwnerAction(request, 'SERVICE_RESTART', { service });
       reply.send(success({ service, status: 'restarting' }, `Redémarrage de ${service} initié`));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/services/restart-all', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -354,7 +354,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       await logOwnerAction(request, 'SERVICE_RESTART_ALL', { services: ['bot', 'api', 'web'] });
       reply.send(success({ services: ['bot', 'api', 'web'], status: 'restarting' }, 'Redémarrage de tous les services initié'));
       setImmediate(() => SystemService.restartAllServices(true));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/errors', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -365,7 +365,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         include: { user: { select: { username: true } } },
       });
       reply.send(success({ errors }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/changelogs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -381,7 +381,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         prisma.changelog.count(),
       ]);
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/changelogs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -401,7 +401,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       });
       await logOwnerAction(request, 'CHANGELOG_PUBLISH', { version: body.version, title: body.title });
       reply.status(201).send(success(entry, 'Changelog publié'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.patch('/changelogs/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -421,7 +421,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         },
       });
       reply.send(success(updated, 'Changelog mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/changelogs/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -431,7 +431,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       if (!existing) return reply.status(404).send(error('Changelog introuvable'));
       await prisma.changelog.delete({ where: { id } });
       reply.send(success(null, 'Changelog supprimé'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/premium/alpha', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -439,7 +439,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       const current = config.ALPHA_ALL_FREE;
       const newVal = !current;
       reply.send(success({ alphaAllFree: newVal }, `Mode alpha passé à ${newVal}`));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/premium/grant', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -469,7 +469,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       }
       await logOwnerAction(request, 'PREMIUM_GRANT', { ...body });
       reply.send(success(null, 'Premium accordé'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/premium/revoke', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -486,14 +486,14 @@ export async function ownerRoutes(app: FastifyInstance) {
       }
       await logOwnerAction(request, 'PREMIUM_REVOKE', { ...body });
       reply.send(success(null, 'Premium révoqué'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/feature-flags', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const flags = await prisma.featureFlag.findMany({ orderBy: { key: 'asc' } });
       reply.send(success({ flags }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.put('/feature-flags/:key', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -506,7 +506,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         create: { key, name: key, enabled: body.enabled ?? false },
       });
       reply.send(success(flag, 'Feature flag mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/announcement', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -537,8 +537,8 @@ export async function ownerRoutes(app: FastifyInstance) {
         }
         await logOwnerAction(request, 'GLOBAL_ANNOUNCEMENT', { messageLength: (body.message as string).length, sent });
         reply.send(success({ sent, total: guilds.length }, 'Annonce envoyée'));
-      } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+      } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/logs', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -597,7 +597,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         return { ...l, username: l.user?.username ?? 'Système', details };
       }).filter((l) => l.details !== null || l.action !== 'GET_OWNER_LOGS');
       reply.send(success({ entries, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Donors ---
@@ -605,7 +605,7 @@ export async function ownerRoutes(app: FastifyInstance) {
     try {
       const donors = await prisma.donor.findMany({ orderBy: { donatedAt: 'desc' } });
       reply.send(success({ donors }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/donors/public', async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -616,7 +616,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         take: 50,
       });
       reply.send(success({ donors }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/donors', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -651,7 +651,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       });
       await logOwnerAction(request, 'DONOR_UPSERT', { userId: body.userId });
       reply.status(201).send(success(donor, 'Donateur enregistré'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.patch('/donors/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -674,7 +674,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         },
       });
       reply.send(success(updated, 'Donateur mis à jour'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/donors/:id', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -685,7 +685,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       await prisma.donor.delete({ where: { id: donor.id } });
       await logOwnerAction(request, 'DONOR_DELETE', { id });
       reply.send(success(null, 'Donateur supprimé'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // Path aliases for web client
@@ -703,7 +703,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         ...guilds.map((g) => ({ id: g.id, targetId: g.guildId, reason: g.reason, moderatorId: g.moderatorId, createdAt: g.createdAt, targetType: 'GUILD' as const, targetName: g.guild?.name ?? g.guildId })),
       ];
       reply.send(success({ entries, pagination: { page, limit, total: entries.length, totalPages: 1 } }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
 
@@ -738,7 +738,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         blacklisted: !!blacklist,
         blacklistReason: blacklist?.reason ?? null,
       }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/users/:targetId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -762,7 +762,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         blacklistReason: blacklist?.reason ?? null,
         premium: premium?.plan?.name ?? 'FREE',
       }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
   app.post('/blacklist', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -785,7 +785,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       await prisma.session.deleteMany({ where: { user: { discordId: body.targetId } } });
       await logOwnerAction(request, 'BLACKLIST_USER', { targetId: body.targetId }, true);
       reply.status(201).send(success(entry));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/servers/:guildId/force-leave', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -796,7 +796,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       const { leaveGuildViaBot } = await import('../services/bot-proxy');
       await leaveGuildViaBot(guildId);
     } catch (err: unknown) {
-      return reply.status(500).send(error(getErrorMessage(err)));
+      return reply.status(500).send(error(sanitizeError(err)));
     }
     await prisma.guild.update({ where: { id: guildId }, data: { botPresent: false } });
     await logOwnerAction(request, 'FORCE_LEAVE', { guildId }, true);
@@ -851,7 +851,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       reply.send(success(null, 'Rollback effectué — rebuild manuel requis'));
       setImmediate(() => SystemService.restartAllServices(true));
     } catch (err: unknown) {
-      reply.status(500).send(error(getErrorMessage(err)));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -865,7 +865,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         create: { userId: request.user!.id, secret: secret.base32, enabled: false, verified: false },
       });
       reply.send(success({ secret: secret.base32, qrCode }, '2FA configuré, veuillez vérifier'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/2fa/verify', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -881,7 +881,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         data: { enabled: true, verified: true, lastVerifiedAt: new Date() },
       });
       reply.send(success(null, '2FA vérifié et activé'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/2fa/disable', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -897,7 +897,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         data: { enabled: false, verified: false },
       });
       reply.send(success(null, '2FA désactivé'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/deployments', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -912,7 +912,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         prisma.deployment.count(),
       ]);
       reply.send(success({ deployments, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.post('/backup', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -925,7 +925,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       await promisify(exec)(`pg_dump "${dbUrl}" > "${backupPath}"`, { shell: true as unknown as string, timeout: 30000 });
       await logOwnerAction(request, 'BACKUP_CREATED', { path: backupPath }, true);
       reply.send(success({ path: backupPath, timestamp: new Date().toISOString() }, 'Sauvegarde effectuée'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/backup/download', ownerPre, async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -947,7 +947,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         orderBy: { createdAt: 'desc' },
       });
       reply.send(success({ sessions, total: sessions.length }));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.delete('/sessions/:sessionId', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -956,7 +956,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       await prisma.session.delete({ where: { id: sessionId } });
       await logOwnerAction(request, 'KICK_SESSION', { sessionId });
       reply.send(success(null, 'Session révoquée'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Broadcast popup custom ---
@@ -976,7 +976,7 @@ export async function ownerRoutes(app: FastifyInstance) {
       }
       await logOwnerAction(request, 'BROADCAST_POPUP', { message: popup.message, targetUserId: body.targetUserId ?? 'all' });
       reply.send(success(null, 'Popup envoyé'));
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   app.get('/broadcast-popup/poll', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -992,7 +992,7 @@ export async function ownerRoutes(app: FastifyInstance) {
         if (globalPopup && Date.now() - globalPopup.createdAt >= 60_000) pendingPopups.delete('__broadcast__');
         reply.send(success({ popup: null }));
       }
-    } catch (err: unknown) { reply.status(500).send(error(getErrorMessage(err))); }
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
   // --- Notes internes ---

@@ -1,6 +1,7 @@
 import Fastify, { FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
+import csrf from '@fastify/csrf-protection';
 import rateLimit from '@fastify/rate-limit';
 import helmet from '@fastify/helmet';
 import { z } from 'zod';
@@ -27,6 +28,7 @@ import { botFetch } from './services/bot-proxy';
 const config = getConfig();
 
 let app: ReturnType<typeof Fastify>;
+let internalApp: ReturnType<typeof Fastify>;
 
 async function main() {
   app = Fastify({ logger: true });
@@ -40,6 +42,27 @@ async function main() {
     secret: config.SESSION_SECRET,
   });
 
+  await app.register(csrf, {
+    cookieOpts: {
+      signed: true,
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+    },
+  });
+
+  app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) && request.cookies?.session) {
+      await new Promise<void>((resolve, reject) => {
+        app.csrfProtection(request, reply, (err: Error | undefined) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+  });
+
   await app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
@@ -49,6 +72,14 @@ async function main() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", "https://cdn.discordapp.com", "data:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
         frameSrc: [],
         frameAncestors: ["'none'"],
       },
@@ -71,7 +102,7 @@ async function main() {
 
     reply.status(statusCode).send({
       success: false,
-      error: error.message || 'Erreur interne du serveur',
+      error: statusCode >= 500 ? sanitizeError(error) : (error.message || 'Erreur interne du serveur'),
     });
   });
 
@@ -82,7 +113,6 @@ async function main() {
   await app.register(deployRoutes, { prefix: '/api/deploy' });
   await app.register(musicRoutes, { prefix: '/api/music' });
   await app.register(webhookRoutes, { prefix: '/api/webhooks' });
-  await app.register(internalRoutes, { prefix: '/api/internal' });
   await app.register(systemRoutes, { prefix: '/api/system' });
   await app.register(onboardingRoutes, { prefix: '/api' });
   await app.register(notificationRoutes, { prefix: '/api/guilds' });
@@ -106,7 +136,7 @@ async function main() {
       if (query.guild_id) url += `&guild_id=${query.guild_id}&disable_guild_select=true`;
       reply.send(success({ url }));
     } catch (err: unknown) {
-      reply.status(500).send(error(getErrorMessage(err)));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -120,7 +150,7 @@ async function main() {
       });
       reply.send(success({ donors }));
     } catch (err: unknown) {
-      reply.status(500).send(error(getErrorMessage(err)));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -201,7 +231,7 @@ async function main() {
         systemStatus: 'OPERATIONAL',
       }));
     } catch (err: unknown) {
-      reply.status(500).send(error(getErrorMessage(err) || 'Erreur lors de la récupération des stats'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -230,7 +260,7 @@ async function main() {
       ]);
       reply.send(paginated(entries, total, query.page, query.limit));
     } catch (err: unknown) {
-      reply.status(500).send(error(getErrorMessage(err) || 'Erreur lors de la récupération des changelogs'));
+      reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
@@ -239,9 +269,30 @@ async function main() {
       host: config.API_HOST,
       port: config.API_PORT,
     });
-    app.log.info(`Serveur démarré sur ${config.API_URL}`);
+    app.log.info(`Serveur public démarré sur ${config.API_URL}`);
   } catch (err) {
     app.log.error(err);
+    process.exit(1);
+  }
+
+  internalApp = Fastify({ logger: true });
+  await internalApp.register(internalRoutes, { prefix: '/api/internal' });
+  internalApp.setErrorHandler((error: FastifyError, _request: FastifyRequest, reply: FastifyReply) => {
+    internalApp.log.error(error);
+    reply.status(error.statusCode || 500).send({
+      success: false,
+      error: error.message || 'Erreur interne du serveur',
+    });
+  });
+
+  try {
+    await internalApp.listen({
+      host: '127.0.0.1',
+      port: config.BOT_INTERNAL_PORT,
+    });
+    internalApp.log.info(`Serveur interne démarré sur 127.0.0.1:${config.BOT_INTERNAL_PORT}`);
+  } catch (err) {
+    internalApp.log.error(err);
     process.exit(1);
   }
 }
@@ -251,7 +302,8 @@ main();
 async function gracefulShutdown(signal: string) {
   console.log(`Signal ${signal} reçu, arrêt gracieux...`);
   try {
-    await app.close();       // ferme les connexions HTTP en cours
+    await app.close();
+    if (internalApp) await internalApp.close();
     await prisma.$disconnect();
     console.log('Arrêt propre effectué');
     process.exit(0);

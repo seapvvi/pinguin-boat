@@ -76,7 +76,7 @@ export async function authenticate(
   if (blacklisted) {
     reply.status(403).send({
       success: false,
-      error: `Votre compte a été blacklisté pour infraction. Raison: ${blacklisted.reason}. Vous pouvez contester en ouvrant un ticket: ${config.DISCORD_SUPPORT_INVITE}`,
+      error: `Votre compte a été blacklisté. Vous pouvez contester en ouvrant un ticket: ${config.DISCORD_SUPPORT_INVITE}`,
     });
     return;
   }

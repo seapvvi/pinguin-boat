@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { handleCallback, setSessionToken } from '@/lib/auth';
+import { handleCallback } from '@/lib/auth';
 
 function CallbackContent() {
   const router = useRouter();
@@ -24,8 +24,7 @@ function CallbackContent() {
     }
 
     handleCallback(code, state)
-      .then((data) => {
-        setSessionToken(data.token);
+      .then(() => {
         router.replace('/');
       })
       .catch((err) => {

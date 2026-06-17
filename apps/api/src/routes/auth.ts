@@ -216,7 +216,6 @@ export async function authRoutes(app: FastifyInstance) {
 
       reply.send(
         success({
-          token: sessionToken,
           userId: user.id,
           username: user.username,
           discriminator: '0',
@@ -238,6 +237,11 @@ export async function authRoutes(app: FastifyInstance) {
 
     reply.clearCookie('session', { path: '/' });
     reply.send(success(null, 'Déconnexion réussie'));
+  });
+
+  app.get('/csrf-token', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const token = reply.generateCsrf();
+    reply.send(success({ token }));
   });
 
   app.get('/me', { preHandler: [authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {

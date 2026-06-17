@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma, AuditAction } from '@pinguin/db';
 import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
-import { success, error, sanitizeError, getErrorMessage } from '../utils/response';
+import { success, error, sanitizeError } from '../utils/response';
 import { getSystemMetrics, getGlobalStats } from '../services/metrics';
 import { botFetch } from '../services/bot-proxy';
 

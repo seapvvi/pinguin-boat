@@ -128,13 +128,6 @@ interface FetchOptions extends RequestInit {
   params?: Record<string, string>;
 }
 
-function getBearerToken(): string | null {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('pinguin_session_token');
-  }
-  return null;
-}
-
 async function apiFetch<T = APIResponse<unknown>>(endpoint: string, options: FetchOptions = {}): Promise<T> {
   const { params, ...fetchOptions } = options;
 
@@ -146,7 +139,6 @@ async function apiFetch<T = APIResponse<unknown>>(endpoint: string, options: Fet
 
   fetchOptions.credentials = 'include';
 
-  const token = getBearerToken();
   const method = (fetchOptions.method || 'GET').toUpperCase();
   const hasBody =
     fetchOptions.body !== undefined &&
@@ -157,9 +149,6 @@ async function apiFetch<T = APIResponse<unknown>>(endpoint: string, options: Fet
   const headers: Record<string, string> = {};
   if (hasBody) {
     headers['Content-Type'] = 'application/json';
-  }
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
   }
 
   fetchOptions.headers = {

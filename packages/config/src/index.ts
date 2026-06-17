@@ -20,7 +20,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().trim().url(),
 
   // Session
-  SESSION_SECRET: z.string().min(64),
+  SESSION_SECRET: z.string().min(32),
   SESSION_MAX_AGE: z.coerce.number().default(604800),
 
   // API
@@ -28,6 +28,8 @@ const envSchema = z.object({
   API_PORT: z.coerce.number().default(4000),
   API_URL: z.string().url(),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  BOT_INTERNAL_PORT: z.coerce.number().default(4001),
+  BOT_INTERNAL_SECRET: z.string().min(32),
 
   // Web
   NEXT_PUBLIC_API_URL: z.string().url(),
@@ -58,7 +60,7 @@ const envSchema = z.object({
   DEPLOY_CURRENT_LINK: z.string().default('/opt/pinguinboat/current'),
 
   // Owner
-  OWNER_PASSWORD: z.string().trim().min(8, 'OWNER_PASSWORD est requis (min 8 caractères). Configurez-le dans votre fichier .env'),
+  OWNER_PASSWORD: z.string().trim().min(12, 'OWNER_PASSWORD est requis (min 12 caractères). Configurez-le dans votre fichier .env'),
 
   // Feature Flags
   ALPHA_ALL_FREE: z
@@ -97,6 +99,30 @@ export function getAllowedRedirectUris(): string[] {
   return _allowedRedirectUris;
 }
 
+function validateSecrets(env: EnvConfig): void {
+  const isProd = env.NODE_ENV === 'production';
+
+  const checks: { key: string; value: string; minLength: number; label: string; forbidden?: string[] }[] = [
+    { key: 'SESSION_SECRET', value: env.SESSION_SECRET, minLength: 32, label: 'SESSION_SECRET' },
+    { key: 'BOT_INTERNAL_SECRET', value: env.BOT_INTERNAL_SECRET, minLength: 32, label: 'BOT_INTERNAL_SECRET', forbidden: ['dev-secret', 'changeme_generate_a_random_32char_string'] },
+    { key: 'OWNER_PASSWORD', value: env.OWNER_PASSWORD, minLength: 12, label: 'OWNER_PASSWORD' },
+  ];
+
+  for (const { value, minLength, label, forbidden } of checks) {
+    if (value.length < minLength) {
+      const msg = `${label} doit faire au moins ${minLength} caractères (actuellement ${value.length})`;
+      if (isProd) throw new Error(msg);
+      console.warn(`\x1b[33m⚠️  ${msg}\x1b[0m`);
+      continue;
+    }
+    if (forbidden?.includes(value)) {
+      const msg = `${label} est défini sur une valeur par défaut dangereuse (\u00AB ${value} \u00BB). Générez une chaîne aléatoire unique.`;
+      if (isProd) throw new Error(msg);
+      console.warn(`\x1b[33m⚠️  ${msg}\x1b[0m`);
+    }
+  }
+}
+
 let config: EnvConfig | null = null;
 
 export function loadConfig(): EnvConfig {
@@ -112,6 +138,7 @@ export function loadConfig(): EnvConfig {
   }
 
   config = result.data;
+  validateSecrets(config);
   return config;
 }
 
