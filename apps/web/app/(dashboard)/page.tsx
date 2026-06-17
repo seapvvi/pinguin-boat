@@ -91,8 +91,6 @@ export default function OverviewPage() {
 
   const stats = data?.stats as (BotStats & {
     isOwner?: boolean;
-    activeMembers?: number;
-    onlineMembers?: number;
     activeChannels?: number;
   }) | null;
 
@@ -111,9 +109,8 @@ export default function OverviewPage() {
       : [
           { icon: <Server size={20} />, label: 'Nombre de serveurs', value: formatNumber(stats.totalGuilds) },
           { icon: <Users size={20} />, label: 'Membres totaux', value: formatNumber(stats.totalUsers) },
-          { icon: <TrendingUp size={20} />, label: 'Membres actifs', value: formatNumber(stats.activeMembers ?? stats.onlineMembers ?? 0) },
+          { icon: <TrendingUp size={20} />, label: 'Membres en ligne', value: formatNumber(stats.onlineMembers ?? 0) },
           { icon: <MessageSquare size={20} />, label: 'Salons actifs', value: formatNumber(stats.activeChannels ?? 0) },
-          { icon: <Wifi size={20} />, label: 'Membres en ligne', value: formatNumber(stats.onlineMembers ?? 0) },
         ]
     : [];
 

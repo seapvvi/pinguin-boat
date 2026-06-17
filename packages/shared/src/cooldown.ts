@@ -6,7 +6,15 @@ export function canUseCooldown(nowMs: number, state: CooldownState, cooldownMs: 
   allowed: boolean;
   remainingMs: number;
 } {
-  if (state.lastTimestampMs === null) {
+  if (!Number.isFinite(cooldownMs) || cooldownMs <= 0) {
+    return { allowed: true, remainingMs: 0 };
+  }
+
+  if (state.lastTimestampMs === null || !Number.isFinite(state.lastTimestampMs)) {
+    return { allowed: true, remainingMs: 0 };
+  }
+
+  if (!Number.isFinite(nowMs)) {
     return { allowed: true, remainingMs: 0 };
   }
 
@@ -19,6 +27,9 @@ export function canUseCooldown(nowMs: number, state: CooldownState, cooldownMs: 
 }
 
 export function updateCooldownState(nowMs: number): CooldownState {
+  if (!Number.isFinite(nowMs)) {
+    return { lastTimestampMs: null };
+  }
   return { lastTimestampMs: nowMs };
 }
 

@@ -1,5 +1,6 @@
 import { getConfig } from '@pinguin/config';
 import { getCache, setCache, invalidateCache } from '../utils/cache';
+import { DISCORD_PERMISSIONS, hasDiscordPermission, canManageGuild } from '@pinguin/shared';
 
 const config = getConfig();
 const API_BASE = 'https://discord.com/api/v10';
@@ -203,14 +204,6 @@ export async function getBotUserId(): Promise<string> {
   return cachedBotUserId;
 }
 
-export function hasDiscordPermission(
-  memberPermissions: string,
-  requiredPermission: bigint
-): boolean {
-  const perms = BigInt(memberPermissions);
-  return (perms & requiredPermission) === requiredPermission;
-}
-
 export async function sendDM(userId: string, content: { embeds?: any[], content?: string }): Promise<void> {
   const dm = await discordFetch<{ id: string }>(`/users/${userId}/channels`, {
     method: 'POST',
@@ -397,38 +390,5 @@ export async function editChannel(channelId: string, options: any, guildId?: str
 
 export const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
 
-export const DISCORD_PERMISSIONS = {
-  ADMINISTRATOR: 1n << 3n,
-  MANAGE_GUILD: 1n << 5n,
-  MANAGE_ROLES: 1n << 28n,
-  MANAGE_CHANNELS: 1n << 4n,
-  KICK_MEMBERS: 1n << 1n,
-  BAN_MEMBERS: 1n << 2n,
-  MODERATE_MEMBERS: 1n << 40n,
-  SEND_MESSAGES: 1n << 11n,
-  MANAGE_MESSAGES: 1n << 13n,
-  VIEW_CHANNEL: 1n << 10n,
-  READ_MESSAGE_HISTORY: 1n << 16n,
-  CONNECT: 1n << 20n,
-  SPEAK: 1n << 21n,
-} as const;
-
-export function canManageGuild(permissions: string | number): boolean {
-  const perms = BigInt(String(permissions));
-  if ((perms & DISCORD_PERMISSIONS.ADMINISTRATOR) === DISCORD_PERMISSIONS.ADMINISTRATOR) {
-    return true;
-  }
-  if ((perms & DISCORD_PERMISSIONS.MANAGE_GUILD) === DISCORD_PERMISSIONS.MANAGE_GUILD) {
-    return true;
-  }
-  if ((perms & DISCORD_PERMISSIONS.MANAGE_ROLES) === DISCORD_PERMISSIONS.MANAGE_ROLES) {
-    return true;
-  }
-  return false;
-}
-
-export function isAdmin(permissions: string): boolean {
-  return (
-    BigInt(permissions) & DISCORD_PERMISSIONS.ADMINISTRATOR
-  ) === DISCORD_PERMISSIONS.ADMINISTRATOR;
-}
+// Ré-export depuis shared pour compatibilité
+export { canManageGuild, hasDiscordPermission } from '@pinguin/shared';

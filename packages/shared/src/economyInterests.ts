@@ -2,6 +2,8 @@ export function calculateBankInterest(bank: number, interestRate: number): numbe
   if (!Number.isFinite(bank) || bank <= 0) return 0;
   if (!Number.isFinite(interestRate) || interestRate <= 0) return 0;
 
-  return Math.floor(bank * (interestRate / 100));
+  const interest = bank * (interestRate / 100);
+  if (!Number.isFinite(interest)) return 0;
+  return Math.floor(interest);
 }
 

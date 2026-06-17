@@ -6,7 +6,12 @@ import { ShieldOff } from 'lucide-react';
 import { Skeleton } from '@pinguin/ui';
 import { api } from '@/lib/api';
 
-type PermKey = 'manageGuild' | 'manageRoles' | 'manageMessages';
+/**
+ * Permissions supportées par PermissionGate.
+ * - discord.xxx = permission native Discord
+ * - module.xxx = permission de module du dashboard Pinguin
+ */
+export type PermKey = 'manageGuild' | 'manageRoles' | 'manageMessages' | `module.${string}`;
 
 interface PermissionGateProps {
   permission: PermKey;
@@ -16,7 +21,8 @@ interface PermissionGateProps {
 interface PermsResponse {
   isOwner: boolean;
   isAdmin: boolean;
-  can: Record<PermKey, boolean>;
+  can: Record<string, boolean>;
+  dashboard: Record<string, boolean>;
 }
 
 export function PermissionGate({ permission, children }: PermissionGateProps) {
@@ -30,8 +36,14 @@ export function PermissionGate({ permission, children }: PermissionGateProps) {
     api.get<{ data: PermsResponse }>(`/api/guilds/${guildId}/my-permissions`)
       .then((res) => {
         const d = (res as { data?: PermsResponse })?.data;
-        if (d?.isOwner || d?.isAdmin || d?.can?.[permission]) {
-          setAllowed(true);
+        if (!d) { setAllowed(false); return; }
+        if (d.isOwner || d.isAdmin) { setAllowed(true); return; }
+        // Permission Discord native (manageGuild, manageRoles, manageMessages)
+        if (d.can?.[permission]) { setAllowed(true); return; }
+        // Permission de module (module.moderation, module.tickets, etc.)
+        if (permission.startsWith('module.')) {
+          const moduleKey = permission.slice(7);
+          if (d.dashboard?.[moduleKey]) { setAllowed(true); return; }
         }
       })
       .catch(() => {})

@@ -59,11 +59,19 @@ export function getSystemMetrics(): SystemMetricsData {
 export async function collectAndStore(): Promise<void> {
   const metrics = getSystemMetrics();
 
-  const guildCount = await prisma.guild.count();
-  const userCount = await prisma.user.count();
-  const commandCount = await prisma.auditLog.count();
-  const messagesToday = 0;
-  const activeChannels = 0;
+  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const [guildCount, userCount, messagesToday, activeGuilds] = await Promise.all([
+    prisma.guild.count(),
+    prisma.user.count(),
+    prisma.auditLog.count({
+      where: { createdAt: { gte: last24h } },
+    }).catch(() => 0),
+    prisma.auditLog.groupBy({
+      by: ['guildId'],
+      where: { createdAt: { gte: last24h }, guildId: { not: null } },
+    }).then((r) => r.length).catch(() => 0),
+  ]);
 
   await prisma.systemMetricsSnapshot.create({
     data: {
@@ -73,9 +81,9 @@ export async function collectAndStore(): Promise<void> {
       uptimeSeconds: Math.floor(metrics.uptime),
       guildCount,
       userCount,
-      commandCount,
+      commandCount: messagesToday,
       messagesToday,
-      activeChannels,
+      activeChannels: activeGuilds,
       onlineMembers: 0,
       timestamp: new Date(),
     },

@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { getGuildMember, canManageGuild, getGuild } from '../services/discord';
+import { getGuildMember, getGuild } from '../services/discord';
+import { canManageGuild } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
 import { error } from '../utils/response';
 

@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { Card } from '@pinguin/ui';
 import { fetchGuildRoles } from '@/lib/api';
+import { DASHBOARD_MODULES } from '@pinguin/shared';
+import type { LucideIcon } from 'lucide-react';
 
 interface ModulePermissionsProps {
   guildId: string;
@@ -15,21 +17,21 @@ interface ModulePermissionsProps {
   onChange: (module: string, roleIds: string[]) => void;
 }
 
-const MODULES = [
-  { key: 'moderation', label: 'Modération', icon: Shield },
-  { key: 'tickets', label: 'Tickets', icon: Ticket },
-  { key: 'economy', label: 'Économie', icon: Wallet },
-  { key: 'levels', label: 'Niveaux / XP', icon: Trophy },
-  { key: 'welcome', label: 'Bienvenue', icon: DoorOpen },
-  { key: 'autoroles', label: 'Auto-rôles', icon: UserPlus },
-  { key: 'logs', label: 'Logs', icon: ScrollText },
-  { key: 'protection', label: 'Protection', icon: Swords },
-  { key: 'audit', label: 'Audit', icon: FileText },
-  { key: 'giveaways', label: 'Giveaways', icon: Gift },
-  { key: 'polls', label: 'Sondages', icon: Vote },
-  { key: 'suggestions', label: 'Suggestions', icon: Lightbulb },
-  { key: 'music', label: 'Musique', icon: Music2 },
-];
+const MODULE_ICONS: Record<string, LucideIcon> = {
+  moderation: Shield,
+  tickets: Ticket,
+  economy: Wallet,
+  levels: Trophy,
+  welcome: DoorOpen,
+  autoroles: UserPlus,
+  logs: ScrollText,
+  protection: Swords,
+  audit: FileText,
+  giveaways: Gift,
+  polls: Vote,
+  suggestions: Lightbulb,
+  music: Music2,
+};
 
 interface RoleOption {
   id: string;
@@ -171,8 +173,8 @@ export function ModulePermissions({ guildId, values, onChange }: ModulePermissio
         <div className="text-sm text-[var(--text-secondary)]">Chargement des rôles…</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {MODULES.map((mod) => {
-            const Icon = mod.icon;
+          {(DASHBOARD_MODULES as ReadonlyArray<typeof DASHBOARD_MODULES[number]>).map((mod) => {
+            const Icon = MODULE_ICONS[mod.key];
             return (
               <div key={mod.key} className="space-y-1.5">
                 <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">

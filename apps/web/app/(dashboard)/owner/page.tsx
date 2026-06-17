@@ -272,7 +272,7 @@ export default function OwnerDashboardPage() {
   };
 
   const quickActions = [
-    { key: 'deploy', icon: <RefreshCw size={16} />, label: 'Mettre à jour', desc: 'git pull && pnpm install && db:push && build && dev:preload', variant: 'primary' as const, fn: () => triggerDeploy() },
+    { key: 'deploy', icon: <RefreshCw size={16} />, label: 'Mettre à jour', desc: 'Clone propre + install + build + migrate + swap atomique', variant: 'primary' as const, fn: () => triggerDeploy() },
     { key: 'rollback', icon: <RotateCcw size={16} />, label: 'Rollback', desc: 'Revenir à la version précédente', variant: 'secondary' as const, fn: () => triggerRollback() },
     { key: 'backup', icon: <Save size={16} />, label: 'Backup', desc: 'Sauvegarder les données', variant: 'secondary' as const, fn: () => triggerBackup() },
     { key: 'restart', icon: <Power size={16} />, label: 'Redémarrer tout', desc: 'Redémarrer tous les services', variant: 'danger' as const, fn: () => triggerRestart() },

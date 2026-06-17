@@ -24,6 +24,7 @@
     "@pinguin/config": "workspace:*",
     "@pinguin/db": "workspace:*",
     "@pinguin/shared": "workspace:*",
+    "bcrypt": "^6.0.0",
     "fastify": "^5.2.0",
     "qrcode": "^1.5.4",
     "simple-git": "^3.27.0",
@@ -31,6 +32,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/speakeasy": "^2.0.10",
     "tsx": "^4.19.2",

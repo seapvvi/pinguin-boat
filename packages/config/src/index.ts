@@ -58,6 +58,15 @@ const envSchema = z.object({
   DEPLOY_SHARED_PATH: z.string().default('/opt/pinguinboat/shared'),
   DEPLOY_BACKUPS_PATH: z.string().default('/opt/pinguinboat/backups'),
   DEPLOY_CURRENT_LINK: z.string().default('/opt/pinguinboat/current'),
+  DEPLOY_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+  DEPLOY_ALLOWED_BRANCHES: z.string().default('main'),
+  // ^ Guard: branches autorisées pour le déploiement (séparées par virgule).
+  //   Production typiquement "main" seulement. Staging peut autoriser "develop,main".
+  //   Un déploiement depuis une branche non listée sera refusé.
+  DEPLOY_TIMEOUT: z.coerce.number().default(600000),
+  // ^ Guard: timeout total du déploiement en ms (défaut 10 min).
+  DEPLOY_STEP_TIMEOUT: z.coerce.number().default(120000),
+  // ^ Guard: timeout par étape en ms (défaut 2 min).
 
   // Owner
   OWNER_PASSWORD: z.string().trim().min(12, 'OWNER_PASSWORD est requis (min 12 caractères). Configurez-le dans votre fichier .env'),

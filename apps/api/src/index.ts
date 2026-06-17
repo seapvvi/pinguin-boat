@@ -22,6 +22,7 @@ import { blacklistRoutes } from './routes/blacklist';
 import { embedRoutes } from './routes/embeds';
 import { authenticate } from './middleware/auth';
 import { success, error, paginated, sanitizeError, getErrorMessage } from './utils/response';
+import { ensureOwnerPasswordHash } from './services/ownerPassword';
 import { getSystemMetrics, getGlobalStats } from './services/metrics';
 import { botFetch } from './services/bot-proxy';
 
@@ -105,6 +106,8 @@ async function main() {
       error: statusCode >= 500 ? sanitizeError(error) : (error.message || 'Erreur interne du serveur'),
     });
   });
+
+  await ensureOwnerPasswordHash();
 
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(guildRoutes, { prefix: '/api/guilds' });
@@ -208,7 +211,6 @@ async function main() {
           isOwner: false,
           totalGuilds: guildCount,
           totalUsers: memberAgg._sum.memberCount ?? 0,
-          activeMembers: onlineMembers,
           onlineMembers,
           activeChannels: 0,
         }));
@@ -219,6 +221,11 @@ async function main() {
         getSystemMetrics(),
         prisma.auditLog.count(),
       ]);
+      let onlineMembers = 0;
+      try {
+        const botStats = await botFetch('/internal/stats');
+        onlineMembers = botStats?.data?.onlineMembers ?? 0;
+      } catch { /* bot offline */ }
       reply.send(success({
         isOwner: true,
         totalGuilds: globalStats.guilds,
@@ -229,6 +236,7 @@ async function main() {
         ramUsage: metrics.ram.percent,
         premiumRevenue: 0,
         systemStatus: 'OPERATIONAL',
+        onlineMembers,
       }));
     } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));

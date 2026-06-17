@@ -454,6 +454,8 @@ export interface BotStats {
   ramUsage: number;
   premiumRevenue: number;
   systemStatus: 'OPERATIONAL' | 'DEGRADED' | 'MAINTENANCE' | 'CRITICAL';
+  onlineMembers?: number;
+  activeChannels?: number;
 }
 
 export interface LeaderboardEntry {

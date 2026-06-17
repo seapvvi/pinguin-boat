@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { calculateLevel, calculateXpForLevel, calculateXpForNextLevel } from './levelFormula';
 
-describe('levelFormula', () => {
-  it('calculateLevel correspond à la formule donnée', () => {
+describe('levelFormula (re-export depuis @pinguin/shared/levelFormula)', () => {
+  it('calculateLevel correspond à la formule 100 * level * 1.5', () => {
     expect(calculateLevel(0)).toBe(0);
-    expect(calculateLevel(1)).toBe(0);
-    expect(calculateLevel(100)).toBe(1);
-    expect(calculateLevel(10_000)).toBe(Math.floor(0.1 * Math.sqrt(10_000)));
+    expect(calculateLevel(149)).toBe(0);
+    expect(calculateLevel(150)).toBe(1);
+    expect(calculateLevel(299)).toBe(1);
+    expect(calculateLevel(300)).toBe(2);
+    expect(calculateLevel(450)).toBe(3);
+    expect(calculateLevel(10_000)).toBe(66);
   });
 
   it('calculateLevel retourne 0 pour les valeurs invalides', () => {
@@ -32,4 +35,3 @@ describe('levelFormula', () => {
     expect(calculateXpForNextLevel(currentXp)).toBe(calculateXpForLevel(currentLevel + 1));
   });
 });
-

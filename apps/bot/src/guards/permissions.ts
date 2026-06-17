@@ -1,5 +1,5 @@
 import { GuildMember, PermissionResolvable } from 'discord.js';
-import { PermissionLevel } from '@pinguin/shared';
+import { PermissionLevel, evaluatePermissions, canAccessModule, MODULE_PERMISSION_MAP, type PermissionFlag, type CombinedPermissions } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
 
 export interface PermissionCheckResult {
@@ -7,34 +7,60 @@ export interface PermissionCheckResult {
   message?: string;
 }
 
-async function getPermissionLevel(member: GuildMember): Promise<PermissionLevel> {
-  if (member.id === member.guild.ownerId) return PermissionLevel.GUILD_OWNER;
-  if (member.permissions.has('Administrator')) return PermissionLevel.ADMIN;
-
+/**
+ * Calcule les permissions combinées d'un membre Discord.
+ * Utilise le cache DB pour les rôles admin/mod, et les permissions des rôles Discord.
+ */
+async function getCombinedPermissions(member: GuildMember): Promise<CombinedPermissions> {
   const settings = await prisma.guildSettings.findUnique({ where: { guildId: member.guild.id } });
-  if (settings) {
-    let adminRoleIds: string[] = [];
-    let modRoleIds: string[] = [];
-    try {
+
+  let adminRoleIds: string[] = [];
+  let modRoleIds: string[] = [];
+  let dashboardAccessRoleIds: string[] = [];
+  try {
+    if (settings) {
       adminRoleIds = JSON.parse(settings.adminRoleIds);
       modRoleIds = JSON.parse(settings.modRoleIds);
-    } catch {
-      // données corrompues, on ignore
+      dashboardAccessRoleIds = JSON.parse(settings.dashboardAccessRoles);
     }
-    if (member.roles.cache.some((r) => adminRoleIds.includes(r.id))) return PermissionLevel.ADMIN;
-    if (member.roles.cache.some((r) => modRoleIds.includes(r.id))) return PermissionLevel.MODERATOR;
+  } catch {
+    // données corrompues
   }
 
-  return PermissionLevel.EVERYONE;
+  // Calculer le bitfield des permissions Discord du membre
+  let discordPermissions = 0n;
+  for (const role of member.roles.cache.values()) {
+    discordPermissions |= BigInt(role.permissions.bitfield);
+  }
+
+  return evaluatePermissions({
+    userId: member.id,
+    guildOwnerId: member.guild.ownerId,
+    memberRoleIds: member.roles.cache.map((r) => r.id),
+    discordPermissions,
+    adminRoleIds,
+    modRoleIds,
+    dashboardAccessRoleIds,
+    isBotOwner: false, // Le bot ne s'exécute pas pour lui-même sur ses propres serveurs
+  });
 }
 
+export async function getPermissionLevel(member: GuildMember): Promise<PermissionLevel> {
+  const combined = await getCombinedPermissions(member);
+  return combined.level;
+}
+
+/**
+ * Vérifie les permissions Discord d'un membre.
+ * Les admins et owners (PermissionLevel >= ADMIN) bypassent la vérification fine.
+ */
 export async function checkPermissions(
   member: GuildMember,
   requiredPermissions: PermissionResolvable[]
 ): Promise<PermissionCheckResult> {
-  const level = await getPermissionLevel(member);
+  const combined = await getCombinedPermissions(member);
 
-  if (level >= PermissionLevel.ADMIN) return { allowed: true };
+  if (combined.level >= PermissionLevel.ADMIN) return { allowed: true };
 
   for (const perm of requiredPermissions) {
     if (!member.permissions.has(perm as any)) {
@@ -48,16 +74,21 @@ export async function checkPermissions(
   return { allowed: true };
 }
 
+/**
+ * Vérifie les permissions de modération basées sur le PermissionLevel.
+ * Si requireAdmin est true, seuls les ADMIN/GUILD_OWNER/OWNER passent.
+ * Sinon, les MODERATOR (ou ModerateMembers Discord) passent aussi.
+ */
 export async function checkModPermissions(
   member: GuildMember,
   requireAdmin: boolean = false
 ): Promise<PermissionCheckResult> {
-  const level = await getPermissionLevel(member);
+  const combined = await getCombinedPermissions(member);
 
-  if (level >= PermissionLevel.GUILD_OWNER) return { allowed: true };
+  if (combined.level >= PermissionLevel.GUILD_OWNER) return { allowed: true };
 
   if (requireAdmin) {
-    if (level < PermissionLevel.ADMIN) {
+    if (combined.level < PermissionLevel.ADMIN) {
       return {
         allowed: false,
         message: 'Seuls les administrateurs peuvent utiliser cette commande.',
@@ -66,14 +97,41 @@ export async function checkModPermissions(
     return { allowed: true };
   }
 
-  if (level < PermissionLevel.MODERATOR && !member.permissions.has('ModerateMembers')) {
-    return {
-      allowed: false,
-      message: 'Vous n\'avez pas les permissions de modération nécessaires.',
-    };
+  if (combined.level >= PermissionLevel.MODERATOR) return { allowed: true };
+
+  if (member.permissions.has('ModerateMembers')) {
+    return { allowed: true };
   }
 
-  return { allowed: true };
+  return {
+    allowed: false,
+    message: 'Vous n\'avez pas les permissions de modération nécessaires.',
+  };
+}
+
+/**
+ * Vérifie si un membre a accès à un module spécifique du dashboard.
+ */
+export async function checkModuleAccess(
+  member: GuildMember,
+  moduleName: string
+): Promise<PermissionCheckResult> {
+  const permission = MODULE_PERMISSION_MAP[moduleName];
+  if (!permission) {
+    // Module sans permission spécifique => accès libre si VIEW_DASHBOARD
+    return { allowed: true };
+  }
+
+  const combined = await getCombinedPermissions(member);
+
+  if (canAccessModule(combined, permission as PermissionFlag)) {
+    return { allowed: true };
+  }
+
+  return {
+    allowed: false,
+    message: 'Vous n\'avez pas accès à ce module.',
+  };
 }
 
 export { PermissionLevel };

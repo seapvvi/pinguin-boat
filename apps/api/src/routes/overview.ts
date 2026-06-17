@@ -18,41 +18,38 @@ function isOwner(discordId: string): boolean {
   return discordId === config.DISCORD_OWNER_ID;
 }
 
+export async function computePublicOverview() {
+  const guilds = await prisma.guild.findMany({
+    where: { botPresent: true },
+    select: { id: true, memberCount: true },
+  });
+
+  let onlineMembers = 0;
+  try {
+    const botGuilds = await botFetch('/internal/stats');
+    onlineMembers = botGuilds?.data?.onlineMembers ?? 0;
+  } catch { /* bot offline */ }
+
+  const totalMembers = guilds.reduce((s, g) => s + g.memberCount, 0);
+  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const [activeGuilds, messagesToday] = await Promise.all([
+    prisma.auditLog.groupBy({
+      by: ['guildId'],
+      where: { createdAt: { gte: last24h }, guildId: { not: null } },
+    }).then((r) => r.length).catch(() => 0),
+    prisma.auditLog.count({
+      where: { createdAt: { gte: last24h }, action: AuditAction.MESSAGE_CREATE },
+    }).catch(() => 0),
+  ]);
+
+  return { guildCount: guilds.length, totalMembers, onlineMembers, activeGuilds, messagesToday };
+}
+
 export async function overviewRoutes(app: FastifyInstance) {
-  app.get('/public', { preHandler: [authenticate] }, async (request, reply) => {
+  app.get('/public', { preHandler: [authenticate] }, async (_request, reply) => {
     try {
-      const guilds = await prisma.guild.findMany({
-        where: { botPresent: true },
-        select: { id: true, memberCount: true },
-      });
-
-      let onlineMembers = 0;
-      try {
-        const botGuilds = await botFetch('/internal/stats').catch(() => null);
-        if (botGuilds?.data) {
-          onlineMembers = botGuilds.data.onlineMembers ?? 0;
-        }
-      } catch {
-        onlineMembers = 0;
-      }
-
-      const totalMembers = guilds.reduce((s, g) => s + g.memberCount, 0);
-      const activeChannels = await prisma.auditLog.count({
-        where: {
-          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-          action: 'MESSAGE_CREATE' as AuditAction,
-        },
-      }).catch(() => 0);
-
-      reply.send(
-        success({
-          guildCount: guilds.length,
-          totalMembers,
-          activeMembers: onlineMembers,
-          activeChannels: activeChannels || 0,
-          onlineMembers,
-        })
-      );
+      reply.send(success(await computePublicOverview()));
     } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
@@ -62,44 +59,23 @@ export async function overviewRoutes(app: FastifyInstance) {
     try {
       const discordId = request.user!.discordId;
       if (!isOwner(discordId)) {
-        const guilds = await prisma.guild.findMany({
-          where: { botPresent: true },
-          select: { id: true, memberCount: true },
-        });
-        let onlineMembers = 0;
-        try {
-          const botStats = await botFetch('/internal/stats');
-          onlineMembers = botStats?.data?.onlineMembers ?? 0;
-        } catch { /* bot offline */ }
-        const totalMembers = guilds.reduce((s, g) => s + g.memberCount, 0);
-        return reply.send(
-          success({
-            isOwner: false,
-            guildCount: guilds.length,
-            totalMembers,
-            activeMembers: onlineMembers,
-            activeChannels: 0,
-            onlineMembers,
-          })
-        );
+        return reply.send(success({ ...await computePublicOverview(), isOwner: false }));
       }
 
       const [globalStats, metrics] = await Promise.all([
         getGlobalStats(),
-        Promise.resolve(getSystemMetrics()),
+        getSystemMetrics(),
       ]);
 
-      reply.send(
-        success({
-          ...globalStats,
-          cpu: metrics.cpu,
-          ram: metrics.ram,
-          uptime: metrics.uptime,
-          processUptime: metrics.processUptime,
-          systemStatus: 'OPERATIONAL',
-          isOwner: true,
-        })
-      );
+      reply.send(success({
+        ...globalStats,
+        cpu: metrics.cpu,
+        ram: metrics.ram,
+        uptime: metrics.uptime,
+        processUptime: metrics.processUptime,
+        systemStatus: 'OPERATIONAL',
+        isOwner: true,
+      }));
     } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }

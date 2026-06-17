@@ -3,39 +3,92 @@ import { z } from 'zod';
 import { prisma } from '@pinguin/db';
 import { getConfig } from '@pinguin/config';
 import { authenticate } from '../middleware/auth';
-import { requireOwner } from '../middleware/owner';
+import { requireOwner, requireOwnerDiscordId } from '../middleware/owner';
 import { validateBody } from '../middleware/validate';
 import { success, error, sanitizeError } from '../utils/response';
 import { getSystemMetrics, getGlobalStats } from '../services/metrics';
 import * as TwoFA from '../services/owner2fa';
+import { verifyOwnerPassword, ensureOwnerPasswordHash } from '../services/ownerPassword';
 import * as fs from 'fs';
 import * as os from 'os';
 import { AppServiceKey } from '../services/system';
 import * as SystemService from '../services/system';
+import * as DeployService from '../services/deploy';
 
 const config = getConfig();
 if (!config.OWNER_PASSWORD) {
   console.warn('[OWNER] OWNER_PASSWORD non configuré — la page owner dashboard sera inaccessible.');
 }
 const ownerPre = { preHandler: [authenticate, requireOwner] };
+const ownerBasePre = { preHandler: [authenticate, requireOwnerDiscordId] };
+const VERIFY_PASSWORD_RATE = { max: 5, timeWindow: '1 minute' };
+const TFA_RATE = { max: 5, timeWindow: '1 minute' };
+const OWNER_RATE = { max: 30, timeWindow: '1 minute' };
 
 export async function ownerRoutes(app: FastifyInstance) {
   const verifyPasswordSchema = z.object({
     password: z.string().trim().min(1),
   });
 
-  app.post('/verify-password', { preHandler: [authenticate, validateBody(verifyPasswordSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/verify-password', {
+    preHandler: [authenticate, requireOwnerDiscordId, validateBody(verifyPasswordSchema)],
+    config: { rateLimit: VERIFY_PASSWORD_RATE },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       if (!config.OWNER_PASSWORD) {
-        reply.status(500).send({ success: false, message: 'OWNER_PASSWORD non configuré côté serveur.' });
+        reply.status(500).send({ success: false, message: 'Mot de passe owner non configuré.' });
         return;
       }
       const body = request.body as z.infer<typeof verifyPasswordSchema>;
-      if (body.password !== config.OWNER_PASSWORD) {
+      const valid = await verifyOwnerPassword(body.password);
+      if (!valid) {
+        await prisma.ownerLog.create({
+          data: {
+            userId: request.user!.id,
+            action: 'VERIFY_PASSWORD_FAILED',
+            details: JSON.stringify({ ip: request.ip }),
+            ip: request.ip,
+            userAgent: request.headers['user-agent'] || '',
+            success: false,
+          },
+        });
         reply.status(401).send({ success: false, message: 'Mot de passe incorrect.' });
         return;
       }
+      await prisma.session.update({
+        where: { id: request.user!.sessionId },
+        data: { ownerVerifiedAt: new Date() },
+      });
+      await prisma.ownerLog.create({
+        data: {
+          userId: request.user!.id,
+          action: 'VERIFY_PASSWORD_SUCCESS',
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] || '',
+          success: true,
+        },
+      });
+      const twoFA = await prisma.owner2FA.findUnique({ where: { userId: request.user!.id } });
+      if (twoFA?.enabled) {
+        reply.send({ success: true, data: { requires2FA: true } });
+        return;
+      }
       reply.send({ success: true });
+    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
+  });
+
+  app.get('/status', {
+    preHandler: ownerBasePre,
+    config: { rateLimit: OWNER_RATE },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const session = await prisma.session.findUnique({ where: { id: request.user!.sessionId } });
+      const twoFA = await prisma.owner2FA.findUnique({ where: { userId: request.user!.id } });
+      reply.send(success({
+        verified: !!session?.ownerVerifiedAt,
+        twoFAEnabled: twoFA?.enabled ?? false,
+        twoFAVerified: !!session?.owner2faVerifiedAt,
+      }));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
@@ -842,20 +895,32 @@ export async function ownerRoutes(app: FastifyInstance) {
   });
 
   app.post('/rollback', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
     try {
-      await execAsync('git reset --hard HEAD~1', { cwd: process.cwd() });
-      await logOwnerAction(request, 'ROLLBACK', {}, true);
-      reply.send(success(null, 'Rollback effectué — rebuild manuel requis'));
+      // Guard: utilise le système de releases atomique au lieu de git reset --hard.
+      // Le rollback bascule le symlink current vers la release précédente,
+      // sans perte de données et sans mutation du repo git.
+      const body = request.body as { version?: string } | undefined;
+      await DeployService.rollback(request.user!.id, body?.version);
+      await logOwnerAction(request, 'ROLLBACK', { version: body?.version || 'previous' }, true);
+      reply.send(success(null, 'Rollback effectué — services redémarrés'));
       setImmediate(() => SystemService.restartAllServices(true));
     } catch (err: unknown) {
       reply.status(500).send(error(sanitizeError(err)));
     }
   });
 
-  app.post('/2fa/setup', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+  async function requireOwnerVerified(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const session = await prisma.session.findUnique({ where: { id: request.user!.sessionId } });
+    if (!session?.ownerVerifiedAt) {
+      reply.status(401).send({ success: false, error: 'Veuillez d\'abord vérifier le mot de passe propriétaire', data: { requiresPassword: true } });
+      return;
+    }
+  }
+
+  app.post('/2fa/setup', {
+    preHandler: [authenticate, requireOwnerDiscordId, requireOwnerVerified],
+    config: { rateLimit: TFA_RATE },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const secret = TwoFA.generateSecret();
       const qrCode = await TwoFA.generateQRCode(secret.base32);
@@ -868,7 +933,10 @@ export async function ownerRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.post('/2fa/verify', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/2fa/verify', {
+    preHandler: [authenticate, requireOwnerDiscordId, requireOwnerVerified],
+    config: { rateLimit: TFA_RATE },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const body = request.body as { code?: string };
       if (!body.code) return reply.status(400).send(error('Code requis'));
@@ -876,15 +944,24 @@ export async function ownerRoutes(app: FastifyInstance) {
       if (!twoFA) return reply.status(400).send(error('2FA non configuré'));
       const valid = TwoFA.verifyToken(twoFA.secret, body.code);
       if (!valid) return reply.status(400).send(error('Code invalide'));
-      await prisma.owner2FA.update({
-        where: { userId: request.user!.id },
-        data: { enabled: true, verified: true, lastVerifiedAt: new Date() },
-      });
+      await prisma.$transaction([
+        prisma.owner2FA.update({
+          where: { userId: request.user!.id },
+          data: { enabled: true, verified: true, lastVerifiedAt: new Date() },
+        }),
+        prisma.session.update({
+          where: { id: request.user!.sessionId },
+          data: { owner2faVerifiedAt: new Date() },
+        }),
+      ]);
       reply.send(success(null, '2FA vérifié et activé'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.post('/2fa/disable', ownerPre, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/2fa/disable', {
+    preHandler: [authenticate, requireOwnerDiscordId, requireOwnerVerified],
+    config: { rateLimit: TFA_RATE },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const body = request.body as { code?: string };
       if (!body.code) return reply.status(400).send(error('Code requis'));
@@ -892,10 +969,16 @@ export async function ownerRoutes(app: FastifyInstance) {
       if (!twoFA) return reply.status(400).send(error('2FA non configuré'));
       const valid = TwoFA.verifyToken(twoFA.secret, body.code);
       if (!valid) return reply.status(400).send(error('Code invalide'));
-      await prisma.owner2FA.update({
-        where: { userId: request.user!.id },
-        data: { enabled: false, verified: false },
-      });
+      await prisma.$transaction([
+        prisma.owner2FA.update({
+          where: { userId: request.user!.id },
+          data: { enabled: false, verified: false },
+        }),
+        prisma.session.update({
+          where: { id: request.user!.sessionId },
+          data: { owner2faVerifiedAt: null },
+        }),
+      ]);
       reply.send(success(null, '2FA désactivé'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });

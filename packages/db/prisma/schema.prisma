@@ -84,6 +84,13 @@ enum DeploymentStatus {
   ROLLED_BACK
 }
 
+/// Environnement cible d'un déploiement
+enum DeployEnvironment {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+}
+
 /// Type de rôle automatique
 enum AutoroleType {
   JOIN
@@ -183,6 +190,7 @@ enum AuditAction {
   TICKET_CREATE
   TICKET_CLOSE
   TICKET_DELETE
+  MESSAGE_CREATE
   MESSAGE_PURGE
   ROLE_CREATE
   ROLE_DELETE
@@ -272,6 +280,8 @@ model Session {
   discordRefreshToken   String?   @map("discord_refresh_token")
   discordTokenExpiresAt DateTime? @map("discord_token_expires_at")
   expiresAt             DateTime  @map("expires_at")
+  ownerVerifiedAt       DateTime? @map("owner_verified_at")
+  owner2faVerifiedAt    DateTime? @map("owner_2fa_verified_at")
   createdAt             DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id])
@@ -295,6 +305,16 @@ model Owner2FA {
   user User @relation(fields: [userId], references: [id])
 
   @@map("owner_2fa")
+}
+
+/// Hash du mot de passe owner (stocké en base, jamais en clair)
+model OwnerPassword {
+  id        String   @id @default(cuid()) @map("id")
+  hash      String   @map("hash")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("owner_password")
 }
 
 /// Serveur Discord
@@ -1285,20 +1305,25 @@ model Changelog {
 
 /// Déploiement
 model Deployment {
-  id            String           @id @default(cuid()) @map("id")
-  version       String           @map("version")
-  releasePath   String           @map("release_path")
-  status        DeploymentStatus @default(PENDING) @map("status")
-  log           String?          @map("log")
-  triggeredById String           @map("triggered_by_id")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  startedAt     DateTime         @default(now()) @map("started_at")
-  completedAt   DateTime?        @map("completed_at")
+  id            String             @id @default(cuid()) @map("id")
+  version       String             @map("version")
+  releasePath   String             @map("release_path")
+  environment   DeployEnvironment  @default(DEVELOPMENT) @map("environment")
+  // ^ Guard: environnement cible — production refuse les branches non autorisées
+  gitRef        String?            @map("git_ref")
+  // ^ Commit SHA déployé (traçabilité, rollback précis)
+  status        DeploymentStatus   @default(PENDING) @map("status")
+  log           String?            @map("log")
+  triggeredById String             @map("triggered_by_id")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  startedAt     DateTime           @default(now()) @map("started_at")
+  completedAt   DateTime?          @map("completed_at")
 
   releases DeploymentRelease[]
 
   @@index([createdAt])
   @@index([status])
+  @@index([environment])
   @@map("deployments")
 }
 

@@ -3,7 +3,7 @@
  * Formats supportés : "1h30m", "2d", "1w", "30s", "5m10s", etc.
  * Unités : s (secondes), m (minutes), h (heures), d (jours), w (semaines)
  */
-export function parseDuration(input: string): { milliseconds: number; error: string | null } | null {
+export function parseDuration(input: string): { milliseconds: number; error: string | null } {
   if (!input || typeof input !== 'string') {
     return { milliseconds: 0, error: 'La durée doit être une chaîne de caractères.' };
   }

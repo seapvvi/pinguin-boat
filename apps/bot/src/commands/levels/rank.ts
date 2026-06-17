@@ -2,7 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, Client } from 'discor
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { errorEmbed } from '../../services/embed';
-import { calculateXpForNextLevel } from '../../services/xp';
+import { calculateXpForNextLevel, getXpForCurrentLevel } from '@pinguin/shared/levelFormula';
 import { isModuleEnabled } from '../../guards/module';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { logger } from '@pinguin/shared';
@@ -60,8 +60,10 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     const levelFormula = settings?.levelFormula || '100 * level * 1.5';
 
     const currentLevel = profile.level;
+    const xpAtCurrentLevel = getXpForCurrentLevel(profile.xp);
     const xpForNext = calculateXpForNextLevel(profile.xp, levelFormula);
-    const progress = Math.min((profile.xp / xpForNext) * 100, 100);
+    const xpInLevel = profile.xp - xpAtCurrentLevel;
+    const xpNeeded = xpForNext - xpAtCurrentLevel;
 
     const levelColor = settings?.levelColor || '#14b8a6';
 
@@ -69,8 +71,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       targetUser.displayAvatarURL({ size: 256 }),
       targetUser.username,
       currentLevel,
-      profile.xp,
-      xpForNext,
+      xpInLevel,
+      xpNeeded,
       rank,
       levelColor
     );
