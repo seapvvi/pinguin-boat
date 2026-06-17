@@ -14,6 +14,9 @@ import { AppServiceKey } from '../services/system';
 import * as SystemService from '../services/system';
 
 const config = getConfig();
+if (!config.OWNER_PASSWORD) {
+  console.warn('[OWNER] OWNER_PASSWORD non configuré — la page owner dashboard sera inaccessible.');
+}
 const ownerPre = { preHandler: [authenticate, requireOwner] };
 
 export async function ownerRoutes(app: FastifyInstance) {
@@ -23,9 +26,12 @@ export async function ownerRoutes(app: FastifyInstance) {
 
   app.post('/verify-password', { preHandler: [authenticate, validateBody(verifyPasswordSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
+      if (!config.OWNER_PASSWORD) {
+        reply.status(500).send({ success: false, message: 'OWNER_PASSWORD non configuré côté serveur.' });
+        return;
+      }
       const body = request.body as z.infer<typeof verifyPasswordSchema>;
-      const expected = config.OWNER_PASSWORD;
-      if (body.password !== expected) {
+      if (body.password !== config.OWNER_PASSWORD) {
         reply.status(401).send({ success: false, message: 'Mot de passe incorrect.' });
         return;
       }
