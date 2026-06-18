@@ -160,7 +160,7 @@ async function handleButton(interaction: ButtonInteraction, client: Client): Pro
   // per-message component collectors. We must NOT acknowledge them here:
   // doing so races with the collector's i.update() and triggers
   // "Échec de l'interaction" / unhandled rejections that crash the bot.
-  if (interaction.customId.startsWith('bj_') || interaction.customId.startsWith('morpion_')) {
+  if (interaction.customId.startsWith('bj_') || interaction.customId.startsWith('morpion_') || interaction.customId.startsWith('race_select_')) {
     return;
   }
 
