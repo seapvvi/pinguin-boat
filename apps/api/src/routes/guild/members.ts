@@ -101,7 +101,6 @@ export async function membersRoutes(app: FastifyInstance) {
           where: { guildId },
           orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit, take: limit,
-          include: { user: { select: { username: true, discordId: true } } },
         }),
         prisma.guildBlacklistUser.count({ where: { guildId } }),
       ]);
@@ -109,7 +108,7 @@ export async function membersRoutes(app: FastifyInstance) {
         entries: entries.map((e: typeof entries[number]) => ({
           id: e.id, targetId: e.userId, targetType: 'USER', reason: e.reason,
           moderatorId: e.moderatorId, createdAt: e.createdAt.toISOString(),
-          targetName: e.user?.username ?? null,
+          targetName: null,
         })),
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       }));
