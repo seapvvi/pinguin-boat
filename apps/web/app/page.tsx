@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, type MouseEvent } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
 import {
   Shield, Ticket, BarChart3, ScrollText, Terminal, LayoutDashboard,
-  Check, MessageCircle, Github, BookOpen, ChevronRight,
+  Check, MessageCircle, Github, BookOpen,
 } from 'lucide-react';
 import { Logo } from '@pinguin/ui';
 import { getUser, type User } from '@/lib/auth';
@@ -1400,7 +1400,7 @@ function FeatureCard({
   feature,
   number,
   index,
-  large,
+  _large,
   noAnim,
 }: {
   feature: Feature;
