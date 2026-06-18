@@ -1400,7 +1400,7 @@ function FeatureCard({
   feature,
   number,
   index,
-  _large,
+  large: _large,
   noAnim,
 }: {
   feature: Feature;
