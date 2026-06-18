@@ -25,7 +25,7 @@ export function KPICard({ icon, label, value, trend, className }: KPICardProps) 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
       className={cn(
-        'bg-[var(--bg-surface)] border border-[var(--border-color)] p-5',
+        'bg-[var(--bg-surface)] border border-[var(--border-color)] p-6',
         className,
       )}
       style={{ borderRadius: 0 }}
@@ -47,7 +47,7 @@ export function KPICard({ icon, label, value, trend, className }: KPICardProps) 
       <span className="block text-2xl font-semibold text-[var(--text-primary)] tracking-tight mb-1">
         {typeof value === 'number' ? animatedValue.toLocaleString() : value}
       </span>
-      <span className="block text-xs text-[var(--text-secondary)]">{label}</span>
+      <span className="block text-sm text-[var(--text-secondary)]">{label}</span>
     </motion.div>
   );
 }

@@ -20,7 +20,7 @@ export function Card({ children, className, padding = true, hover = false, style
       transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
       className={cn(
         'bg-[var(--bg-surface)] border border-[var(--border-color)]',
-        padding && 'p-5',
+        padding && 'p-6',
         hover && 'transition-transform duration-200 ease-in-out hover:-translate-y-0.5',
         className,
       )}

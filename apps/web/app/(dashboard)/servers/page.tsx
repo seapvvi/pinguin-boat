@@ -51,7 +51,7 @@ export default function ServersPage() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Sélecteur de serveur</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Sélecteur de serveur</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Choisissez un serveur pour gérer sa configuration.
           </p>

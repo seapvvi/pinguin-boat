@@ -94,7 +94,7 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
           flex: 1,
           transition: 'margin-left 0.3s ease',
         }}
-        className={sidebarOpen ? 'lg:ml-[260px]' : 'lg:ml-0'}
+        className={sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}
       >
         <Header
           user={user}
@@ -106,9 +106,9 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
         <main
           style={{
             flex: 1,
-            padding: 24,
             backgroundColor: 'var(--bg-primary)',
           }}
+          className="px-6 lg:px-10 py-6"
         >
           {children}
         </main>

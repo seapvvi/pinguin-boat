@@ -411,6 +411,10 @@ export async function fetchOwnerServers(params?: Record<string, string>): Promis
   return api.get<APIResponse<{ servers: OwnerServer[]; pagination: Pagination }>>('/api/owner/servers', params);
 }
 
+export async function fetchOwnerServer(guildId: string): Promise<APIResponse<GuildSettingsDTO>> {
+  return api.get<APIResponse<GuildSettingsDTO>>(`/api/owner/servers/${guildId}`);
+}
+
 export async function forceLeaveGuild(guildId: string): Promise<APIResponse<{ success: boolean }>> {
   return api.post<APIResponse<{ success: boolean }>>(`/api/owner/force-leave/${guildId}`);
 }

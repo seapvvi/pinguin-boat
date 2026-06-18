@@ -68,7 +68,7 @@ export default function StatsPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
             Statistiques système
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
@@ -91,7 +91,7 @@ export default function StatsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-[var(--radius)]" />
@@ -113,7 +113,7 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Utilisation CPU</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Utilisation CPU</h2>
             <Cpu size={16} className="text-[var(--text-secondary)]" />
           </div>
           {loading ? (
@@ -162,7 +162,7 @@ export default function StatsPage() {
 
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Utilisation RAM</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Utilisation RAM</h2>
             <Activity size={16} className="text-[var(--text-secondary)]" />
           </div>
           {loading ? (
@@ -212,7 +212,7 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Serveurs & Utilisateurs</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Serveurs & Utilisateurs</h2>
             <TrendingUp size={16} className="text-[var(--text-secondary)]" />
           </div>
           {loading ? (
@@ -272,7 +272,7 @@ export default function StatsPage() {
 
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Commandes exécutées</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Commandes exécutées</h2>
             <Terminal size={16} className="text-[var(--text-secondary)]" />
           </div>
           {loading ? (

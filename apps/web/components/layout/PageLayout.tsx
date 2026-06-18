@@ -23,7 +23,7 @@ export function PageLayout({ title, description, actions, children }: PageLayout
       className="w-full">
       <div className="flex justify-between items-start pb-5 border-b border-[var(--border-color)]">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">{title}</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
           {description && (
             <p className="text-sm text-[var(--text-secondary)] mt-1">{description}</p>
           )}

@@ -45,7 +45,7 @@ export default function OwnerDonorsPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6 max-w-2xl space-y-6">
-      <h1 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
+      <h1 className="text-2xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
         <Heart size={22} /> Gestion des donateurs
       </h1>
 

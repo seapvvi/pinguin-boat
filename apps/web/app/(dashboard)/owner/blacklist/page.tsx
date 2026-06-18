@@ -101,7 +101,7 @@ export default function OwnerBlacklistPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Gestion des blacklists</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Gestion des blacklists</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les utilisateurs et serveurs blacklistés.</p>
         </div>
         <Button size="sm" onClick={() => setShowAdd(true)}><Plus size={14} /> Ajouter</Button>

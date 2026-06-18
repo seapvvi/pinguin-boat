@@ -118,7 +118,7 @@ export default function OverviewPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
             Bienvenue, {user?.username ?? '...'}
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
@@ -136,7 +136,7 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {loading ? (
           Array.from({ length: kpis.length || 5 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-[var(--radius)]" />
@@ -151,7 +151,7 @@ export default function OverviewPage() {
       {data && data.donors.length > 0 && (
         <Card className="mb-8 p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Nos donateurs</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Nos donateurs</h2>
             <Heart size={16} className="text-[var(--accent)]" />
           </div>
           <div className="flex flex-wrap gap-3">
@@ -168,7 +168,7 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Classement XP global</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Classement XP global</h2>
             <TrendingUp size={16} className="text-[var(--text-secondary)]" />
           </div>
           {loading ? (
@@ -200,7 +200,7 @@ export default function OverviewPage() {
 
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Top serveurs</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Top serveurs</h2>
             <Server size={16} className="text-[var(--text-secondary)]" />
           </div>
           {loading ? (
@@ -240,7 +240,7 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Derniers changelogs</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Derniers changelogs</h2>
             <Sparkles size={16} className="text-[var(--text-secondary)]" />
           </div>
           {loading ? (
@@ -268,7 +268,7 @@ export default function OverviewPage() {
 
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">État des systèmes</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">État des systèmes</h2>
             <Activity size={16} className="text-[var(--text-secondary)]" />
           </div>
           {loading ? (

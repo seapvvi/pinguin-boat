@@ -66,11 +66,11 @@ export default function OwnerMetricsPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[var(--text-primary)]">Métriques système</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Métriques système</h1>
         <p className="text-sm text-[var(--text-secondary)] mt-1">Surveillance des performances et des logs d'erreur.</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-[var(--radius)]" />)
         ) : (

@@ -3,55 +3,41 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
-  Shield, ShieldAlert, Ticket, Trophy, Wallet, Gift,
-  ScrollText, Radio, UserPlus, ExternalLink, X,
+  Shield, Ticket, BarChart3, ScrollText, Terminal, LayoutDashboard,
+  BookOpen, MessageCircle, Github, ChevronRight,
 } from 'lucide-react';
 import { Logo } from '@pinguin/ui';
-import ThemeSelector from '@/components/ThemeSelector';
 import { getUser, type User } from '@/lib/auth';
 
 // ─── Types ─────────────────────────────────────────────────────────────
 
 interface StatsData {
-  guilds: number;
-  members: number;
-  commands: number;
+  totalGuilds: number;
+  totalUsers: number;
+  totalCommands: number;
 }
 
 interface Feature {
-  icon: React.ComponentType<{ size?: number }>;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
   title: string;
-  description: string;
-}
-
-interface Cmd {
-  name: string;
-  args: string;
   description: string;
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────
 
 const FEATURES: Feature[] = [
-  { icon: Shield, title: 'Modération', description: 'Gestion des sanctions, mutes, bans automatiques' },
-  { icon: ShieldAlert, title: 'Auto-Modération', description: 'Filtres de spam, liens, mots interdits' },
-  { icon: Ticket, title: 'Tickets', description: 'Système de support avec catégories et logs' },
-  { icon: Trophy, title: 'Niveaux / XP', description: "Système d'expérience et classements" },
-  { icon: Wallet, title: 'Économie', description: 'Monnaie virtuelle, shop, transferts' },
-  { icon: Gift, title: 'Giveaways', description: 'Tirages au sort automatisés' },
-  { icon: ScrollText, title: 'Logs', description: 'Historique complet des actions serveur' },
-  { icon: Radio, title: 'Musique', description: 'Lecture audio depuis YouTube et plus' },
+  { icon: Shield, title: 'Modération automatique', description: 'Filtres anti-spam, anti-lien, anti-mass-mention et bien plus' },
+  { icon: Ticket, title: 'Système de tickets', description: 'Support organisé avec catégories, assignation et transcripts' },
+  { icon: BarChart3, title: 'Sondages & suggestions', description: 'Créez des sondages et recueillez les suggestions de votre communauté' },
+  { icon: ScrollText, title: 'Logs détaillés', description: 'Historique complet des actions, sanctions et événements du serveur' },
+  { icon: Terminal, title: 'Commandes personnalisées', description: 'Créez vos propres commandes sans aucune connaissance en code' },
+  { icon: LayoutDashboard, title: 'Dashboard web complet', description: 'Interface intuitive pour configurer l\'intégralité de votre bot' },
 ];
 
-const COMMANDS: Cmd[] = [
-  { name: 'ban', args: '[utilisateur] [raison]', description: 'Bannir un membre du serveur' },
-  { name: 'mute', args: '[utilisateur] [durée]', description: 'Rendre muet temporairement' },
-  { name: 'ticket create', args: '', description: 'Ouvrir un ticket de support' },
-  { name: 'giveaway create', args: '[durée] [prix]', description: 'Lancer un giveaway' },
-  { name: 'rank', args: '[utilisateur]', description: "Voir le niveau XP d'un membre" },
-  { name: 'balance', args: '[utilisateur]', description: 'Consulter le solde économique' },
-  { name: 'poll', args: '[question]', description: 'Créer un sondage rapide' },
-  { name: 'embed create', args: '', description: 'Créer un message embed personnalisé' },
+const FOOTER_LINKS = [
+  { icon: BookOpen, label: 'Documentation', href: 'https://docs.pinguin.ovh/' },
+  { icon: MessageCircle, label: 'Support Discord', href: 'https://discord.gg/EJHhcYkXMQ' },
+  { icon: Github, label: 'GitHub', href: 'https://github.com/pinguin-empire/pinguin-bot' },
 ];
 
 // ─── Animated Counter Hook ─────────────────────────────────────────────
@@ -63,7 +49,7 @@ function useAnimatedCounter(target: number, start: boolean): number {
 
   useEffect(() => {
     if (!start || doneRef.current) {
-      if (!start) { doneRef.current = false; }
+      if (!start) doneRef.current = false;
       return;
     }
     doneRef.current = true;
@@ -74,8 +60,8 @@ function useAnimatedCounter(target: number, start: boolean): number {
       const p = Math.min((now - t0) / duration, 1);
       const eased = 1 - (1 - p) * (1 - p);
       setCount(Math.round(eased * target));
-      if (p < 1) { rafRef.current = requestAnimationFrame(animate); }
-      else { setCount(target); }
+      if (p < 1) rafRef.current = requestAnimationFrame(animate);
+      else setCount(target);
     };
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
@@ -84,42 +70,14 @@ function useAnimatedCounter(target: number, start: boolean): number {
   return count;
 }
 
-// ─── Skeleton ──────────────────────────────────────────────────────────
-
-function StatSkeleton() {
-  return (
-    <div
-      style={{
-        display: 'inline-block',
-        width: 80,
-        height: 32,
-        backgroundColor: 'var(--bg-surface-alt)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 5%, transparent), transparent)',
-          animation: 'shimmer 1.5s infinite',
-        }}
-      />
-    </div>
-  );
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  const [alphaDismissed, setAlphaDismissed] = useState(false);
   const [stats, setStats] = useState<StatsData | null>(null);
-  const [botOnline, setBotOnline] = useState(true);
-  const [scrolled, setScrolled] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
   const [statsVisible, setStatsVisible] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const statsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -141,24 +99,17 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/stats')
+    fetch('/api/stats/public')
       .then((r) => r.json())
       .then((data) => {
         const d = data.data ?? data;
         setStats({
-          guilds: d.totalGuilds ?? d.guilds ?? 42,
-          members: d.totalUsers ?? d.members ?? 1200,
-          commands: d.totalCommands ?? d.commands ?? 10000,
+          totalGuilds: d.totalGuilds ?? d.guilds ?? 42,
+          totalUsers: d.totalUsers ?? d.members ?? 1200,
+          totalCommands: d.totalCommands ?? d.commands ?? 10000,
         });
       })
-      .catch(() => setStats({ guilds: 42, members: 1200, commands: 10000 }));
-  }, []);
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((r) => r.json())
-      .then((data) => setBotOnline(data.status === 'ok' || data.status === 'online'))
-      .catch(() => setBotOnline(true));
+      .catch(() => setStats({ totalGuilds: 42, totalUsers: 1200, totalCommands: 10000 }));
   }, []);
 
   useEffect(() => {
@@ -173,72 +124,38 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, [reducedMotion]);
 
-  const guildsCount = useAnimatedCounter(stats?.guilds ?? 0, statsVisible && stats !== null);
-  const membersCount = useAnimatedCounter(stats?.members ?? 0, statsVisible && stats !== null);
-  const commandsCount = useAnimatedCounter(stats?.commands ?? 0, statsVisible && stats !== null);
+  const guildsCount = useAnimatedCounter(stats?.totalGuilds ?? 0, statsVisible && stats !== null);
+  const usersCount = useAnimatedCounter(stats?.totalUsers ?? 0, statsVisible && stats !== null);
+  const commandsCount = useAnimatedCounter(stats?.totalCommands ?? 0, statsVisible && stats !== null);
 
   const fmt = (n: number) => n.toLocaleString('fr-FR');
   const noAnim = reducedMotion;
-  const sectionPadded: React.CSSProperties = { padding: '80px 24px' };
-
-  const mInit = noAnim ? undefined : { opacity: 0, y: 30 };
-  const mNoY = noAnim ? undefined : { opacity: 0, y: 0 };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)' }}>
-      {/* ──────────── NAVBAR ──────────── */}
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)', overflow: 'hidden' }}>
+      {/* ─── Navbar ─── */}
       <header
         style={{
-          position: 'sticky',
+          position: 'fixed',
           top: 0,
-          zIndex: 30,
+          left: 0,
+          right: 0,
+          zIndex: 50,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          height: 60,
+          height: 64,
           padding: '0 24px',
-          backgroundColor: scrolled
-            ? 'color-mix(in srgb, var(--bg-header) 85%, transparent)'
-            : 'var(--bg-header)',
-          borderBottom: '1px solid var(--border-color)',
-          backdropFilter: scrolled ? 'blur(8px)' : 'none',
-          WebkitBackdropFilter: scrolled ? 'blur(8px)' : 'none',
-          transition: 'backdrop-filter 0.2s, background-color 0.2s',
+          backgroundColor: scrolled ? 'color-mix(in srgb, var(--bg-header) 80%, transparent)' : 'transparent',
+          borderBottom: scrolled ? '1px solid var(--border-color)' : '1px solid transparent',
+          backdropFilter: scrolled ? 'blur(12px)' : 'none',
+          WebkitBackdropFilter: scrolled ? 'blur(12px)' : 'none',
+          transition: 'background-color 0.3s, border-color 0.3s, backdrop-filter 0.3s',
         }}
       >
-        <motion.div
-          initial={mNoY}
-          animate={noAnim ? undefined : { opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <Logo withText size={28} />
-        </motion.div>
+        <Logo withText size={24} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <ThemeSelector />
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              border: '1px solid var(--border-color)',
-              fontSize: 12,
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                backgroundColor: botOnline ? 'var(--success)' : 'var(--error)',
-                display: 'inline-block',
-              }}
-            />
-            <span style={{ whiteSpace: 'nowrap' }}>{botOnline ? 'En ligne' : 'Hors ligne'}</span>
-          </div>
-
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {user === undefined ? (
             <div
               style={{
@@ -253,16 +170,13 @@ export default function LandingPage() {
                 style={{
                   position: 'absolute',
                   inset: 0,
-                  background:
-                    'linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 5%, transparent), transparent)',
+                  background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 5%, transparent), transparent)',
                   animation: 'shimmer 1.5s infinite',
                 }}
               />
             </div>
           ) : user ? (
-            <motion.a
-              whileHover={noAnim ? undefined : { scale: 1.02 }}
-              whileTap={noAnim ? undefined : { scale: 0.98 }}
+            <a
               href="/servers"
               style={{
                 display: 'inline-flex',
@@ -282,196 +196,173 @@ export default function LandingPage() {
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               Dashboard
-            </motion.a>
+            </a>
           ) : (
-            <motion.a
-              whileHover={noAnim ? undefined : { scale: 1.02 }}
-              whileTap={noAnim ? undefined : { scale: 0.98 }}
+            <a
               href="/auth/login"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6,
-                padding: '8px 16px',
-                border: '1px solid var(--border-color)',
-                background: 'transparent',
-                color: 'var(--text-primary)',
+                gap: 8,
+                padding: '10px 20px',
+                border: 'none',
+                backgroundColor: '#5865F2',
+                color: '#ffffff',
                 fontSize: 13,
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: 'pointer',
                 textDecoration: 'none',
-                transition: 'background-color 0.15s',
+                transition: 'background-color 0.15s, transform 0.15s',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#4752C4'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#5865F2'; }}
             >
-              Login
-            </motion.a>
+              <svg width="16" height="16" viewBox="0 0 127.14 96.36" fill="currentColor">
+                <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
+              </svg>
+              Se connecter avec Discord
+            </a>
           )}
         </div>
       </header>
 
-      {/* ──────────── ALPHA BANNER ──────────── */}
-      {!alphaDismissed && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: 40,
-            backgroundColor: 'var(--bg-surface)',
-            borderBottom: '1px solid var(--border-color)',
-            padding: '0 16px',
-            fontSize: 12,
-            color: 'var(--text-secondary)',
-            gap: 6,
-          }}
-        >
-          <span>🚧 Pinguin Boat est en Early Alpha — des bugs peuvent survenir.</span>
-          <a
-            href="https://discord.gg/EJHhcYkXMQ"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap' }}
-          >
-            Rejoindre le Discord →
-          </a>
-          <button
-            type="button"
-            onClick={() => setAlphaDismissed(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              padding: 4,
-              marginLeft: 8,
-              display: 'flex',
-              alignItems: 'center',
-              flexShrink: 0,
-            }}
-            aria-label="Fermer"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {/* ──────────── HERO ──────────── */}
+      {/* ─── HERO ─── */}
       <section
         style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          minHeight: alphaDismissed ? 'calc(100vh - 60px)' : 'calc(100vh - 100px)',
-          ...sectionPadded,
+          minHeight: '100vh',
+          padding: '120px 24px 80px',
           textAlign: 'center',
+          position: 'relative',
+          background: `radial-gradient(ellipse 80% 60% at 50% -20%, color-mix(in srgb, var(--accent) 6%, transparent), transparent),
+                       radial-gradient(ellipse 60% 50% at 80% 80%, color-mix(in srgb, var(--accent) 3%, transparent), transparent),
+                       var(--bg-primary)`,
         }}
       >
+        {/* Geometric pattern overlay */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            opacity: 0.03,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            pointerEvents: 'none',
+          }}
+        />
+
         <motion.div
-          initial={mInit}
+          initial={noAnim ? undefined : { opacity: 0, y: 30 }}
           animate={noAnim ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0 }}
-          style={{ marginBottom: 24 }}
+          transition={{ duration: 0.7 }}
+          style={{ marginBottom: 32, position: 'relative' }}
         >
-          <Logo size={64} />
+          <Logo size={80} />
         </motion.div>
 
         <motion.h1
-          initial={mInit}
+          initial={noAnim ? undefined : { opacity: 0, y: 30 }}
           animate={noAnim ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0 }}
+          transition={{ duration: 0.7, delay: 0.1 }}
           style={{
-            fontSize: 'clamp(2.5rem, 6vw, 5rem)',
+            fontSize: 'clamp(1.75rem, 5vw, 3.5rem)',
             fontWeight: 700,
             color: 'var(--text-primary)',
             margin: 0,
-            lineHeight: 1.1,
+            lineHeight: 1.15,
+            letterSpacing: '-0.02em',
+            position: 'relative',
           }}
         >
-          PINGUIN BOAT
+          Pinguin{' '}
+          <span style={{ color: 'var(--text-secondary)' }}>—</span>{' '}
+          <span style={{ color: 'var(--accent)' }}>Le bot Discord tout-en-un</span>
         </motion.h1>
 
         <motion.p
-          initial={mInit}
+          initial={noAnim ? undefined : { opacity: 0, y: 30 }}
           animate={noAnim ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
+          transition={{ duration: 0.7, delay: 0.2 }}
           style={{
-            fontSize: '1.1rem',
+            fontSize: 'clamp(0.95rem, 1.5vw, 1.15rem)',
             color: 'var(--text-secondary)',
             marginTop: 16,
             marginBottom: 48,
-            maxWidth: 480,
+            maxWidth: 540,
+            lineHeight: 1.6,
           }}
         >
-          Le bot Discord forgé pour la communauté Pinguin Empire
+          Modération, tickets, sondages, logs, économie, musique, niveaux et bien plus.
+          Gérez et personnalisez l'intégralité de votre serveur depuis un seul endroit.
         </motion.p>
 
-        {/* Stats */}
         <motion.div
-          ref={statsRef}
-          initial={mInit}
+          initial={noAnim ? undefined : { opacity: 0, y: 30 }}
           animate={noAnim ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 0,
-            marginBottom: 48,
-            flexWrap: 'wrap',
-          }}
-        >
-          <StatItem
-            value={stats === null ? <StatSkeleton /> : `${fmt(guildsCount)}${stats.guilds >= 10000 ? '+' : ''}`}
-            label="serveurs"
-          />
-          <Divider />
-          <StatItem
-            value={stats === null ? <StatSkeleton /> : `${fmt(membersCount)}${stats.members >= 10000 ? '+' : ''}`}
-            label="membres"
-          />
-          <Divider />
-          <StatItem
-            value={stats === null ? <StatSkeleton /> : `${fmt(commandsCount)}+`}
-            label="commandes utilisées"
-          />
-        </motion.div>
-
-        {/* CTA */}
-        <motion.div
-          initial={mInit}
-          animate={noAnim ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.45 }}
+          transition={{ duration: 0.7, delay: 0.3 }}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}
         >
-          <motion.a
-            href="#invite-bot"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              backgroundColor: 'var(--accent)',
-              color: 'var(--bg-primary)',
-              padding: '10px 24px',
-              border: 'none',
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: 'pointer',
-              textDecoration: 'none',
-              transition: 'background-color 0.15s',
-            }}
-            whileHover={noAnim ? undefined : { scale: 1.02 }}
-            whileTap={noAnim ? undefined : { scale: 0.98 }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--accent-hover)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--accent)'; }}
-          >
-            <UserPlus size={16} />
-            Inviter le bot
-          </motion.a>
-          <motion.a
-            href="https://pinguin.ovh/"
+          {user ? (
+            <a
+              href="/servers"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: 'var(--accent)',
+                color: 'var(--bg-primary)',
+                padding: '12px 28px',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: 'pointer',
+                textDecoration: 'none',
+                transition: 'background-color 0.15s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--accent-hover)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--accent)'; }}
+            >
+              Dashboard
+              <ChevronRight size={16} />
+            </a>
+          ) : (
+            <a
+              href="/auth/login"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+                backgroundColor: '#5865F2',
+                color: '#ffffff',
+                padding: '14px 32px',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: 15,
+                cursor: 'pointer',
+                textDecoration: 'none',
+                transition: 'background-color 0.15s, transform 0.15s',
+                boxShadow: '0 4px 24px color-mix(in srgb, #5865F2 30%, transparent)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#4752C4';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#5865F2';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 127.14 96.36" fill="currentColor">
+                <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
+              </svg>
+              Se connecter avec Discord
+            </a>
+          )}
+
+          <a
+            href="https://discord.gg/EJHhcYkXMQ"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -480,7 +371,7 @@ export default function LandingPage() {
               gap: 8,
               backgroundColor: 'transparent',
               color: 'var(--text-primary)',
-              padding: '10px 24px',
+              padding: '12px 24px',
               border: '1px solid var(--border-color)',
               fontWeight: 500,
               fontSize: 14,
@@ -488,8 +379,6 @@ export default function LandingPage() {
               textDecoration: 'none',
               transition: 'background-color 0.15s, border-color 0.15s',
             }}
-            whileHover={noAnim ? undefined : { scale: 1.02 }}
-            whileTap={noAnim ? undefined : { scale: 0.98 }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
               e.currentTarget.style.borderColor = 'var(--accent)';
@@ -499,48 +388,109 @@ export default function LandingPage() {
               e.currentTarget.style.borderColor = 'var(--border-color)';
             }}
           >
-            <ExternalLink size={16} />
-            Pinguin Empire
-          </motion.a>
+            <MessageCircle size={16} />
+            Communauté
+          </a>
+        </motion.div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.5, duration: 0.6 }}
+          style={{
+            position: 'absolute',
+            bottom: 40,
+            left: '50%',
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <motion.div
+            animate={noAnim ? undefined : { y: [0, 8, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              width: 20,
+              height: 32,
+              border: '1.5px solid var(--text-secondary)',
+              display: 'flex',
+              justifyContent: 'center',
+              paddingTop: 6,
+            }}
+          >
+            <div
+              style={{
+                width: 2,
+                height: 8,
+                backgroundColor: 'var(--text-secondary)',
+              }}
+            />
+          </motion.div>
         </motion.div>
       </section>
 
-      {/* ──────────── FEATURES ──────────── */}
-      <section style={{ ...sectionPadded, maxWidth: 1040, margin: '0 auto' }}>
+      {/* ─── FEATURES ─── */}
+      <section
+        style={{
+          padding: '100px 24px',
+          maxWidth: 1100,
+          margin: '0 auto',
+          width: '100%',
+        }}
+      >
         <motion.div
-          initial={mInit}
+          initial={noAnim ? undefined : { opacity: 0, y: 20 }}
           whileInView={noAnim ? undefined : { opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          style={{ textAlign: 'center', marginBottom: 48 }}
+          transition={{ duration: 0.5 }}
+          style={{ textAlign: 'center', marginBottom: 56 }}
         >
           <div
             style={{
-              fontSize: '0.75rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 12px',
+              border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)',
+              color: 'var(--accent)',
+              fontSize: 11,
               fontWeight: 600,
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              color: 'var(--text-secondary)',
-              marginBottom: 8,
+              marginBottom: 16,
             }}
           >
             Fonctionnalités
           </div>
           <h2
             style={{
-              fontSize: '1.5rem',
+              fontSize: 'clamp(1.35rem, 3vw, 2rem)',
+              fontWeight: 700,
               color: 'var(--text-primary)',
               margin: 0,
+              letterSpacing: '-0.01em',
             }}
           >
             Tout ce dont votre serveur a besoin
           </h2>
+          <p
+            style={{
+              fontSize: 14,
+              color: 'var(--text-secondary)',
+              marginTop: 12,
+              maxWidth: 480,
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              lineHeight: 1.6,
+            }}
+          >
+            Des outils complets pour modérer, engager et développer votre communauté Discord.
+          </p>
         </motion.div>
 
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: 16,
           }}
         >
@@ -552,26 +502,45 @@ export default function LandingPage() {
                 initial={noAnim ? undefined : { opacity: 0, y: 20 }}
                 whileInView={noAnim ? undefined : { opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: noAnim ? 0 : i * 0.1 }}
-                whileHover={noAnim ? undefined : { y: -2 }}
+                transition={{ duration: 0.5, delay: noAnim ? 0 : i * 0.08 }}
+                whileHover={noAnim ? undefined : { y: -4 }}
                 style={{
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-color)',
-                  padding: 20,
-                  transition: 'border-color 0.15s',
+                  padding: 24,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  transition: 'border-color 0.2s, background-color 0.2s',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--accent)';
+                  e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--accent) 3%, var(--bg-surface))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-color)';
+                  e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+                }}
               >
-                <div style={{ color: 'var(--accent)', marginBottom: 12 }}>
-                  <Icon size={20} />
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+                    color: 'var(--accent)',
+                    marginBottom: 16,
+                  }}
+                >
+                  <Icon size={18} />
                 </div>
                 <div
                   style={{
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: 600,
                     color: 'var(--text-primary)',
-                    marginBottom: 6,
+                    marginBottom: 8,
                   }}
                 >
                   {f.title}
@@ -580,7 +549,7 @@ export default function LandingPage() {
                   style={{
                     fontSize: 13,
                     color: 'var(--text-secondary)',
-                    lineHeight: 1.5,
+                    lineHeight: 1.6,
                   }}
                 >
                   {f.description}
@@ -591,131 +560,153 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ──────────── COMMANDS ──────────── */}
-      <section style={{ ...sectionPadded, maxWidth: 720, margin: '0 auto' }}>
-        <motion.div
-          initial={mInit}
-          whileInView={noAnim ? undefined : { opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          style={{ textAlign: 'center', marginBottom: 48 }}
-        >
-          <div
-            style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--text-secondary)',
-              marginBottom: 8,
-            }}
-          >
-            Commandes
-          </div>
-          <h2
-            style={{
-              fontSize: '1.5rem',
-              color: 'var(--text-primary)',
-              margin: 0,
-            }}
-          >
-            Les commandes les plus utilisées
-          </h2>
-        </motion.div>
-
-        <motion.div
-          initial={noAnim ? undefined : { opacity: 0, x: -30 }}
-          whileInView={noAnim ? undefined : { opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          style={{
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-color)',
-          }}
-        >
-          {/* Terminal header */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '12px 20px',
-              borderBottom: '1px solid var(--border-color)',
-            }}
-          >
-            <span style={{ width: 8, height: 8, backgroundColor: 'var(--error)', display: 'inline-block' }} />
-            <span style={{ width: 8, height: 8, backgroundColor: 'var(--warning)', display: 'inline-block' }} />
-            <span style={{ width: 8, height: 8, backgroundColor: 'var(--success)', display: 'inline-block' }} />
-            <span style={{ marginLeft: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
-              pinguin-boat ~ /commands
-            </span>
-          </div>
-
-          <div style={{ padding: '4px 0' }}>
-            {COMMANDS.map((cmd, i) => (
-              <motion.div
-                key={cmd.name}
-                initial={noAnim ? undefined : { opacity: 0, x: -20 }}
-                whileInView={noAnim ? undefined : { opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.3, delay: noAnim ? 0 : i * 0.08 }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '10px 20px',
-                    borderBottom: i < COMMANDS.length - 1 ? '1px solid var(--border-color)' : 'none',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <span style={{ color: 'var(--accent)', fontWeight: 600, fontSize: 13 }}>/</span>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 13 }}>{cmd.name}</span>
-                  {cmd.args && (
-                    <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{cmd.args}</span>
-                  )}
-                  <span
-                    style={{
-                      color: 'var(--text-secondary)',
-                      fontSize: 12,
-                      marginLeft: 'auto',
-                    }}
-                  >
-                    {cmd.description}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      </section>
-
-      {/* ──────────── FOOTER ──────────── */}
-      <footer
+      {/* ─── STATS ─── */}
+      <section
+        ref={statsRef}
         style={{
+          padding: '80px 24px',
+          position: 'relative',
           borderTop: '1px solid var(--border-color)',
-          backgroundColor: 'var(--bg-sidebar)',
-          padding: 24,
+          borderBottom: '1px solid var(--border-color)',
+          background: `linear-gradient(180deg, var(--bg-primary) 0%, color-mix(in srgb, var(--accent) 2%, var(--bg-primary)) 50%, var(--bg-primary) 100%)`,
         }}
       >
         <div
           style={{
-            maxWidth: 1040,
+            maxWidth: 900,
             margin: '0 auto',
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             gap: 32,
+            textAlign: 'center',
           }}
         >
-          <div>
-            <Logo withText size={24} />
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 12, marginBottom: 8 }}>
-              Forgé pour la communauté
+          <StatCard
+            value={stats === null ? '—' : `${fmt(guildsCount)}`}
+            label="Serveurs"
+            visible={statsVisible}
+            index={0}
+            noAnim={noAnim}
+          />
+          <StatCard
+            value={stats === null ? '—' : `${fmt(usersCount)}+`}
+            label="Membres"
+            visible={statsVisible}
+            index={1}
+            noAnim={noAnim}
+          />
+          <StatCard
+            value={stats === null ? '—' : `${fmt(commandsCount)}+`}
+            label="Commandes exécutées"
+            visible={statsVisible}
+            index={2}
+            noAnim={noAnim}
+          />
+        </div>
+      </section>
+
+      {/* ─── CTA ─── */}
+      <section
+        style={{
+          padding: '100px 24px',
+          textAlign: 'center',
+          maxWidth: 600,
+          margin: '0 auto',
+        }}
+      >
+        <motion.div
+          initial={noAnim ? undefined : { opacity: 0, y: 20 }}
+          whileInView={noAnim ? undefined : { opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+        >
+          <h2
+            style={{
+              fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              margin: '0 0 16px',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Prêt à simplifier la gestion de votre serveur&nbsp;?
+          </h2>
+          <p
+            style={{
+              fontSize: 14,
+              color: 'var(--text-secondary)',
+              marginBottom: 32,
+              lineHeight: 1.6,
+            }}
+          >
+            Rejoignez des milliers de serveurs qui font confiance à Pinguin pour la modération,
+            les tickets et bien plus encore.
+          </p>
+          {!user && (
+            <a
+              href="/auth/login"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+                backgroundColor: '#5865F2',
+                color: '#ffffff',
+                padding: '14px 32px',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: 15,
+                cursor: 'pointer',
+                textDecoration: 'none',
+                transition: 'background-color 0.15s, transform 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#4752C4';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#5865F2';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 127.14 96.36" fill="currentColor">
+                <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
+              </svg>
+              Commencer maintenant
+            </a>
+          )}
+        </motion.div>
+      </section>
+
+      {/* ─── FOOTER ─── */}
+      <footer
+        style={{
+          borderTop: '1px solid var(--border-color)',
+          backgroundColor: 'var(--bg-sidebar)',
+          padding: '48px 24px 24px',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1100,
+            margin: '0 auto',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 48,
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{ maxWidth: 260 }}>
+            <Logo withText size={22} />
+            <p
+              style={{
+                fontSize: 13,
+                color: 'var(--text-secondary)',
+                marginTop: 12,
+                lineHeight: 1.6,
+              }}
+            >
+              Le bot Discord tout-en-un pour modérer, engager et développer votre communauté.
             </p>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)', letterSpacing: '0.08em' }}>
-              v1.0.0-alpha
-            </span>
           </div>
 
           <div>
@@ -726,16 +717,37 @@ export default function LandingPage() {
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 color: 'var(--text-secondary)',
-                marginBottom: 12,
+                marginBottom: 16,
               }}
             >
               Liens
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <FooterLink href="https://pinguin.ovh/" label="Pinguin Empire" />
-              <FooterLink href="https://discord.gg/EJHhcYkXMQ" label="Discord Support" />
-              <FooterLink href="#invite-bot" label="Inviter le bot" />
-              <FooterLink href="/servers" label="Dashboard" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {FOOTER_LINKS.map((link) => {
+                const LinkIcon = link.icon;
+                return (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 13,
+                      color: 'var(--text-secondary)',
+                      textDecoration: 'none',
+                      transition: 'color 0.15s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                  >
+                    <LinkIcon size={14} />
+                    {link.label}
+                  </a>
+                );
+              })}
             </div>
           </div>
 
@@ -747,22 +759,27 @@ export default function LandingPage() {
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 color: 'var(--text-secondary)',
-                marginBottom: 12,
+                marginBottom: 16,
               }}
             >
-              Statut
+              Produit
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <a
+                href="/auth/login"
                 style={{
-                  width: 8,
-                  height: 8,
-                  backgroundColor: botOnline ? 'var(--success)' : 'var(--error)',
-                  display: 'inline-block',
+                  fontSize: 13,
+                  color: 'var(--text-secondary)',
+                  textDecoration: 'none',
+                  transition: 'color 0.15s',
                 }}
-              />
-              <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
-                {botOnline ? 'Tous les systèmes opérationnels' : 'Dégradé'}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
+              >
+                Connexion
+              </a>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                v1.0.0-alpha
               </span>
             </div>
           </div>
@@ -770,15 +787,23 @@ export default function LandingPage() {
 
         <div
           style={{
-            maxWidth: 1040,
-            margin: '24px auto 0',
+            maxWidth: 1100,
+            margin: '40px auto 0',
             borderTop: '1px solid var(--border-color)',
-            paddingTop: 16,
-            textAlign: 'center',
+            paddingTop: 20,
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
           }}
         >
           <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
-            © 2026 Pinguin Empire — Tous droits réservés
+            © {new Date().getFullYear()} Pinguin Empire — Tous droits réservés
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+            Propulsé par{' '}
+            <span style={{ color: 'var(--accent)' }}>Pinguin Bot</span>
           </p>
         </div>
       </footer>
@@ -788,64 +813,56 @@ export default function LandingPage() {
 
 // ─── Sub-components ────────────────────────────────────────────────────
 
-function StatItem({ value, label }: { value: React.ReactNode; label: string }) {
+function StatCard({
+  value,
+  label,
+  visible,
+  index,
+  noAnim,
+}: {
+  value: string;
+  label: string;
+  visible: boolean;
+  index: number;
+  noAnim: boolean;
+}) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '0 16px',
-      }}
+    <motion.div
+      initial={noAnim ? undefined : { opacity: 0, y: 20 }}
+      animate={visible || noAnim ? { opacity: 1, y: 0 } : undefined}
+      transition={{ duration: 0.5, delay: noAnim ? 0 : index * 0.15 }}
     >
-      <span style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-        {value}
-      </span>
-      <span
+      <div
         style={{
-          fontSize: '0.75rem',
+          fontSize: 'clamp(2rem, 4vw, 3rem)',
+          fontWeight: 700,
+          color: 'var(--accent)',
+          lineHeight: 1.1,
+          letterSpacing: '-0.02em',
+        }}
+      >
+        {value}
+      </div>
+      <div
+        style={{
+          fontSize: 13,
           fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
           color: 'var(--text-secondary)',
-          marginTop: 4,
+          marginTop: 6,
+          letterSpacing: '0.04em',
         }}
       >
         {label}
-      </span>
-    </div>
-  );
-}
-
-function Divider() {
-  return (
-    <span
-      style={{
-        width: 1,
-        height: 48,
-        backgroundColor: 'var(--border-color)',
-        flexShrink: 0,
-      }}
-    />
-  );
-}
-
-function FooterLink({ href, label }: { href: string; label: string }) {
-  const isExternal = href.startsWith('http');
-  return (
-    <a
-      href={href}
-      {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-      style={{
-        fontSize: 13,
-        color: 'var(--text-secondary)',
-        textDecoration: 'none',
-        transition: 'color 0.15s',
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
-    >
-      {label}
-    </a>
+      </div>
+      <div
+        style={{
+          width: 40,
+          height: 2,
+          backgroundColor: 'var(--accent)',
+          margin: '12px auto 0',
+          opacity: 0.4,
+        }}
+      />
+    </motion.div>
   );
 }

@@ -411,7 +411,7 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
             style={{
               display: 'flex',
               flexDirection: 'column',
-              width: 260,
+              width: 256,
               height: '100vh',
               position: 'fixed',
               top: 0,
@@ -419,7 +419,7 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
               zIndex: 51,
               overflow: 'hidden',
             }}
-            className="hidden lg:flex"
+            className="hidden lg:flex w-64"
           >
             {sidebarContent}
           </motion.div>

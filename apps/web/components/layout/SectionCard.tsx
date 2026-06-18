@@ -54,7 +54,7 @@ export function SectionCard({
           {icon && <span className="text-[var(--text-secondary)]">{icon}</span>}
           <div className="flex items-center gap-2">
             <div>
-              <span className="text-sm font-semibold text-[var(--text-primary)]">{title}</span>
+              <span className="text-base font-semibold text-[var(--text-primary)]">{title}</span>
               {description && (
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>
               )}

@@ -85,7 +85,7 @@ export default function ConnectedUsersPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">Utilisateurs connectés</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Utilisateurs connectés</h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Sessions actives en temps réel. Refresh automatique toutes les 15s.
           </p>

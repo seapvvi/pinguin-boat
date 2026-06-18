@@ -70,7 +70,7 @@ export default function OwnerPremiumPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[var(--text-primary)]">Gestion Premium</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Gestion Premium</h1>
         <p className="text-sm text-[var(--text-secondary)] mt-1">Gérez les plans premium, feature flags et accès.</p>
       </div>
 

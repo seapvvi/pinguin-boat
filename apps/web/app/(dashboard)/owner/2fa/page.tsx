@@ -97,7 +97,7 @@ export default function Owner2FAPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[var(--text-primary)]">Authentification à deux facteurs</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Authentification à deux facteurs</h1>
         <p className="text-sm text-[var(--text-secondary)] mt-1">Sécurisez votre accès owner avec 2FA.</p>
       </div>
 

@@ -53,7 +53,7 @@ export function Table<T>({
   return (
     <div className="w-full overflow-x-auto">
       <table
-        className={cn('w-full border-collapse text-sm text-[var(--text-primary)]', className)}
+        className={cn('w-full border-collapse text-base text-[var(--text-primary)]', className)}
       >
         <thead>
           <tr className="border-b border-[var(--border-color)]">

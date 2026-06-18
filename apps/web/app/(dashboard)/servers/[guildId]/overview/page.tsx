@@ -1,16 +1,16 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Shield, Scale, Activity,
   MessageSquare, Terminal, Music, Gift,
   Gamepad2, Star, ClipboardList, Users,
-  Hash, Clock, Command,
+  Hash, Clock, Command, ArrowLeft,
 } from 'lucide-react';
-import { Badge, Toggle } from '@pinguin/ui';
+import { Badge, Toggle, Button } from '@pinguin/ui';
 import { EmptyState, ErrorMessage } from '@pinguin/ui';
 import { SkeletonPage } from '@/components/layout/SkeletonPage';
-import { fetchGuildSettings, fetchModCases, updateGuildSettings, fetchAuditLogs } from '@/lib/api';
+import { fetchOwnerServer, fetchModCases, updateGuildSettings, fetchAuditLogs } from '@/lib/api';
 import { formatNumber, formatDate } from '@/lib/utils';
 import type { GuildConfig, ModCase } from '@pinguin/shared';
 import { ModuleName } from '@pinguin/shared';
@@ -21,6 +21,7 @@ import { PageLayout, SectionCard, ModuleGrid } from '@/components/layout';
 
 export default function GuildOverviewPage() {
   const { guildId } = useParams<{ guildId: string }>();
+  const router = useRouter();
   const [config, setConfig] = useState<GuildConfig | null>(null);
   const [cases, setCases] = useState<ModCase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +56,7 @@ export default function GuildOverviewPage() {
     setError(null);
     try {
       const [settingsRes, casesRes, auditRes] = await Promise.all([
-        fetchGuildSettings(guildId),
+        fetchOwnerServer(guildId),
         fetchModCases(guildId, { page: '1', limit: '5' }),
         fetchAuditLogs(guildId, { page: '1', limit: '10' }),
       ]);
@@ -68,7 +69,8 @@ export default function GuildOverviewPage() {
       if (casesRes.success && casesRes.data) setCases(casesRes.data.cases ?? []);
       if (auditRes.success && auditRes.data) setRecentActivity(auditRes.data.entries ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur de chargement');
+      const is404 = e instanceof Error && e.message.includes('404');
+      setError(is404 ? 'Serveur introuvable' : (e instanceof Error ? e.message : 'Erreur de chargement'));
     } finally {
       setLoading(false);
     }
@@ -108,6 +110,18 @@ export default function GuildOverviewPage() {
   const animatedCases = useCountUp(cases.length || 0, 700);
 
   if (error) {
+    if (error === 'Serveur introuvable') {
+      return (
+        <PageLayout title="Serveur introuvable">
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <p className="text-[var(--text-secondary)] text-lg">Ce serveur est introuvable ou le bot n'y a pas accès.</p>
+            <Button onClick={() => router.push('/servers')}>
+              <ArrowLeft size={16} /> Retour à la liste des serveurs
+            </Button>
+          </div>
+        </PageLayout>
+      );
+    }
     return (
       <PageLayout title="Aperçu du serveur">
         <ErrorMessage title="Erreur" message={error} onRetry={load} />

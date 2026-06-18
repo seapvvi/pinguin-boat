@@ -299,7 +299,7 @@ export default function OwnerDashboardPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-8">
       <div className="mb-2">
-        <h1 className="text-xl font-semibold text-[var(--text-primary)]">Panel Owner</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Panel Owner</h1>
         <p className="text-sm text-[var(--text-secondary)] mt-1">Administration et gestion avancée de Pinguin BOAT.</p>
         {actionError && (
           <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--error)] bg-[var(--error)]/10 p-3 text-sm text-[var(--error)]">
@@ -309,7 +309,7 @@ export default function OwnerDashboardPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {loading ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-[var(--radius)]" />) : (
           <>
             <KPICard icon={<Server size={20} />} label="Serveurs" value={formatNumber(stats?.totalGuilds ?? 0)} />
@@ -324,7 +324,7 @@ export default function OwnerDashboardPage() {
       {/* Actions + Services */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 p-4">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Actions rapides</h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Actions rapides</h2>
           {loading ? (
             <div className="grid grid-cols-2 gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-[var(--radius-sm)]" />)}</div>
           ) : (
@@ -354,7 +354,7 @@ export default function OwnerDashboardPage() {
         </Card>
 
         <Card className="p-4">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Santé des services</h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)] mb-4">Santé des services</h2>
           {loading ? (
             <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-[var(--radius-sm)]" />)}</div>
           ) : (
@@ -379,7 +379,7 @@ export default function OwnerDashboardPage() {
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-4">
           <Heart size={16} className="text-[var(--accent)]" />
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Gestion des donateurs</h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Gestion des donateurs</h2>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
@@ -438,7 +438,7 @@ export default function OwnerDashboardPage() {
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-4">
           <FileText size={16} className="text-[var(--accent)]" />
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Changelogs</h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Changelogs</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <Input label="Titre *" value={clForm.title} onChange={(e) => setClForm({ ...clForm, title: e.target.value })} placeholder="v2.5.0 — Nouvelles fonctionnalités" />
@@ -490,7 +490,7 @@ export default function OwnerDashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <StickyNote size={16} className="text-[var(--accent)]" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Notes internes</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Notes internes</h2>
           </div>
           <span className="text-xs text-[var(--text-secondary)]">
             {notesSaving ? 'Sauvegarde…' : notesSaved ? '✓ Sauvegardé' : 'Auto-save 1.5s'}
@@ -511,7 +511,7 @@ export default function OwnerDashboardPage() {
       {/* Logs owner */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Actions owner récentes</h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Actions owner récentes</h2>
           <Activity size={16} className="text-[var(--text-secondary)]" />
         </div>
         {loading ? (
@@ -540,7 +540,7 @@ export default function OwnerDashboardPage() {
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-4">
           <Activity size={16} className="text-[var(--accent)]" />
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Sources d'acquisition</h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Sources d'acquisition</h2>
         </div>
 
         {sourceLoading ? (

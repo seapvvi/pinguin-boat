@@ -17,17 +17,19 @@ async function storeHash(hashValue: string): Promise<void> {
 export async function ensureOwnerPasswordHash(): Promise<void> {
   const config = getConfig();
   const existing = await getStoredHash();
-  if (existing) return;
-
-  if (!config.OWNER_PASSWORD) {
-    console.warn('[OwnerPassword] OWNER_PASSWORD non configuré');
+  if (existing) {
+    console.log('[OWNER] Hash mot de passe owner initialisé');
     return;
   }
 
-  console.warn('[OwnerPassword] Aucun hash trouvé en base — hachage du mot de passe .env...');
+  if (!config.OWNER_PASSWORD) {
+    console.warn('[OWNER] OWNER_PASSWORD non configuré');
+    return;
+  }
+
   const hashed = await hash(config.OWNER_PASSWORD, BCRYPT_ROUNDS);
   await storeHash(hashed);
-  console.warn('[OwnerPassword] Hash stocké avec succès. Vous pouvez supprimer OWNER_PASSWORD du .env si souhaité.');
+  console.log('[OWNER] Hash mot de passe owner initialisé');
 }
 
 export async function verifyOwnerPassword(password: string): Promise<boolean> {

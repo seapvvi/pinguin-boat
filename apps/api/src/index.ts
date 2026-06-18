@@ -181,6 +181,26 @@ async function main() {
     limit: z.coerce.number().int().min(1).max(50).default(10),
   });
 
+  app.get('/api/stats/public', async (_request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const [guildCount, memberAgg, commandCount] = await Promise.all([
+        prisma.guild.count({ where: { botPresent: true } }),
+        prisma.guild.aggregate({
+          where: { botPresent: true },
+          _sum: { memberCount: true },
+        }),
+        prisma.auditLog.count(),
+      ]);
+      reply.send(success({
+        totalGuilds: guildCount,
+        totalUsers: memberAgg._sum.memberCount ?? 0,
+        totalCommands: commandCount,
+      }));
+    } catch (err: unknown) {
+      reply.status(500).send(error(sanitizeError(err)));
+    }
+  });
+
   app.get('/api/stats', {
     preHandler: [authenticate],
     config: {
