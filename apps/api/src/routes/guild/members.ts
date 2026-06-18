@@ -97,16 +97,16 @@ export async function membersRoutes(app: FastifyInstance) {
       const page = Math.max(1, parseInt((request.query as Record<string, string | undefined>).page ?? '1', 10) || 1);
       const limit = Math.min(100, Math.max(1, parseInt((request.query as Record<string, string | undefined>).limit ?? '20', 10) || 20));
       const [entries, total] = await Promise.all([
-        prisma.guildBlacklist.findMany({
+        prisma.guildBlacklistUser.findMany({
           where: { guildId },
           orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit, take: limit,
           include: { user: { select: { username: true, discordId: true } } },
         }),
-        prisma.guildBlacklist.count({ where: { guildId } }),
+        prisma.guildBlacklistUser.count({ where: { guildId } }),
       ]);
       reply.send(success({
-        entries: entries.map((e) => ({
+        entries: entries.map((e: typeof entries[number]) => ({
           id: e.id, targetId: e.userId, targetType: 'USER', reason: e.reason,
           moderatorId: e.moderatorId, createdAt: e.createdAt.toISOString(),
           targetName: e.user?.username ?? null,

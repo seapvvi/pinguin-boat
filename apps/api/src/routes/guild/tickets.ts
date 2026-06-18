@@ -4,7 +4,8 @@ import { authenticate } from '../../middleware/auth';
 import { validateParams } from '../../middleware/validate';
 import { success, error, sanitizeError } from '../../utils/response';
 import { guildIdSchema, ticketIdSchema, ensureUser } from '../../utils/guild-helpers';
-import { createGuildChannel, sendChannelMessage, editChannel, getChannelMessages, getBotUserId, DISCORD_PERMISSIONS } from '../../services/discord';
+import { DISCORD_PERMISSIONS } from '@pinguin/shared';
+import { createGuildChannel, sendChannelMessage, editChannel, getChannelMessages, getBotUserId } from '../../services/discord';
 import { closeTicketWithTranscript } from '../../services/ticket-close';
 import { generateTicketTranscriptHtml } from '../../services/pastebin';
 

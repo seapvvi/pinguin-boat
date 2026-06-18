@@ -114,7 +114,7 @@ async function backupDatabase(backupsPath: string, version: string): Promise<str
 
   execSync(`pg_dump "${config.DATABASE_URL}" > "${filepath}"`, {
     timeout: 60_000,
-    shell: true,
+    shell: '/bin/sh',
     env: { ...process.env, PGPASSWORD: '' },
   });
 

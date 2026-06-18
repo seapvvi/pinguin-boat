@@ -20,7 +20,7 @@ if (!config.OWNER_PASSWORD) {
   console.warn('[OWNER] OWNER_PASSWORD non configuré — la page owner dashboard sera inaccessible.');
 }
 const ownerPre = { preHandler: [authenticate, requireOwner] };
-const ownerBasePre = { preHandler: [authenticate, requireOwnerDiscordId] };
+const ownerBasePre = [authenticate, requireOwnerDiscordId];
 const VERIFY_PASSWORD_RATE = { max: 5, timeWindow: '1 minute' };
 const TFA_RATE = { max: 5, timeWindow: '1 minute' };
 const OWNER_RATE = { max: 30, timeWindow: '1 minute' };
