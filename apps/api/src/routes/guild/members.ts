@@ -116,31 +116,6 @@ export async function membersRoutes(app: FastifyInstance) {
   });
 
   // ─── Membres ───
-  app.get('/', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const { guildId } = request.params as { guildId: string };
-      const q = request.query as Record<string, string | undefined>;
-      const search = q.search ?? '';
-      const page = Math.max(1, parseInt(q.page ?? '1', 10) || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(q.limit ?? '20', 10) || 20));
-      const where = { guildId, userId: { contains: search } };
-      const [members, total] = await Promise.all([
-        prisma.guildMember.findMany({
-          where, orderBy: { createdAt: 'desc' },
-          skip: (page - 1) * limit, take: limit,
-        }),
-        prisma.guildMember.count({ where }),
-      ]);
-      reply.send(success({
-        members: members.map((m) => ({
-          id: m.id, userId: m.userId, guildId: m.guildId,
-          isOwner: m.isOwner, createdAt: m.createdAt.toISOString(),
-          updatedAt: m.updatedAt.toISOString(),
-        })),
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      }));
-    } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
-  });
 
   app.put('/:memberId', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
