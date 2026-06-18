@@ -16,14 +16,24 @@ async function storeHash(hashValue: string): Promise<void> {
 
 export async function ensureOwnerPasswordHash(): Promise<void> {
   const config = getConfig();
-  const existing = await getStoredHash();
-  if (existing) {
-    console.log('[OWNER] Hash mot de passe owner initialisé');
-    return;
-  }
 
   if (!config.OWNER_PASSWORD) {
     console.warn('[OWNER] OWNER_PASSWORD non configuré');
+    return;
+  }
+
+  const existing = await getStoredHash();
+
+  if (existing) {
+    const match = await compare(config.OWNER_PASSWORD, existing);
+    if (match) {
+      console.log('[OWNER] Hash mot de passe owner à jour');
+      return;
+    }
+    console.log('[OWNER] Mot de passe modifié — mise à jour du hash');
+    const hashed = await hash(config.OWNER_PASSWORD, BCRYPT_ROUNDS);
+    await storeHash(hashed);
+    console.log('[OWNER] Hash mot de passe owner mis à jour');
     return;
   }
 
