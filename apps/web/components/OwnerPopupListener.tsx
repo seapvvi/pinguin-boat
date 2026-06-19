@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Megaphone } from 'lucide-react';
+import { useSSE } from '@/hooks/useSSE';
 
 interface Popup {
   message: string;
@@ -12,33 +13,15 @@ export default function OwnerPopupListener() {
   const [popup, setPopup] = useState<Popup | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [canClose, setCanClose] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    const poll = async () => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-        const res = await fetch(`${apiUrl}/api/owner/broadcast-popup/poll`, {
-          credentials: 'include',
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const p = data?.data?.popup;
-        if (p) {
-          setPopup(p);
-          setRemaining(p.duration);
-          setCanClose(false);
-        }
-      } catch {}
-    };
-
-    poll();
-    intervalRef.current = setInterval(poll, 10000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
+  useSSE({
+    onPopup: (p) => {
+      setPopup(p);
+      setRemaining(p.duration);
+      setCanClose(false);
+    },
+  });
 
   useEffect(() => {
     if (!popup) return;

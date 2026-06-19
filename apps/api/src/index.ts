@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { getConfig } from '@pinguin/config';
 import { prisma } from '@pinguin/db';
 import { authRoutes } from './routes/auth';
-import { guildRoutes } from './routes/guilds';
+import { guildRoutes } from './routes/guild/index';
 import { overviewRoutes } from './routes/overview';
 import { ownerRoutes } from './routes/owner';
 import { deployRoutes } from './routes/deploy';
@@ -21,10 +21,12 @@ import { notificationRoutes } from './routes/notifications';
 import { blacklistRoutes } from './routes/blacklist';
 import { embedRoutes } from './routes/embeds';
 import { authenticate } from './middleware/auth';
+import { checkMaintenance } from './middleware/maintenanceCheck';
 import { success, error, paginated, sanitizeError, getErrorMessage } from './utils/response';
 import { ensureOwnerPasswordHash } from './services/ownerPassword';
 import { getSystemMetrics, getGlobalStats } from './services/metrics';
 import { botFetch } from './services/bot-proxy';
+import { startSessionCleanup } from './jobs/cleanup';
 
 const config = getConfig();
 
@@ -63,6 +65,8 @@ async function main() {
       });
     }
   });
+
+  app.addHook('onRequest', checkMaintenance);
 
   await app.register(rateLimit, {
     max: 100,
@@ -323,6 +327,8 @@ async function main() {
     internalApp.log.error(err);
     process.exit(1);
   }
+
+  startSessionCleanup();
 }
 
 main();

@@ -1801,6 +1801,19 @@ model GuildBackup {
   @@map("guild_backups")
 }
 
+/// Fenêtre de maintenance planifiée
+model MaintenanceWindow {
+  id        String   @id @default(cuid()) @map("id")
+  message   String   @map("message")
+  startsAt  DateTime @map("starts_at")
+  endsAt    DateTime @map("ends_at")
+  active    Boolean  @default(false) @map("active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([active, endsAt])
+  @@map("maintenance_windows")
+}
+
 /// Configuration de la carte de rang personnalisée
 model RankCardSettings {
   id                String   @id @default(cuid()) @map("id")

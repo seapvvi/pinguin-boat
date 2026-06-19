@@ -13,6 +13,7 @@ interface SectionCardProps {
   expandable?: boolean;
   defaultExpanded?: boolean;
   accent?: string;
+  isActive?: boolean;
   children: React.ReactNode;
 }
 
@@ -24,6 +25,7 @@ export function SectionCard({
   expandable = false,
   defaultExpanded = true,
   accent,
+  isActive,
   children,
 }: SectionCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -41,9 +43,14 @@ export function SectionCard({
   return (
     <motion.div
       variants={itemVariants}
-      className="w-full bg-[var(--bg-surface)] border border-[var(--border-color)]"
+      className="relative w-full bg-[var(--bg-surface)] border border-[var(--border-color)]"
       style={accent ? { borderLeft: `3px solid ${accent}` } : undefined}
     >
+      {isActive && (
+        <span className="absolute top-2 right-2 z-10 text-[10px] font-bold uppercase tracking-wider bg-[var(--accent-live)] text-white px-1.5 py-0.5">
+          ON
+        </span>
+      )}
       {/* HEADER */}
       <motion.div
         whileHover={{ borderColor: 'var(--border-color-strong)' }}
