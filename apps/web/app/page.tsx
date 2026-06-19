@@ -16,6 +16,7 @@ interface StatsData {
   totalGuilds: number;
   totalUsers: number;
   totalCommands: number;
+  totalModules?: number;
 }
 
 interface Feature {
@@ -95,8 +96,8 @@ const SOCIAL_PROOF_ITEMS = [
 
 const TERMINAL_LINES: TerminalLine[] = [
   { text: '$ pinguin status .............. ✓ Online', revealed: '', done: false },
-  { text: '$ guilds connected ............ 42', revealed: '', done: false },
-  { text: '$ commands registered ......... 156', revealed: '', done: false },
+  { text: '$ version ..................... v1.0.0-alpha', revealed: '', done: false },
+  { text: '$ modules loaded .............. 6', revealed: '', done: false },
   { text: '$ uptime ...................... 99.9%', revealed: '', done: false },
 ];
 
@@ -204,6 +205,10 @@ export default function LandingPage() {
   const [terminalReady, setTerminalReady] = useState(false);
   const statsRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
+  const mousePos = useRef({ x: 0, y: 0 });
+  const lerpPos = useRef({ x: 0, y: 0 });
+  const haloRef = useRef<HTMLDivElement>(null);
+  const rafMouseRef = useRef<number>(0);
 
   useEffect(() => {
     const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -229,12 +234,12 @@ export default function LandingPage() {
       .then((data) => {
         const d = data.data ?? data;
         setStats({
-          totalGuilds: d.totalGuilds ?? d.guilds ?? 42,
-          totalUsers: d.totalUsers ?? d.members ?? 1200,
-          totalCommands: d.totalCommands ?? d.commands ?? 10000,
+          totalGuilds: d.totalGuilds ?? d.guilds ?? 0,
+          totalUsers: d.totalUsers ?? d.members ?? 0,
+          totalCommands: d.totalCommands ?? d.commands ?? 0,
         });
       })
-      .catch(() => setStats({ totalGuilds: 42, totalUsers: 1200, totalCommands: 10000 }));
+      .catch(() => setStats({ totalGuilds: 0, totalUsers: 0, totalCommands: 0 }));
   }, []);
 
   useEffect(() => {
@@ -275,6 +280,44 @@ export default function LandingPage() {
     );
     obs.observe(el);
     return () => obs.disconnect();
+  }, [reducedMotion]);
+
+  // ─── Mouse parallax on hero ──────────────────────────────────────
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    const onMove = (e: MouseEvent) => {
+      const rect = hero.getBoundingClientRect();
+      mousePos.current = {
+        x: (e.clientX - rect.left) / rect.width,
+        y: (e.clientY - rect.top) / rect.height,
+      };
+    };
+
+    hero.addEventListener('mousemove', onMove);
+
+    const animate = () => {
+      lerpPos.current.x += (mousePos.current.x - lerpPos.current.x) * 0.04;
+      lerpPos.current.y += (mousePos.current.y - lerpPos.current.y) * 0.04;
+
+      if (haloRef.current) {
+        const dx = (lerpPos.current.x - 0.5) * 20;
+        const dy = (lerpPos.current.y - 0.5) * 20;
+        haloRef.current.style.transform = `translate(${dx}px, ${dy}px)`;
+      }
+
+      rafMouseRef.current = requestAnimationFrame(animate);
+    };
+
+    rafMouseRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      hero.removeEventListener('mousemove', onMove);
+      cancelAnimationFrame(rafMouseRef.current);
+    };
   }, [reducedMotion]);
 
   const guildsCount = useAnimatedCounter(stats?.totalGuilds ?? 0, statsVisible && stats !== null);
@@ -347,6 +390,38 @@ export default function LandingPage() {
               {link.label}
             </a>
           ))}
+
+          {/* Badge open source */}
+          <a
+            href="https://github.com/pinguin-empire/pinguin-bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden md:inline-flex"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              border: '1px solid var(--border-color)',
+              padding: '3px 8px',
+              fontSize: 10,
+              fontFamily: 'JetBrains Mono, monospace',
+              color: 'var(--text-secondary)',
+              textDecoration: 'none',
+              letterSpacing: '0.06em',
+              transition: 'border-color 150ms, color 150ms',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-color)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            <Github size={10} />
+            OPEN SOURCE
+          </a>
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -459,12 +534,15 @@ export default function LandingPage() {
 
         {/* Radial halo */}
         <div
+          ref={haloRef}
           style={{
             position: 'absolute',
-            inset: 0,
+            inset: '-20px',
             pointerEvents: 'none',
             background:
               'radial-gradient(ellipse 70% 50% at 50% 0%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 70%)',
+            willChange: 'transform',
+            transition: 'none',
           }}
         />
 
@@ -733,7 +811,7 @@ export default function LandingPage() {
                 }}
               >
                 {line.revealed}
-                {line.done && i === terminalLines.length - 1 && (
+                {line.done && i === terminalLines.length - 1 && !stats && (
                   <span
                     style={{
                       display: 'inline-block',
@@ -748,6 +826,30 @@ export default function LandingPage() {
                 )}
               </div>
             ))}
+            {stats && (
+              <div
+                style={{
+                  fontSize: 12,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.8,
+                  whiteSpace: 'pre',
+                }}
+              >
+                $ guilds connected ............ {stats.totalGuilds}
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 2,
+                    height: 14,
+                    backgroundColor: 'var(--accent)',
+                    marginLeft: 2,
+                    verticalAlign: 'middle',
+                    animation: 'blink 1s step-end infinite',
+                  }}
+                />
+              </div>
+            )}
           </div>
         </motion.div>
       </section>
@@ -773,7 +875,7 @@ export default function LandingPage() {
             letterSpacing: '0.15em',
             color: 'var(--text-secondary)',
             textAlign: 'center',
-            marginBottom: 48,
+            marginBottom: 8,
             fontFamily: 'JetBrains Mono, monospace',
           }}
         >
@@ -782,37 +884,66 @@ export default function LandingPage() {
 
         <div
           style={{
+            fontSize: 11,
+            fontFamily: 'JetBrains Mono, monospace',
+            textAlign: 'center',
+            color: 'var(--text-secondary)',
+            marginBottom: 40,
+          }}
+        >
+          Chiffres en temps réel depuis l'API
+        </div>
+
+        <div
+          style={{
             maxWidth: 1000,
             margin: '0 auto',
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
+            gridTemplateColumns: 'repeat(4, 1fr)',
             textAlign: 'center',
           }}
+          className="stats-grid"
         >
-          <StatCard
-            value={stats === null ? '—' : `${fmt(guildsCount)}`}
-            label="Serveurs"
-            visible={statsVisible}
-            index={0}
-            noAnim={noAnim}
-            hasBorder
-          />
-          <StatCard
-            value={stats === null ? '—' : `${fmt(usersCount)}+`}
-            label="Membres"
-            visible={statsVisible}
-            index={1}
-            noAnim={noAnim}
-            hasBorder
-          />
-          <StatCard
-            value={stats === null ? '—' : `${fmt(commandsCount)}+`}
-            label="Commandes exécutées"
-            visible={statsVisible}
-            index={2}
-            noAnim={noAnim}
-            hasBorder={false}
-          />
+          {stats === null
+            ? [0, 1, 2, 3].map((i) => (
+                <StatCard key={i} value="" label="" visible index={i} noAnim loading hasBorder={i < 3} />
+              ))
+            : (
+              <>
+                <StatCard
+                  value={guildsCount === 0 ? '—' : `${fmt(guildsCount)}`}
+                  label="Serveurs"
+                  visible={statsVisible}
+                  index={0}
+                  noAnim={noAnim}
+                  hasBorder
+                />
+                <StatCard
+                  value={usersCount === 0 ? '—' : `${fmt(usersCount)}+`}
+                  label="Membres"
+                  visible={statsVisible}
+                  index={1}
+                  noAnim={noAnim}
+                  hasBorder
+                />
+                <StatCard
+                  value={commandsCount === 0 ? '—' : `${fmt(commandsCount)}+`}
+                  label="Commandes exécutées"
+                  visible={statsVisible}
+                  index={2}
+                  noAnim={noAnim}
+                  hasBorder
+                />
+                <StatCard
+                  value="6"
+                  label="Modules disponibles"
+                  visible={statsVisible}
+                  index={3}
+                  noAnim={noAnim}
+                  hasBorder={false}
+                />
+              </>
+            )}
         </div>
       </section>
 
@@ -927,6 +1058,153 @@ export default function LandingPage() {
             index={5}
             noAnim={noAnim}
           />
+        </div>
+      </section>
+
+      {/* ─── HOW IT WORKS ─── */}
+      <section
+        style={{
+          padding: '100px 24px',
+          maxWidth: 1000,
+          margin: '0 auto',
+          width: '100%',
+        }}
+      >
+        <motion.div
+          initial={noAnim ? undefined : { opacity: 0, y: 20 }}
+          whileInView={noAnim ? undefined : { opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.5, ease: SPRING_EASE }}
+          style={{ textAlign: 'center', marginBottom: 64 }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              color: 'var(--text-secondary)',
+              letterSpacing: '0.1em',
+              fontFamily: 'JetBrains Mono, monospace',
+              marginBottom: 8,
+            }}
+          >
+            02
+          </div>
+          <h2
+            style={{
+              fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
+              fontWeight: 900,
+              textTransform: 'uppercase',
+              letterSpacing: '-0.02em',
+              color: 'var(--text-primary)',
+              margin: 0,
+            }}
+          >
+            COMMENT ÇA FONCTIONNE
+          </h2>
+          <div
+            style={{
+              borderBottom: '1px solid var(--border-color)',
+              width: 60,
+              margin: '12px auto 0',
+            }}
+          />
+        </motion.div>
+
+        <div className="steps-container" style={{ display: 'flex', gap: 24, position: 'relative' }}>
+          {/* Dotted connecting line */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 60,
+              left: 'calc(16.67% + 24px)',
+              right: 'calc(16.67% + 24px)',
+              height: 1,
+              borderTop: '1px dashed var(--border-color)',
+              pointerEvents: 'none',
+            }}
+            className="steps-dotted-line"
+          />
+
+          {[
+            { num: '01', title: 'Connecte ton compte Discord', desc: 'Autorise Pinguin à accéder à tes serveurs via une connexion sécurisée OAuth2.' },
+            { num: '02', title: 'Ajoute Pinguin à ton serveur', desc: 'Invite le bot sur ton serveur Discord en un clic depuis le dashboard.' },
+            { num: '03', title: 'Configure depuis le dashboard', desc: 'Active les modules, personnalise les commandes et gère les permissions en temps réel.' },
+          ].map((step, i) => (
+            <motion.div
+              key={i}
+              initial={noAnim ? undefined : { opacity: 0, y: 24 }}
+              whileInView={noAnim ? undefined : { opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: 0.5, delay: noAnim ? 0 : i * 0.1, ease: SPRING_EASE }}
+              style={{
+                flex: 1,
+                backgroundColor: 'var(--bg-surface)',
+                border: '1px solid var(--border-color)',
+                padding: 32,
+                position: 'relative',
+                overflow: 'hidden',
+                textAlign: 'center',
+              }}
+            >
+              {/* Ghost number */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: -8,
+                  right: 12,
+                  fontSize: 72,
+                  fontWeight: 900,
+                  color: 'var(--border-color)',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  opacity: 0.25,
+                  lineHeight: 1,
+                  userSelect: 'none',
+                  pointerEvents: 'none',
+                }}
+              >
+                {step.num}
+              </div>
+
+              {/* Step number circle */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 40,
+                  height: 40,
+                  border: '1px solid var(--accent)',
+                  color: 'var(--accent)',
+                  fontSize: 14,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  marginBottom: 16,
+                }}
+              >
+                {step.num}
+              </div>
+
+              <h3
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  margin: '0 0 8px',
+                }}
+              >
+                {step.title}
+              </h3>
+
+              <p
+                style={{
+                  fontSize: 13,
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.6,
+                  margin: 0,
+                }}
+              >
+                {step.desc}
+              </p>
+            </motion.div>
+          ))}
         </div>
       </section>
 
@@ -1348,6 +1626,7 @@ function StatCard({
   index,
   noAnim,
   hasBorder,
+  loading,
 }: {
   value: string;
   label: string;
@@ -1355,6 +1634,7 @@ function StatCard({
   index: number;
   noAnim: boolean;
   hasBorder: boolean;
+  loading?: boolean;
 }) {
   return (
     <motion.div
@@ -1368,18 +1648,41 @@ function StatCard({
       }}
       className="stat-cell"
     >
-      <div
-        style={{
-          fontSize: 'clamp(3rem, 6vw, 5rem)',
-          fontWeight: 900,
-          color: 'var(--text-primary)',
-          lineHeight: 1,
-          letterSpacing: '-0.04em',
-          fontFamily: 'JetBrains Mono, monospace',
-        }}
-      >
-        {value}
-      </div>
+      {loading ? (
+        <div
+          style={{
+            width: '60%',
+            height: 'clamp(3rem, 6vw, 5rem)',
+            backgroundColor: 'var(--bg-surface-alt)',
+            position: 'relative',
+            overflow: 'hidden',
+            margin: '0 auto',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background:
+                'linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 5%, transparent), transparent)',
+              animation: 'shimmer 1.5s infinite',
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          style={{
+            fontSize: 'clamp(3rem, 6vw, 5rem)',
+            fontWeight: 900,
+            color: 'var(--text-primary)',
+            lineHeight: 1,
+            letterSpacing: '-0.04em',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}
+        >
+          {value}
+        </div>
+      )}
       <div
         style={{
           fontSize: 11,
@@ -1390,7 +1693,30 @@ function StatCard({
           marginTop: 8,
         }}
       >
-        {label}
+        {loading ? (
+          <div
+            style={{
+              width: 80,
+              height: 12,
+              backgroundColor: 'var(--bg-surface-alt)',
+              position: 'relative',
+              overflow: 'hidden',
+              margin: '0 auto',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background:
+                  'linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 5%, transparent), transparent)',
+                animation: 'shimmer 1.5s infinite',
+              }}
+            />
+          </div>
+        ) : (
+          label
+        )}
       </div>
     </motion.div>
   );

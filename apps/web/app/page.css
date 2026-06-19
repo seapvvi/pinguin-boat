@@ -31,14 +31,29 @@
   }
 }
 
-/* Stats: single column on small screens */
+/* Stats: 2 columns on tablet, 1 on mobile */
+@media (max-width: 767px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
 @media (max-width: 479px) {
-  section#stats > div:first-of-type {
+  .stats-grid {
     grid-template-columns: 1fr !important;
   }
   .stat-cell {
     border-right: none !important;
     padding: 16px 0 !important;
+  }
+}
+
+/* Steps: vertical on mobile */
+@media (max-width: 767px) {
+  .steps-container {
+    flex-direction: column !important;
+  }
+  .steps-dotted-line {
+    display: none !important;
   }
 }
 
