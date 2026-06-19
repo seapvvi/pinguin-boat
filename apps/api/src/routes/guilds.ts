@@ -251,6 +251,37 @@ export async function guildRoutes(app: FastifyInstance) {
     }
   });
 
+  const userCache = new Map<string, { data: { id: string; username: string; avatar: string | null }; ts: number }>();
+
+  app.get('/:guildId/resolve-user/:userId', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { guildId, userId } = request.params as { guildId: string; userId: string };
+      const cached = userCache.get(userId);
+      if (cached && (Date.now() - cached.ts) < 300_000) {
+        return reply.send(success({ data: cached.data }));
+      }
+      let user = await prisma.user.findUnique({ where: { discordId: userId }, select: { discordId: true, username: true, avatar: true } });
+      if (user) {
+        userCache.set(userId, { data: { id: user.discordId, username: user.username, avatar: user.avatar }, ts: Date.now() });
+        return reply.send(success({ data: { id: user.discordId, username: user.username, avatar: user.avatar } }));
+      }
+      const member = await getGuildMember(guildId, userId).catch(() => null);
+      if (member && member.user) {
+        const upserted = await prisma.user.upsert({
+          where: { discordId: userId },
+          update: { username: member.user.username, avatar: member.user.avatar ?? undefined },
+          create: { discordId: userId, username: member.user.username, avatar: member.user.avatar ?? undefined },
+          select: { discordId: true, username: true, avatar: true },
+        });
+        userCache.set(userId, { data: { id: upserted.discordId, username: upserted.username, avatar: upserted.avatar }, ts: Date.now() });
+        return reply.send(success({ data: { id: upserted.discordId, username: upserted.username, avatar: upserted.avatar } }));
+      }
+      reply.status(404).send(error('Utilisateur introuvable'));
+    } catch (err: unknown) {
+      reply.status(500).send(error(sanitizeError(err)));
+    }
+  });
+
   app.put('/:guildId', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
