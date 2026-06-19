@@ -10,7 +10,7 @@ import {
 import { Badge, Toggle, Button } from '@pinguin/ui';
 import { EmptyState, ErrorMessage } from '@pinguin/ui';
 import { SkeletonPage } from '@/components/layout/SkeletonPage';
-import { fetchOwnerServer, fetchModCases, updateGuildSettings, fetchAuditLogs } from '@/lib/api';
+import { fetchGuildSettings, fetchModCases, updateGuildSettings, fetchAuditLogs } from '@/lib/api';
 import { formatNumber, formatDate } from '@/lib/utils';
 import type { GuildConfig, ModCase } from '@pinguin/shared';
 import { ModuleName } from '@pinguin/shared';
@@ -56,7 +56,7 @@ export default function GuildOverviewPage() {
     setError(null);
     try {
       const [settingsRes, casesRes, auditRes] = await Promise.all([
-        fetchOwnerServer(guildId),
+        fetchGuildSettings(guildId),
         fetchModCases(guildId, { page: '1', limit: '5' }),
         fetchAuditLogs(guildId, { page: '1', limit: '10' }),
       ]);

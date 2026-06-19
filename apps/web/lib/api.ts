@@ -533,7 +533,7 @@ export async function toggleModule(
 }
 
 export async function fetchAuditLogs(guildId: string, params?: Record<string, string>): Promise<APIResponse<{ entries: Record<string, unknown>[]; pagination: Pagination }>> {
-  return api.get<APIResponse<{ entries: Record<string, unknown>[]; pagination: Pagination }>>(`/api/guilds/${guildId}/audit`, params);
+  return api.get<APIResponse<{ entries: Record<string, unknown>[]; pagination: Pagination }>>(`/api/guilds/${guildId}/settings/audit`, params);
 }
 
 export async function serviceAction(service: string, action: 'start' | 'stop' | 'restart'): Promise<APIResponse<{ success: boolean }>> {

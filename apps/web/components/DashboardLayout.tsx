@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import OwnerPopupListener from './OwnerPopupListener';
+import { ParallaxBackground } from './ParallaxBackground';
 import { getUser, logout as authLogout, type User } from '@/lib/auth';
 import { useConfetti } from '@/hooks/useConfetti';
 
@@ -79,7 +80,8 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
+      <ParallaxBackground />
       <Sidebar
         user={user}
         isOpen={sidebarOpen}
@@ -106,7 +108,7 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
         <main
           style={{
             flex: 1,
-            backgroundColor: 'var(--bg-primary)',
+            backgroundColor: 'transparent',
           }}
           className="px-6 lg:px-10 py-6"
         >
