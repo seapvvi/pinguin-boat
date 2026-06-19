@@ -1531,6 +1531,20 @@ model OwnerNote {
   @@map("owner_notes")
 }
 
+/// Popup de notification broadcasté à un utilisateur ou globalement
+model PendingPopup {
+  id           String   @id @default(cuid()) @map("id")
+  targetUserId String?  @map("target_user_id")
+  message      String   @map("message")
+  duration     Int      @map("duration")
+  createdAt    DateTime @default(now()) @map("created_at")
+  expiresAt    DateTime @map("expires_at")
+
+  @@index([targetUserId])
+  @@index([expiresAt])
+  @@map("pending_popups")
+}
+
 /// Paramètres des minijeux pour un serveur
 model MinigameSettings {
   id                   String  @id @default(cuid()) @map("id")
