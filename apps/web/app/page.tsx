@@ -434,7 +434,7 @@ export default function LandingPage() {
       </motion.header>
 
       {/* ─── HERO ─── */}
-      <section style={{
+      <section className="hero-section" style={{
         minHeight: '100vh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         padding: '120px 24px 60px', textAlign: 'center', position: 'relative',
@@ -479,63 +479,81 @@ export default function LandingPage() {
         </motion.div>
 
         {/* Penguin with parallax */}
-        <motion.div
-          style={{ marginBottom: 24, position: 'relative', padding: 48, margin: -48, overflow: 'visible', x: springX, y: springY }}
-          animate={{ y: [0, -10, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-        >
+        <motion.div style={{ x: springX, y: springY }}>
           <motion.div
-            animate={{ opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             style={{
-              position: 'absolute', inset: -20,
-              background: 'radial-gradient(circle, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 70%)',
-              borderRadius: '50%',
+              position: 'relative',
+              width: 80,
+              height: 80,
+              padding: '60px',
+              margin: '-60px auto 24px',
+              overflow: 'visible',
             }}
-          />
-          <img src="/logo.svg" alt="Pinguin" width={80} height={80} style={{ position: 'relative', objectFit: 'contain' }} />
-
-          {/* Floating cards */}
-          <motion.div
-            style={{
-              position: 'absolute', left: -20, top: '30%',
-              transform: 'translateY(-50%)',
-              x: floatCardLeftX, y: floatCardLeftY,
-            }}
-            className="floating-card"
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Terminal size={12} style={{ color: 'var(--accent)' }} />
-              <span style={{ fontSize: 11, fontFamily: 'var(--font-jetbrains)', color: 'var(--text-primary)' }}>/ban @user</span>
-            </div>
-            <span style={{ fontSize: 10, color: 'var(--success)' }}>✓ Exécuté</span>
-          </motion.div>
+            <motion.div
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                position: 'absolute', inset: -20,
+                background: 'radial-gradient(circle, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 70%)',
+                borderRadius: '50%',
+              }}
+            />
+            <img src="/logo.svg" alt="Pinguin" width={80} height={80} style={{ position: 'relative', objectFit: 'contain' }} />
 
-          <motion.div
-            style={{
-              position: 'absolute', right: -20, top: '20%',
-              x: floatCardRightX, y: floatCardRightY,
-            }}
-            className="floating-card"
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Users size={12} style={{ color: 'var(--accent)' }} />
-              <span style={{ fontSize: 11 }}>+42 membres</span>
-            </div>
-            <span style={{ fontSize: 10, color: 'var(--success)' }}>cette semaine</span>
-          </motion.div>
+            {/* Floating cards */}
+            <motion.div
+              style={{
+                position: 'absolute',
+                left: '-140px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                x: floatCardLeftX,
+                y: floatCardLeftY,
+              }}
+              className="floating-card hidden md:block"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Terminal size={12} style={{ color: 'var(--accent)' }} />
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-jetbrains)', color: 'var(--text-primary)' }}>/ban @user</span>
+              </div>
+              <span style={{ fontSize: 10, color: 'var(--success)' }}>✓ Exécuté</span>
+            </motion.div>
 
-          <motion.div
-            style={{
-              position: 'absolute', bottom: 10, right: 0,
-              x: floatCardBottomX,
-            }}
-            className="floating-card"
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Activity size={12} style={{ color: 'var(--success)' }} />
-              <span style={{ fontSize: 11 }}>99.9% uptime</span>
-            </div>
+            <motion.div
+              style={{
+                position: 'absolute',
+                right: '-160px',
+                top: '10%',
+                x: floatCardRightX,
+                y: floatCardRightY,
+              }}
+              className="floating-card hidden md:block"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Users size={12} style={{ color: 'var(--accent)' }} />
+                <span style={{ fontSize: 11 }}>+42 membres</span>
+              </div>
+              <span style={{ fontSize: 10, color: 'var(--success)' }}>cette semaine</span>
+            </motion.div>
+
+            <motion.div
+              style={{
+                position: 'absolute',
+                bottom: '-20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                x: floatCardBottomX,
+              }}
+              className="floating-card hidden md:block"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Activity size={12} style={{ color: 'var(--success)' }} />
+                <span style={{ fontSize: 11 }}>99.9% uptime</span>
+              </div>
+            </motion.div>
           </motion.div>
         </motion.div>
 
@@ -640,7 +658,7 @@ export default function LandingPage() {
             gridTemplateColumns: '1fr 1fr',
             gap: 48,
             alignItems: 'center',
-          }} className="flex-col md:flex-row">
+          }} className="terminal-grid flex-col md:flex-row">
             {/* Left: Terminal */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -704,10 +722,10 @@ export default function LandingPage() {
           </p>
         </motion.div>
 
-        <div style={{
+        <div className="features-grid" style={{
           display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 16,
-        }} className="flex-col md:flex-row">
+        }}>
           {FEATURES.map((feature, i) => (
             <motion.div
               key={feature.title}
@@ -960,7 +978,7 @@ export default function LandingPage() {
           </div>
 
           {/* Corps du dashboard simulé */}
-          <div style={{ display: 'flex', height: 360, backgroundColor: 'var(--bg-primary)' }} className="flex-col md:flex-row">
+          <div style={{ display: 'flex', height: 360, backgroundColor: 'var(--bg-primary)' }} className="dashboard-body flex-col md:flex-row">
             {/* Sidebar simulée avec icônes */}
             <div style={{
               width: 180, borderRight: '1px solid var(--border-color)',
@@ -992,7 +1010,7 @@ export default function LandingPage() {
             {/* Contenu principal simulé */}
             <div style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* KPI row avec hover animation */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+              <div className="dashboard-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
                 {[
                   { label: 'Membres', value: usersDisplay.toLocaleString('fr-FR'), icon: <Users size={12} /> },
                   { label: 'Commandes/j', value: '1 248', icon: <Terminal size={12} /> },
