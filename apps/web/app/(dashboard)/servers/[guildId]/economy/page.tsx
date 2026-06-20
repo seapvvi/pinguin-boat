@@ -213,7 +213,22 @@ export default function EconomyPage() {
     );
   }
 
-  if (!local) return null;
+  if (!local) {
+    // Fail-safe: ne jamais rendre un écran vide après le chargement initial.
+    // On affiche simplement le contenu skeleton/transition côté PageLayout via un retour loader.
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <SectionCard title="Économie">
+          <div className="space-y-3">
+            <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-2/3" />
+            <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-full" />
+            <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-5/6" />
+          </div>
+        </SectionCard>
+      </motion.div>
+    );
+  }
+
 
   const isReadOnly = !local.enabled;
 

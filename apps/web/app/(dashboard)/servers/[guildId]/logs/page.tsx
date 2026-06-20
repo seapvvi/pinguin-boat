@@ -152,7 +152,23 @@ export default function LogsPage() {
     );
   }
 
-  if (!local) return null;
+  if (!local) {
+    // Fail-safe: éviter l’écran vide pendant les re-fetch/updates.
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <PageLayout title="Logs" description="Chargement…">
+          <SectionCard title="Configuration des logs">
+            <div className="space-y-3">
+              <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-2/3" />
+              <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-full" />
+              <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-5/6" />
+            </div>
+          </SectionCard>
+        </PageLayout>
+      </motion.div>
+    );
+  }
+
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>

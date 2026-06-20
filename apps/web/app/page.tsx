@@ -136,21 +136,34 @@ const STATIC_CHANGELOGS: ChangelogItem[] = [
   { id: '3', version: '0.0', title: 'Ajout des giveaways automatiques et tickets avancés', pinned: false, createdAt: '2026-04-28' },
 ];
 
-/* ─── Mouse Parallax Hook ─── */
-function useMouseParallax(strength = 20) {
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+/* ─── Mouse Parallax Hook (zéro re-render React) ─── */
+function useMouseParallaxMotion(strength = 20) {
+  const ref = useRef({ x: 0, y: 0 });
+
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      setPos({
+    let rafId: number | null = null;
+    const onMove = (e: MouseEvent) => {
+      const next = {
         x: (e.clientX / window.innerWidth - 0.5) * strength,
         y: (e.clientY / window.innerHeight - 0.5) * strength,
+      };
+      ref.current = next;
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
       });
     };
-    window.addEventListener('mousemove', handler);
-    return () => window.removeEventListener('mousemove', handler);
+
+    window.addEventListener('mousemove', onMove, { passive: true });
+    return () => {
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      window.removeEventListener('mousemove', onMove);
+    };
   }, [strength]);
-  return pos;
+
+  return ref;
 }
+
 
 /* ─── Animated Counter ─── */
 function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: string }) {
@@ -160,19 +173,38 @@ function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: strin
 
   useEffect(() => {
     if (!inView) return;
-    let start = 0;
+
+    // Animation plus “cheap” : on calcule à intervalle de ~16ms via rAF,
+    // mais on évite les micro-updates excessives (throttle).
     const duration = 2000;
-    const step = Math.max(1, Math.floor(value / 60));
-    const interval = setInterval(() => {
-      start += step;
-      if (start >= value) {
-        setDisplay(value);
-        clearInterval(interval);
-      } else {
-        setDisplay(start);
+    const startTs = performance.now();
+    let lastCommit = 0;
+
+    const commit = (v: number) => {
+      setDisplay(v);
+    };
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - startTs) / duration);
+      // easing simple (easeOutQuad)
+      const eased = 1 - (1 - t) * (1 - t);
+      const next = Math.min(value, Math.round(value * eased));
+
+      // throttle ~ every 50ms
+      if (now - lastCommit >= 50 || next >= value) {
+        lastCommit = now;
+        commit(next);
       }
-    }, duration / 60);
-    return () => clearInterval(interval);
+
+      if (t < 1) {
+        window.requestAnimationFrame(tick);
+      } else {
+        commit(value);
+      }
+    };
+
+    const rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
   }, [inView, value]);
 
   return (
@@ -182,6 +214,7 @@ function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: strin
   );
 }
 
+
 /* ─── Terminal Demo ─── */
 function TerminalDemo() {
   const [visibleLines, setVisibleLines] = useState(0);
@@ -190,14 +223,22 @@ function TerminalDemo() {
 
   useEffect(() => {
     if (!inView) return;
+
+    let isCancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
+
     TERMINAL_LINES.forEach((line) => {
       const t = setTimeout(() => {
+        if (isCancelled) return;
         setVisibleLines((prev) => prev + 1);
       }, line.delay);
       timers.push(t);
     });
-    return () => timers.forEach(clearTimeout);
+
+    return () => {
+      isCancelled = true;
+      timers.forEach(clearTimeout);
+    };
   }, [inView]);
 
   return (
@@ -264,6 +305,7 @@ function TerminalDemo() {
   );
 }
 
+
 /* ─── Scroll Progress ─── */
 function ScrollProgress() {
   const { scrollYProgress } = useScroll();
@@ -328,9 +370,9 @@ export default function LandingPage() {
   const commandsDisplay = stats?.totalCommands || 120;
   const uptimeDisplay = stats?.uptime || 99.9;
 
-  const mouse = useMouseParallax(12);
-  const springX = useSpring(mouse.x, { stiffness: 80, damping: 20 });
-  const springY = useSpring(mouse.y, { stiffness: 80, damping: 20 });
+  const mouse = useMouseParallaxMotion(12);
+  const springX = useSpring(0, { stiffness: 80, damping: 20 });
+  const springY = useSpring(0, { stiffness: 80, damping: 20 });
 
   // Springs pour les floating cards — déclarés ici dans le corps du composant (Rules of Hooks)
   const floatCardLeftX = useSpring(0, { stiffness: 80, damping: 20 });
@@ -339,17 +381,23 @@ export default function LandingPage() {
   const floatCardRightY = useSpring(0, { stiffness: 80, damping: 20 });
   const floatCardBottomX = useSpring(0, { stiffness: 80, damping: 20 });
 
-  // Mise à jour des springs flottantes quand la souris bouge
+  // Mise à jour des springs flottantes quand la souris bouge (sans re-render React)
   useEffect(() => {
-    floatCardLeftX.set(-mouse.x * 0.5);
-    floatCardLeftY.set(-mouse.y * 0.5);
-    floatCardRightX.set(-mouse.x * 0.5);
-    floatCardRightY.set(-mouse.y * 0.5);
-    floatCardBottomX.set(-mouse.x * 0.3);
-  }, [mouse.x, mouse.y,
-    floatCardLeftX, floatCardLeftY,
-    floatCardRightX, floatCardRightY,
-    floatCardBottomX]);
+    const id = window.setInterval(() => {
+      const x = mouse.current.x;
+      const y = mouse.current.y;
+      springX.set(x);
+      springY.set(y);
+
+      floatCardLeftX.set(-x * 0.5);
+      floatCardLeftY.set(-y * 0.5);
+      floatCardRightX.set(-x * 0.5);
+      floatCardRightY.set(-y * 0.5);
+      floatCardBottomX.set(-x * 0.3);
+    }, 16);
+
+    return () => window.clearInterval(id);
+  }, [mouse, springX, springY, floatCardLeftX, floatCardLeftY, floatCardRightX, floatCardRightY, floatCardBottomX]);
 
   const tags = ['all', 'core', 'fun', 'utility', 'social'] as const;
   const filteredModules = activeTag === 'all'
