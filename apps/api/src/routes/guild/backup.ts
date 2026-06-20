@@ -6,6 +6,7 @@ import { validateParams } from '../../middleware/validate';
 import { success, error, sanitizeError } from '../../utils/response';
 import { guildIdSchema, backupIdSchema } from '../../utils/guild-helpers';
 import { getGuildChannels, getGuildRoles } from '../../services/discord';
+import { botRestoreBackup } from '../../services/bot-proxy';
 
 const guildParam = { preHandler: [authenticate, validateParams(guildIdSchema)] };
 const adminParam = { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] };
@@ -127,15 +128,19 @@ export async function backupRoutes(app: FastifyInstance) {
       });
       if (!backup) return reply.status(404).send(error('Backup introuvable'));
 
-      // Return the backup data for the bot to apply
+      const backupData = JSON.parse(backup.data);
+      const result = await botRestoreBackup(guildId, backupData);
+
       reply.send(success({
-        id: backup.id,
-        name: backup.name,
-        data: JSON.parse(backup.data),
-        createdAt: backup.createdAt,
-      }, 'Données du backup récupérées. La restauration est effectuée via le bot Discord.'));
-    } catch (err: unknown) {
-      reply.status(500).send(error(sanitizeError(err)));
+        channelsRestored: result.channelsRestored,
+        rolesRestored: result.rolesRestored,
+      }, 'Restauration effectuée avec succès'));
+    } catch (err: any) {
+      if (err.message === 'BOT_OFFLINE') {
+        reply.status(503).send(error('Le bot est hors ligne. Impossible de restaurer le backup.'));
+      } else {
+        reply.status(500).send(error(sanitizeError(err)));
+      }
     }
   });
 

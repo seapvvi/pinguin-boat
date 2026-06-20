@@ -16,6 +16,10 @@ const nextConfig = {
         destination: `${process.env.NEXT_PUBLIC_API_URL ?? 'http://192.168.1.130:4000'}/api/:path*`,
       },
       {
+        source: '/dashboard/overview',
+        destination: '/dashboard',
+      },
+      {
         source: '/dashboard',
         destination: '/',
       },

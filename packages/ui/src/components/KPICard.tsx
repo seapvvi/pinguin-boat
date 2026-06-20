@@ -8,7 +8,7 @@ import { useCountUp } from '../hooks/useCountUp';
 interface KPICardProps {
   icon: React.ReactNode;
   label: string;
-  value: string | number;
+  value: string | number | React.ReactNode;
   trend?: {
     direction: 'up' | 'down';
     value: string;

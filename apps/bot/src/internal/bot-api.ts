@@ -322,6 +322,31 @@ export function startInternalBotApi(client: Client): void {
         return;
       }
 
+      // POST /internal/guilds/:guildId/restore — restore backup
+      if (path === `/internal/guilds/${guildId}/restore` && req.method === 'POST') {
+        const body = await readBody(req);
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) {
+          res.statusCode = 404;
+          res.end(JSON.stringify({ error: 'Guild not found' }));
+          return;
+        }
+        const backupData = body.backupData;
+        if (!backupData || !Array.isArray(backupData.channels) || !Array.isArray(backupData.roles)) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'Invalid backup data' }));
+          return;
+        }
+        try {
+          const result = await executeRestore(guild, backupData);
+          res.end(JSON.stringify({ success: true, data: result }));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
       // GET /internal/guilds/:guildId/search — search tracks
       if (path.startsWith(`/internal/guilds/${guildId}/search`) && req.method === 'GET') {
         const query = url.searchParams.get('q') || '';
@@ -331,14 +356,21 @@ export function startInternalBotApi(client: Client): void {
           return;
         }
         try {
-          const { search } = await import('play-dl');
-          const results = await search(query, { source: { youtube: 'video' }, limit: 5 });
-          const tracks = results.map((v: any) => ({
+          const ytDlp = await import('yt-dlp-exec').then(m => m.default);
+          const raw = await ytDlp(`ytsearch5:${query}`, {
+            dumpSingleJson: true,
+            noWarnings: true,
+            preferFreeFormats: true,
+            skipDownload: true,
+            noPlaylist: true,
+          });
+          const results = Array.isArray(raw) ? raw : [raw];
+          const tracks = results.filter(Boolean).map((v: any) => ({
             title: v.title,
-            url: v.url,
-            duration: v.durationInSec,
-            thumbnail: v.thumbnails?.[0]?.url ?? null,
-            author: v.channel?.name ?? 'Inconnu',
+            url: v.webpage_url,
+            duration: v.duration,
+            thumbnail: v.thumbnail ?? null,
+            author: v.channel ?? v.uploader ?? 'Inconnu',
           }));
           res.end(JSON.stringify({ success: true, data: tracks }));
         } catch (err: any) {
@@ -359,6 +391,134 @@ export function startInternalBotApi(client: Client): void {
   server.listen(port, '127.0.0.1', () => {
     logger.info(`Internal API listening on 127.0.0.1:${port}`);
   });
+}
+
+async function executeRestore(
+  guild: import('discord.js').Guild,
+  backupData: { channels: any[]; roles: any[] },
+): Promise<{ channelsRestored: number; rolesRestored: number }> {
+  const oldToNewChannels = new Map<string, string>();
+
+  // 1. Supprimer tous les canaux existants
+  logger.info(`[RESTORE] Suppression des canaux existants pour ${guild.id}`);
+  const channels = await guild.channels.fetch();
+  const deletePromises: Promise<void>[] = [];
+  for (const [, channel] of channels) {
+    if (channel) {
+      deletePromises.push(channel.delete('Restauration de backup').catch(() => {}));
+    }
+  }
+  await Promise.all(deletePromises);
+  logger.info(`[RESTORE] ${channels.size} canaux supprimés`);
+
+  // 2. Supprimer les rôles existants (sauf @everyone et managed)
+  logger.info(`[RESTORE] Suppression des rôles existants pour ${guild.id}`);
+  const roles = await guild.roles.fetch();
+  const deleteRolePromises: Promise<void>[] = [];
+  for (const [, role] of roles) {
+    if (role && role.name !== '@everyone' && !role.managed && role.editable) {
+      deleteRolePromises.push(role.delete('Restauration de backup').catch(() => {}));
+    }
+  }
+  await Promise.all(deleteRolePromises);
+  logger.info(`[RESTORE] Rôles supprimés`);
+
+  // 3. Créer les rôles depuis le backup (triés par position)
+  logger.info(`[RESTORE] Création des rôles depuis le backup`);
+  const sortedRoles = [...backupData.roles]
+    .filter(r => r.name !== '@everyone')
+    .sort((a: any, b: any) => a.position - b.position);
+
+  for (const roleData of sortedRoles) {
+    try {
+      const role = await guild.roles.create({
+        name: roleData.name,
+        color: roleData.color ?? 0,
+        hoist: roleData.hoist ?? false,
+        permissions: BigInt(roleData.permissions ?? '0'),
+        mentionable: roleData.mentionable ?? false,
+        unicodeEmoji: roleData.unicodeEmoji || undefined,
+        reason: 'Restauration de backup',
+      });
+      if (roleData.position != null) {
+        await role.setPosition(roleData.position).catch(() => {});
+      }
+    } catch (err: any) {
+      logger.warn(`[RESTORE] Impossible de créer le rôle ${roleData.name}: ${err.message}`);
+    }
+  }
+  logger.info(`[RESTORE] ${sortedRoles.length} rôles créés`);
+
+  // 4. Créer les canaux (catégories d'abord, puis les autres)
+  logger.info(`[RESTORE] Création des canaux depuis le backup`);
+  const channelsData = backupData.channels;
+  const categories = channelsData
+    .filter((c: any) => c.type === 4)
+    .sort((a: any, b: any) => a.position - b.position);
+  const nonCategories = channelsData
+    .filter((c: any) => c.type !== 4)
+    .sort((a: any, b: any) => a.position - b.position);
+
+  // Créer les catégories en premier
+  for (const catData of categories) {
+    try {
+      const channel = await guild.channels.create({
+        name: catData.name,
+        type: catData.type,
+        reason: 'Restauration de backup',
+      });
+      oldToNewChannels.set(catData.id, channel.id);
+      if (catData.position != null) {
+        await channel.setPosition(catData.position).catch(() => {});
+      }
+    } catch (err: any) {
+      logger.warn(`[RESTORE] Impossible de créer la catégorie ${catData.name}: ${err.message}`);
+    }
+  }
+
+  // Créer les autres canaux
+  for (const chData of nonCategories) {
+    try {
+      const options: any = {
+        name: chData.name,
+        type: chData.type,
+        reason: 'Restauration de backup',
+      };
+      if (chData.topic) options.topic = chData.topic;
+      if (chData.nsfw) options.nsfw = chData.nsfw;
+      if (chData.bitrate) options.bitrate = chData.bitrate;
+      if (chData.userLimit) options.userLimit = chData.userLimit;
+      if (chData.rateLimitPerUser) options.rateLimitPerUser = chData.rateLimitPerUser;
+
+      // Mapper le parent (catégorie) si présent
+      const newParentId = chData.parentId ? oldToNewChannels.get(chData.parentId) : undefined;
+      if (newParentId) options.parent = newParentId;
+
+      // Convertir les permission overwrites
+      if (Array.isArray(chData.permissionOverwrites) && chData.permissionOverwrites.length > 0) {
+        options.permissionOverwrites = chData.permissionOverwrites.map((ow: any) => ({
+          id: ow.id,
+          allow: BigInt(ow.allow || '0'),
+          deny: BigInt(ow.deny || '0'),
+          type: ow.type ?? 0,
+        }));
+      }
+
+      const channel = await guild.channels.create(options);
+      oldToNewChannels.set(chData.id, channel.id);
+      if (chData.position != null) {
+        await channel.setPosition(chData.position).catch(() => {});
+      }
+    } catch (err: any) {
+      logger.warn(`[RESTORE] Impossible de créer le canal ${chData.name}: ${err.message}`);
+    }
+  }
+
+  logger.info(`[RESTORE] Restauration terminée pour ${guild.id}`);
+  return {
+    channelsRestored: channelsData.length,
+    rolesRestored: sortedRoles.length,
+  };
 }
 
 function readBody(req: http.IncomingMessage): Promise<any> {

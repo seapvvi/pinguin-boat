@@ -1,86 +1,31 @@
-/* ─── Responsive overrides for LandingPage ─── */
-
-/* Hide center nav links on mobile */
 @media (max-width: 767px) {
   header nav {
     display: none !important;
   }
-}
-
-/* Hide terminal on small screens */
-@media (max-width: 639px) {
-  section#hero div.hidden\:sm\:block {
-    display: none !important;
-  }
-}
-
-/* Features grid: collapse to 1 column on mobile */
-@media (max-width: 767px) {
-  .features-grid {
-    grid-template-columns: 1fr !important;
-  }
-  .feature-large {
-    grid-column: 1 / -1 !important;
-  }
-}
-
-/* Features grid: large cards span 2 columns on desktop */
-@media (min-width: 768px) {
-  .feature-large {
-    grid-column: span 2;
-  }
-}
-
-/* Stats: 2 columns on tablet, 1 on mobile */
-@media (max-width: 767px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-}
-@media (max-width: 479px) {
-  .stats-grid {
-    grid-template-columns: 1fr !important;
-  }
-  .stat-cell {
-    border-right: none !important;
-    padding: 16px 0 !important;
-  }
-}
-
-/* Steps: vertical on mobile */
-@media (max-width: 767px) {
-  .steps-container {
+  .flex-col.md\:flex-row {
     flex-direction: column !important;
   }
-  .steps-dotted-line {
-    display: none !important;
-  }
-}
-
-/* Testimonial: column layout on mobile */
-@media (max-width: 767px) {
-  .testimonial-layout {
+  .flex-col.md\:flex-row-reverse {
     flex-direction: column !important;
-    gap: 32px !important;
+  }
+  .flex-col.md\:flex-row {
+    gap: 24px !important;
+  }
+  .flex-col.md\:flex-row-reverse {
+    gap: 24px !important;
+  }
+  .flex-col.md\:flex-row > div {
+    width: 100% !important;
+    flex: none !important;
+  }
+  .flex-col.md\:flex-row-reverse > div {
+    width: 100% !important;
+    flex: none !important;
   }
 }
 
-/* Feature hover line animation */
-.feature-hover-line {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 1px;
-  width: 0;
-  background-color: var(--accent);
-  transition: width 300ms ease;
-}
-.feature-hover-line:hover {
-  width: 100%;
-}
-
-/* Blink animation for terminal cursor */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+@media (max-width: 767px) {
+  .flex-col.md\:flex-row {
+    flex-direction: column !important;
+  }
 }

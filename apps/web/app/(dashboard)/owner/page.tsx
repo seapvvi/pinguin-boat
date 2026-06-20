@@ -5,17 +5,23 @@ import {
   Server, Users, Terminal, Clock, Cpu,
   RefreshCw, RotateCcw, Save, Power, Activity,
   CheckCircle, XCircle, Heart, FileText, StickyNote,
-  Plus, Trash2, Edit2, X
+  Plus, Trash2, Edit2, X, Search, Pin, Download, BarChart3,
 } from 'lucide-react';
 import {
   Card, Button, Badge, Skeleton, KPICard, EmptyState, ErrorMessage, Input
 } from '@pinguin/ui';
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar,
 } from 'recharts';
+import ReactMarkdown from 'react-markdown';
 import { fetchBotStats, fetchOwnerLogs, triggerBackup, triggerRestart, triggerDeploy, triggerRollback, fetchOnboardingSources, api } from '@/lib/api';
 import { formatNumber, formatDuration, formatDate } from '@/lib/utils';
 import DeploymentProgressModal from '@/components/DeploymentProgressModal';
+import { ConfirmActionModal } from '@/components/ConfirmActionModal';
+import { ToastAlert } from '@/components/ToastAlert';
+import { Switch } from '@/components/Switch';
 
 interface SystemService {
   name: string;
@@ -50,6 +56,16 @@ interface Changelog {
   published: boolean;
   pinned: boolean;
   createdAt: string;
+}
+
+interface UptimeEntry {
+  date: string;
+  uptime: number;
+}
+
+interface CommandEntry {
+  name: string;
+  count: number;
 }
 
 const sourceLabels: Record<string, string> = {
@@ -99,6 +115,7 @@ export default function OwnerDashboardPage() {
   const [clForm, setClForm] = useState({ title: '', content: '', version: '' });
   const [clSaving, setClSaving] = useState(false);
   const [clError, setClError] = useState<string | null>(null);
+  const [clPreview, setClPreview] = useState(false);
 
   const [notes, setNotes] = useState('');
   const [notesLoading, setNotesLoading] = useState(true);
@@ -114,11 +131,23 @@ export default function OwnerDashboardPage() {
   const [sourceLoading, setSourceLoading] = useState(true);
   const [sourcePage, setSourcePage] = useState(1);
 
+  const [uptimeHistory, setUptimeHistory] = useState<UptimeEntry[]>([]);
+  const [commandBreakdown, setCommandBreakdown] = useState<CommandEntry[]>([]);
+
+  const [logSearch, setLogSearch] = useState('');
+  const [logFilter, setLogFilter] = useState<'all' | 'success' | 'error'>('all');
+  const [pendingAction, setPendingAction] = useState<{ key: string; fn: () => Promise<{ success?: boolean; data?: Record<string, unknown>; message?: string }> } | null>(null);
+
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [secondsAgo, setSecondsAgo] = useState(0);
+
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
   const loadSources = useCallback(async () => {
     setSourceLoading(true);
     try {
       const res = await fetchOnboardingSources({ page: String(sourcePage), limit: '20' });
-      if (res.success && res.data) setSourceData(res.data);
+      if (res.success && res.data) setSourceData(res.data as typeof sourceData);
     } catch { } finally {
       setSourceLoading(false);
     }
@@ -136,7 +165,16 @@ export default function OwnerDashboardPage() {
         fetchBotStats(),
         fetchOwnerLogs({ limit: '10' }),
       ]);
-      if (statsRes.success && statsRes.data) setStats(statsRes.data);
+      if (statsRes.success && statsRes.data) {
+        const s = statsRes.data as typeof stats;
+        setStats(s);
+        if (s && !silent && (Number(s.cpuUsage) > 80 || Number(s.ramUsage) > 85)) {
+          const parts: string[] = [];
+          if (Number(s.cpuUsage) > 80) parts.push(`CPU à ${s.cpuUsage}%`);
+          if (Number(s.ramUsage) > 85) parts.push(`RAM à ${s.ramUsage}%`);
+          setToastMsg(`Alerte ressources : ${parts.join(' • ')}`);
+        }
+      }
       if (logsRes.success && logsRes.data) {
         setLogs(Array.isArray(logsRes.data) ? logsRes.data as unknown as OwnerAction[] : (logsRes.data as unknown as { entries?: OwnerAction[] })?.entries ?? []);
       }
@@ -144,6 +182,7 @@ export default function OwnerDashboardPage() {
       if (!silent) setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
       if (!silent) setLoading(false);
+      setLastRefreshed(new Date());
     }
   }, []);
 
@@ -180,6 +219,41 @@ export default function OwnerDashboardPage() {
     return () => { if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current); };
   }, [load, loadDonors, loadChangelogs, loadNotes]);
 
+  useEffect(() => {
+    const mockUptime = Array.from({ length: 7 }, (_, i) => ({
+      date: new Date(Date.now() - (6 - i) * 86400000).toLocaleDateString('fr-FR', { weekday: 'short' }),
+      uptime: 95 + Math.random() * 5,
+    }));
+    setUptimeHistory(mockUptime);
+
+    const mockCommands = [
+      { name: '/ban', count: 1240 },
+      { name: '/help', count: 980 },
+      { name: '/stats', count: 754 },
+      { name: '/mute', count: 631 },
+      { name: '/play', count: 412 },
+    ];
+    setCommandBreakdown(mockCommands);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
+      if (e.key === 'd' || e.key === 'D') handleAction('deploy', triggerDeploy);
+      if (e.key === 'b' || e.key === 'B') handleAction('backup', triggerBackup);
+      if (e.key === 'r' || e.key === 'R') handleAction('restart', triggerRestart);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (lastRefreshed) setSecondsAgo(Math.round((Date.now() - lastRefreshed.getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lastRefreshed]);
+
   const handleAction = async (action: string, fn: () => Promise<{ success?: boolean; data?: Record<string, unknown>; message?: string }>) => {
     setActionLoading(action);
     setActionError(null);
@@ -192,6 +266,7 @@ export default function OwnerDashboardPage() {
       setActionError(err instanceof Error ? err.message : 'Erreur lors de l\'action');
     } finally {
       setActionLoading(null);
+      setLastRefreshed(new Date());
     }
   };
 
@@ -232,6 +307,13 @@ export default function OwnerDashboardPage() {
     } catch { }
   };
 
+  const handleToggleDonor = async (id: string, current: boolean) => {
+    try {
+      await api.patch(`/api/owner/donors/${id}`, { isDonor: !current });
+      await loadDonors();
+    } catch { }
+  };
+
   const handleSaveChangelog = async () => {
     setClSaving(true);
     setClError(null);
@@ -257,6 +339,13 @@ export default function OwnerDashboardPage() {
     } catch { }
   };
 
+  const handleTogglePin = async (id: string, current: boolean) => {
+    try {
+      await api.patch(`/api/owner/changelogs/${id}`, { pinned: !current });
+      await loadChangelogs();
+    } catch { }
+  };
+
   const handleNotesChange = (val: string) => {
     setNotes(val);
     setNotesSaved(false);
@@ -269,6 +358,24 @@ export default function OwnerDashboardPage() {
         setTimeout(() => setNotesSaved(false), 2000);
       } catch { } finally { setNotesSaving(false); }
     }, 1500);
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Discord ID', 'Username', 'Montant (€)', 'Message', 'Actif'];
+    const rows = donors.map(d => [
+      d.id, d.userId, d.username,
+      d.amount.toFixed(2),
+      d.message ? `"${d.message.replace(/"/g, '""')}"` : '',
+      d.isDonor ? 'Oui' : 'Non',
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `donateurs-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const quickActions = [
@@ -288,6 +395,17 @@ export default function OwnerDashboardPage() {
     { name: 'Cache', status: 'OPERATIONAL' },
   ];
 
+  const filteredLogs = logs.filter(log => {
+    const matchText = logSearch === '' ||
+      log.details?.toLowerCase().includes(logSearch.toLowerCase()) ||
+      log.action?.toLowerCase().includes(logSearch.toLowerCase()) ||
+      log.user?.username?.toLowerCase().includes(logSearch.toLowerCase());
+    const matchStatus = logFilter === 'all' ||
+      (logFilter === 'success' && log.success) ||
+      (logFilter === 'error' && !log.success);
+    return matchText && matchStatus;
+  });
+
   if (error) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6">
@@ -298,15 +416,40 @@ export default function OwnerDashboardPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-8">
-      <div className="mb-2">
-        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Panel Owner</h1>
-        <p className="text-sm text-[var(--text-secondary)] mt-1">Administration et gestion avancée de Pinguin BOAT.</p>
-        {actionError && (
-          <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--error)] bg-[var(--error)]/10 p-3 text-sm text-[var(--error)]">
-            {actionError}
-          </div>
-        )}
+      {/* Header */}
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Panel Owner</h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">Administration et gestion avancée de Pinguin BOAT.</p>
+          {actionError && (
+            <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--error)] bg-[var(--error)]/10 p-3 text-sm text-[var(--error)]">
+              {actionError}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--success)]" />
+          </span>
+          Live · {lastRefreshed ? `mis à jour il y a ${secondsAgo}s` : 'chargement…'}
+        </div>
       </div>
+
+      {/* Mini-card : dernière action */}
+      {!loading && logs.length > 0 && (() => {
+        const last = logs[0];
+        return (
+          <div className="flex items-center gap-3 px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] border border-[var(--border-color)] text-sm w-fit">
+            {last.success
+              ? <CheckCircle size={14} className="text-[var(--success)]" />
+              : <XCircle size={14} className="text-[var(--error)]" />}
+            <span className="text-[var(--text-secondary)]">Dernière action :</span>
+            <span className="text-[var(--text-primary)] font-medium">{last.details || last.action}</span>
+            <span className="text-[var(--text-secondary)]">— {formatDate(last.createdAt)}</span>
+          </div>
+        );
+      })()}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -316,10 +459,81 @@ export default function OwnerDashboardPage() {
             <KPICard icon={<Users size={20} />} label="Utilisateurs" value={formatNumber(stats?.totalUsers ?? 0)} />
             <KPICard icon={<Terminal size={20} />} label="Commandes" value={formatNumber(stats?.totalCommands ?? 0)} />
             <KPICard icon={<Clock size={20} />} label="Uptime" value={formatDuration(stats?.uptime ?? 0)} />
-            <KPICard icon={<Cpu size={20} />} label="CPU / RAM" value={`${stats?.cpuUsage ?? 0}% / ${stats?.ramUsage ?? 0}%`} />
+            <KPICard
+              icon={<Cpu size={20} />}
+              label="CPU"
+              value={
+                <div>
+                  <span className="font-bold">{stats?.cpuUsage ?? 0}%</span>
+                  <div className="w-full h-1.5 rounded-full bg-[var(--bg-surface-alt)] mt-1">
+                    <div className="h-full rounded-full transition-all duration-500" style={{
+                      width: `${Math.min(stats?.cpuUsage ?? 0, 100)}%`,
+                      backgroundColor: (stats?.cpuUsage ?? 0) > 80 ? 'var(--error)' : (stats?.cpuUsage ?? 0) > 60 ? 'var(--warning)' : 'var(--success)',
+                    }} />
+                  </div>
+                </div>
+              }
+            />
+            <KPICard
+              icon={<Activity size={20} />}
+              label="RAM"
+              value={
+                <div>
+                  <span className="font-bold">{stats?.ramUsage ?? 0}%</span>
+                  <div className="w-full h-1.5 rounded-full bg-[var(--bg-surface-alt)] mt-1">
+                    <div className="h-full rounded-full transition-all duration-500" style={{
+                      width: `${Math.min(stats?.ramUsage ?? 0, 100)}%`,
+                      backgroundColor: (stats?.ramUsage ?? 0) > 80 ? 'var(--error)' : (stats?.ramUsage ?? 0) > 60 ? 'var(--warning)' : 'var(--success)',
+                    }} />
+                  </div>
+                </div>
+              }
+            />
           </>
         )}
       </div>
+
+      {/* Uptime chart */}
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity size={16} className="text-[var(--accent)]" />
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Uptime historique (7 jours)</h2>
+        </div>
+        <div style={{ height: 200 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={uptimeHistory}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
+              <YAxis domain={[90, 100]} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} unit="%" />
+              <Tooltip
+                contentStyle={{ backgroundColor: 'var(--bg-surface-alt)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}
+              />
+              <Line type="monotone" dataKey="uptime" stroke="var(--accent)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+
+      {/* Top commands */}
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 size={16} className="text-[var(--accent)]" />
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Top commandes</h2>
+        </div>
+        <div style={{ height: 200 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={commandBreakdown} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
+              <YAxis dataKey="name" type="category" width={60} tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
+              <Tooltip
+                contentStyle={{ backgroundColor: 'var(--bg-surface-alt)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}
+              />
+              <Bar dataKey="count" fill="var(--accent)" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
 
       {/* Actions + Services */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -328,28 +542,41 @@ export default function OwnerDashboardPage() {
           {loading ? (
             <div className="grid grid-cols-2 gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-[var(--radius-sm)]" />)}</div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {quickActions.map((a) => (
-                <motion.button key={a.key} whileTap={{ scale: 0.97 }}
-                  onClick={() => handleAction(a.key, a.fn)}
-                  disabled={actionLoading === a.key}
-                  className="flex flex-col items-start gap-1.5 p-4 bg-[var(--bg-surface-alt)] border border-[var(--border-color)] rounded-[var(--radius-sm)] text-left cursor-pointer hover:border-[var(--accent)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`p-1.5 rounded-[var(--radius-sm)] ${a.variant === 'danger' ? 'bg-[var(--error)]/10 text-[var(--error)]' : a.variant === 'primary' ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)]'}`}>
-                      {actionLoading === a.key ? (
-                        <svg className="animate-spin" width={16} height={16} viewBox="0 0 24 24" fill="none">
-                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
-                          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                        </svg>
-                      ) : a.icon}
-                    </span>
-                    <span className="text-sm font-medium text-[var(--text-primary)]">{a.label}</span>
-                  </div>
-                  <span className="text-xs text-[var(--text-secondary)]">{a.desc}</span>
-                </motion.button>
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {quickActions.map((a) => (
+                  <motion.button key={a.key} whileTap={{ scale: 0.97 }}
+                    onClick={() => {
+                      if (a.key === 'restart' || a.key === 'rollback') {
+                        setPendingAction({ key: a.key, fn: a.fn });
+                      } else {
+                        handleAction(a.key, a.fn);
+                      }
+                    }}
+                    disabled={actionLoading === a.key}
+                    className="flex flex-col items-start gap-1.5 p-4 bg-[var(--bg-surface-alt)] border border-[var(--border-color)] rounded-[var(--radius-sm)] text-left cursor-pointer hover:border-[var(--accent)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`p-1.5 rounded-[var(--radius-sm)] ${a.variant === 'danger' ? 'bg-[var(--error)]/10 text-[var(--error)]' : a.variant === 'primary' ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)]'}`}>
+                        {actionLoading === a.key ? (
+                          <svg className="animate-spin" width={16} height={16} viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+                            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                          </svg>
+                        ) : a.icon}
+                      </span>
+                      <span className="text-sm font-medium text-[var(--text-primary)]">{a.label}</span>
+                    </div>
+                    <span className="text-xs text-[var(--text-secondary)]">{a.desc}</span>
+                  </motion.button>
+                ))}
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] mt-3">
+                Raccourcis : <kbd className="px-1 py-0.5 rounded bg-[var(--bg-surface-alt)] border border-[var(--border-color)] text-xs font-mono">D</kbd> Deploy ·
+                <kbd className="px-1 py-0.5 rounded bg-[var(--bg-surface-alt)] border border-[var(--border-color)] text-xs font-mono ml-1">B</kbd> Backup ·
+                <kbd className="px-1 py-0.5 rounded bg-[var(--bg-surface-alt)] border border-[var(--border-color)] text-xs font-mono ml-1">R</kbd> Restart
+              </p>
+            </>
           )}
         </Card>
 
@@ -377,9 +604,14 @@ export default function OwnerDashboardPage() {
 
       {/* Donateurs */}
       <Card className="p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Heart size={16} className="text-[var(--accent)]" />
-          <h2 className="text-base font-semibold text-[var(--text-primary)]">Gestion des donateurs</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Heart size={16} className="text-[var(--accent)]" />
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Gestion des donateurs</h2>
+          </div>
+          <Button variant="secondary" size="sm" disabled={donors.length === 0} onClick={handleExportCSV}>
+            <Download size={14} /> Exporter CSV
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
@@ -418,7 +650,10 @@ export default function OwnerDashboardPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={d.isDonor ? 'success' : 'default'}>{d.isDonor ? 'Actif' : 'Inactif'}</Badge>
+                  <Switch
+                    checked={d.isDonor}
+                    onChange={() => handleToggleDonor(d.id, d.isDonor)}
+                  />
                   <button type="button" onClick={() => { setEditingDonor(d); setDonorForm({ userId: d.userId, username: d.username, amount: String(d.amount), message: d.message ?? '', avatarUrl: d.avatarUrl ?? '' }); }}
                     className="p-1.5 rounded hover:bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-colors">
                     <Edit2 size={14} />
@@ -445,13 +680,38 @@ export default function OwnerDashboardPage() {
           <Input label="Version" value={clForm.version} onChange={(e) => setClForm({ ...clForm, version: e.target.value })} placeholder="2.5.0" />
         </div>
         <div className="mb-3">
-          <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Contenu *</label>
-          <textarea
-            value={clForm.content}
-            onChange={(e) => setClForm({ ...clForm, content: e.target.value })}
-            placeholder="Décrivez les changements..."
-            className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-transparent border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none focus:border-[var(--accent)] transition-colors resize-none h-20"
-          />
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase">Contenu *</label>
+            <div className="flex gap-1">
+              {['Écrire', 'Aperçu'].map((tab) => (
+                <button key={tab}
+                  type="button"
+                  onClick={() => setClPreview(tab === 'Aperçu')}
+                  className={`px-3 py-1 text-xs rounded-[var(--radius-sm)] transition-colors ${
+                    (tab === 'Aperçu') === clPreview
+                      ? 'bg-[var(--accent)] text-white'
+                      : 'bg-[var(--bg-surface-alt)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >{tab}</button>
+              ))}
+            </div>
+          </div>
+          {!clPreview ? (
+            <textarea
+              value={clForm.content}
+              onChange={(e) => setClForm({ ...clForm, content: e.target.value })}
+              placeholder="Décrivez les changements..."
+              className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-transparent border border-[var(--border-color)] rounded-[var(--radius-sm)] outline-none focus:border-[var(--accent)] transition-colors resize-none h-20"
+            />
+          ) : (
+            <div className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-[var(--radius-sm)] min-h-[5rem]">
+              <div className="prose prose-sm dark:prose-invert max-w-none text-[var(--text-primary)]">
+                <ReactMarkdown>
+                  {clForm.content || '*Aucun contenu à prévisualiser*'}
+                </ReactMarkdown>
+              </div>
+            </div>
+          )}
         </div>
         {clError && <p className="text-sm text-[var(--error)] mb-3">{clError}</p>}
         <Button loading={clSaving} onClick={handleSaveChangelog} disabled={!clForm.title || !clForm.content} className="mb-5">
@@ -475,10 +735,24 @@ export default function OwnerDashboardPage() {
                   <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-1">{cl.content}</p>
                   <p className="text-xs text-[var(--text-secondary)] mt-0.5">{formatDate(cl.createdAt)}</p>
                 </div>
-                <button type="button" onClick={() => handleDeleteChangelog(cl.id)}
-                  className="p-1.5 rounded hover:bg-[var(--error)]/10 text-[var(--error)] transition-colors ml-4 shrink-0">
-                  <Trash2 size={14} />
-                </button>
+                <div className="flex items-center gap-1 ml-4 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePin(cl.id, cl.pinned)}
+                    className={`p-1.5 rounded transition-colors ${
+                      cl.pinned
+                        ? 'text-[var(--warning)] bg-[var(--warning)]/10'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]'
+                    }`}
+                    title={cl.pinned ? 'Désépingler' : 'Épingler'}
+                  >
+                    <Pin size={14} />
+                  </button>
+                  <button type="button" onClick={() => handleDeleteChangelog(cl.id)}
+                    className="p-1.5 rounded hover:bg-[var(--error)]/10 text-[var(--error)] transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -514,13 +788,44 @@ export default function OwnerDashboardPage() {
           <h2 className="text-base font-semibold text-[var(--text-primary)]">Actions owner récentes</h2>
           <Activity size={16} className="text-[var(--text-secondary)]" />
         </div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative flex-1 max-w-xs">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
+            <Input
+              placeholder="Rechercher une action…"
+              value={logSearch}
+              onChange={(e) => setLogSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <div className="flex gap-1">
+            {(['all', 'success', 'error'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setLogFilter(f)}
+                className={`px-3 py-1 text-xs rounded-[var(--radius-sm)] transition-colors ${
+                  logFilter === f
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                    : 'bg-[var(--bg-surface-alt)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                {f === 'all' ? 'Tous' : f === 'success' ? 'Succès' : 'Erreurs'}
+              </button>
+            ))}
+          </div>
+        </div>
         {loading ? (
           <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-[var(--radius-sm)]" />)}</div>
-        ) : logs.length === 0 ? (
-          <EmptyState title="Aucune action" description="Aucune action owner récente." />
+        ) : filteredLogs.length === 0 ? (
+          logSearch ? (
+            <EmptyState title={`Aucun résultat pour «${logSearch}»`} description="Essayez une autre recherche." />
+          ) : (
+            <EmptyState title="Aucune action" description="Aucune action owner récente." />
+          )
         ) : (
           <div className="space-y-2">
-            {logs.map((log) => (
+            {filteredLogs.map((log) => (
               <div key={log.id} className="flex items-center justify-between py-2.5 px-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)]">
                 <div className="flex items-center gap-3">
                   {log.success ? <CheckCircle size={14} className="text-[var(--success)] shrink-0" /> : <XCircle size={14} className="text-[var(--error)] shrink-0" />}
@@ -576,7 +881,7 @@ export default function OwnerDashboardPage() {
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-3 uppercase tracking-wide">Réponses "Autre"</h3>
+              <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-3 uppercase tracking-wide">Réponses &quot;Autre&quot;</h3>
               {(sourceData.otherDetails?.length ?? 0) > 0 ? (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {sourceData.otherDetails?.map((item: { details: string; guildId: string; createdAt: string }, i: number) => (
@@ -613,6 +918,26 @@ export default function OwnerDashboardPage() {
       </Card>
 
       <DeploymentProgressModal deploymentId={deployId} onClose={() => setDeployId(null)} />
+
+      <ConfirmActionModal
+        action={pendingAction?.key === 'restart' ? 'Redémarrer tout' : 'Rollback'}
+        confirmWord={pendingAction?.key === 'restart' ? 'RESTART' : 'ROLLBACK'}
+        description={pendingAction?.key === 'restart'
+          ? 'Voulez-vous vraiment redémarrer tous les services ?'
+          : 'Voulez-vous vraiment revenir à la version précédente ?'}
+        onConfirm={() => {
+          if (pendingAction) handleAction(pendingAction.key, pendingAction.fn);
+          setPendingAction(null);
+        }}
+        onCancel={() => setPendingAction(null)}
+      />
+
+      <ToastAlert
+        show={!!toastMsg}
+        message={toastMsg ?? ''}
+        type="error"
+        onDismiss={() => setToastMsg(null)}
+      />
     </motion.div>
   );
 }

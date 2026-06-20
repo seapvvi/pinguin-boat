@@ -22,8 +22,9 @@
     "discord.js": "^14.17.3",
     "ffmpeg-static": "^5.2.0",
     "opusscript": "^0.1.1",
-    "play-dl": "^1.9.7",
+    "yt-dlp-exec": "^1.0.2",
     "sodium-native": "^4.3.1",
+    "yt-dlp-exec": "^1.0.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {

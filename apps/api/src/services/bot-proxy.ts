@@ -106,3 +106,11 @@ export async function sendTestNotification(guildId: string, notificationId: stri
     body: { notificationId },
   });
 }
+
+export async function botRestoreBackup(guildId: string, backupData: { channels: any[]; roles: any[] }): Promise<{ channelsRestored: number; rolesRestored: number }> {
+  const res = await botFetch(`/internal/guilds/${guildId}/restore`, {
+    method: 'POST',
+    body: { backupData },
+  });
+  return res.data;
+}

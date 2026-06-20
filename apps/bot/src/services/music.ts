@@ -13,6 +13,7 @@ import { Readable } from 'stream';
 import { writeFileSync, unlinkSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import ytDlp from 'yt-dlp-exec';
 
 const musicLogger = getLogger({ component: 'music' });
 
@@ -34,25 +35,33 @@ try {
 
 
 export async function initMusicService(): Promise<void> {
-  const rawCookie = process.env.YOUTUBE_COOKIE;
-
-  if (!rawCookie || rawCookie.trim().startsWith('(optionnel') || rawCookie.trim().length < 10) {
-    musicLogger.warn('YOUTUBE_COOKIE absent ou invalide — les requêtes YouTube seront non-authentifiées (risque 429)', {
-      length: rawCookie?.length ?? 0,
+  // Vérifier que yt-dlp est installé
+  try {
+    const proc = spawn('yt-dlp', ['--version'], { stdio: ['pipe', 'pipe', 'ignore'] });
+    const version = await new Promise<string>((resolve, reject) => {
+      proc.stdout.once('data', (d: Buffer) => resolve(d.toString().trim()));
+      proc.once('error', (e: NodeJS.ErrnoException) => {
+        if (e.code === 'ENOENT') {
+          reject(new Error('yt-dlp binary not found in PATH'));
+        } else {
+          reject(e);
+        }
+      });
+      setTimeout(() => reject(new Error('yt-dlp version check timed out')), 5000);
     });
-    return;
+    musicLogger.info('yt-dlp detected', { version });
+  } catch (err: any) {
+    throw new Error(
+      'yt-dlp n\'est pas installé. Installez-le via "pip install yt-dlp" ' +
+      'ou téléchargez-le depuis https://github.com/yt-dlp/yt-dlp/releases'
+    );
   }
 
-  try {
-    const playdl = await import('play-dl');
-    await playdl.setToken({ youtube: { cookie: rawCookie } });
-    musicLogger.info('YouTube cookie configured for play-dl', { cookieLength: rawCookie.length });
-  } catch (err: any) {
-    musicLogger.error('Failed to set YouTube cookie for play-dl', {
-      err: err.message,
-      stack: err.stack,
-      cookieLength: rawCookie?.length ?? 0,
-    });
+  const rawCookie = process.env.YOUTUBE_COOKIE;
+  if (!rawCookie || rawCookie.trim().startsWith('(optionnel') || rawCookie.trim().length < 10) {
+    musicLogger.warn('YOUTUBE_COOKIE absent ou invalide — les requêtes YouTube seront non-authentifiées (risque 429)');
+  } else {
+    musicLogger.info('YouTube cookie will be used by yt-dlp via temp file', { cookieLength: rawCookie.length });
   }
 }
 
@@ -121,36 +130,8 @@ function createYtDlpStream(url: string): Readable {
 }
 
 async function createStreamFromUrl(url: string): Promise<{ stream: any; type: StreamType }> {
-  // Primary engine: play-dl
-  try {
-    const playdl = await import('play-dl');
-    const result = await playdl.stream(url, { quality: 2, discordPlayerCompatibility: true });
-    result.stream.on('error', (err: Error) => {
-      musicLogger.error('play-dl stream error', { err: err.message });
-    });
-    return { stream: result.stream, type: result.type as unknown as StreamType };
-  } catch (e: any) {
-    musicLogger.error('play-dl stream failed — full error follows', {
-      message: e.message,
-      stack: e.stack,
-      statusCode: e.statusCode,
-      statusMessage: e.statusMessage,
-      body: e.body?.toString().slice(0, 500),
-    });
-  }
-
-  // Fallback: yt-dlp (most robust in 2025-2026)
-  try {
-    const stream = createYtDlpStream(url);
-    return { stream, type: StreamType.Arbitrary };
-  } catch (e: any) {
-    musicLogger.error('yt-dlp fallback also failed', {
-      err: e.message,
-      stack: e.stack,
-    });
-  }
-
-  throw new Error('Impossible de créer le stream audio. Vérifiez que l\'URL est valide.');
+  const stream = createYtDlpStream(url);
+  return { stream, type: StreamType.Arbitrary };
 }
 
 export enum LoopMode {
@@ -302,49 +283,55 @@ export async function play(guildId: string, query: string, requester: GuildMembe
   const voiceChannel = requester.voice.channel as VoiceChannel;
   if (!voiceChannel) throw new Error('Tu dois être dans un salon vocal.');
 
-  const playdl = await import('play-dl');
-
   let trackUrl: string;
   let track: TrackInfo;
 
-  // Use play-dl as primary engine for both direct URLs and searches
+  // yt-dlp-exec for both direct URLs and text searches
   try {
-    // Check if query is a direct YouTube URL
-    const isYouTubeUrl = playdl.yt_validate(query) === 'video';
+    const isYouTubeUrl = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(query.trim());
+
+    const ytDlpOptions = {
+      dumpSingleJson: true,
+      noWarnings: true,
+      preferFreeFormats: true,
+      skipDownload: true,
+      noPlaylist: true,
+      cookies: YTDLP_COOKIE_PATH ?? undefined,
+    } as const;
 
     if (isYouTubeUrl) {
-      // Direct YouTube URL: use playdl.video_info
-      const videoInfo = await playdl.video_info(query);
-      const videoDetails = videoInfo.video_details;
+      const raw = await ytDlp(query, ytDlpOptions);
+      const data = Array.isArray(raw) ? raw[0] : raw;
+      if (!data) throw new Error('Aucune information trouvée pour cette URL.');
+
+      trackUrl = data.webpage_url ?? query;
       track = {
-        title: videoDetails.title ?? 'Inconnu',
-        url: videoDetails.url,
-        duration: videoDetails.durationInSec ?? 0,
-        thumbnail: videoDetails.thumbnails?.[0]?.url ?? '',
-        author: videoDetails.channel?.name ?? 'Inconnu',
+        title: data.title ?? 'Inconnu',
+        url: trackUrl,
+        duration: data.duration ?? 0,
+        thumbnail: data.thumbnail ?? '',
+        author: data.channel ?? data.uploader ?? 'Inconnu',
         source: 'YOUTUBE',
       };
-      trackUrl = videoDetails.url;
     } else {
-      // Text search: use playdl.search
-      const searchResult = await playdl.search(query, { limit: 1, source: { youtube: 'video' } });
-      if (!searchResult.length) throw new Error('Aucun résultat trouvé.');
-      const r = searchResult[0];
-      trackUrl = r.url ?? '';
+      const raw = await ytDlp(`ytsearch1:${query}`, ytDlpOptions);
+      const data = Array.isArray(raw) ? raw[0] : raw;
+      if (!data) throw new Error('Aucun résultat trouvé.');
+
+      trackUrl = data.webpage_url ?? '';
       if (!trackUrl) throw new Error('URL introuvable dans le résultat de recherche.');
       track = {
-        title: r.title ?? 'Inconnu',
+        title: data.title ?? 'Inconnu',
         url: trackUrl,
-        duration: r.durationInSec ?? 0,
-        thumbnail: r.thumbnails?.[0]?.url ?? '',
-        author: r.channel?.name ?? 'Inconnu',
-        source: trackUrl.includes('youtube') || trackUrl.includes('youtu.be') ? 'YOUTUBE' : 'OTHER',
+        duration: data.duration ?? 0,
+        thumbnail: data.thumbnail ?? '',
+        author: data.channel ?? data.uploader ?? 'Inconnu',
+        source: 'YOUTUBE',
       };
     }
   } catch (err: any) {
-    musicLogger.error('play-dl search/info failed', { err: err.message, query });
-    // Better error message mentioning YOUTUBE_COOKIE if YouTube blocks the request
-    if (err.message?.includes('429') || err.message?.includes('Too Many Requests') || err.message?.includes('cookie')) {
+    musicLogger.error('yt-dlp search/info failed', { err: err.message, query });
+    if (err.message?.includes('429') || err.message?.includes('Too Many Requests') || err.message?.includes('HTTP Error 429')) {
       throw new Error('YouTube bloque les requêtes. Vérifiez la variable d\'environnement YOUTUBE_COOKIE dans le fichier .env.');
     }
     throw new Error(`Erreur lors de la recherche: ${err.message}`);

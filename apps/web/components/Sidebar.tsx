@@ -69,7 +69,7 @@ const categoryDefs: CategoryDef[] = [
   {
     label: 'Général',
     items: [
-      { label: 'Vue d\'ensemble', icon: <LayoutDashboard size={18} />, href: '/' },
+      { label: 'Dashboard', icon: <LayoutDashboard size={18} />, href: '/dashboard' },
       { label: 'Sélecteur de serveur', icon: <Server size={18} />, href: '/servers' },
     ],
   },
