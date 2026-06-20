@@ -98,7 +98,10 @@ export default function ModerationPage() {
     }
   };
 
-  useEffect(() => { load(page); }, [guildId, page, search, filterType]);
+  useEffect(() => {
+    if (typeof guildId !== 'string' || guildId.length === 0) return;
+    load(page);
+  }, [guildId, page, search, filterType]);
 
   const handleCreate = async () => {
     const errs: Record<string, string> = {};
