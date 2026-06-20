@@ -131,9 +131,9 @@ const TERMINAL_LINES = [
 ];
 
 const STATIC_CHANGELOGS: ChangelogItem[] = [
-  { id: '1', version: '3.1', title: 'Nouveau système de niveaux et récompenses XP', pinned: true, createdAt: '2026-06-01' },
-  { id: '2', version: '3.0', title: 'Refonte complète du dashboard — thèmes, modules, KPIs', pinned: false, createdAt: '2026-05-15' },
-  { id: '3', version: '2.9', title: 'Ajout des giveaways automatiques et tickets avancés', pinned: false, createdAt: '2026-04-28' },
+  { id: '1', version: '0.1', title: 'Nouveau système de niveaux et récompenses XP', pinned: true, createdAt: '2026-06-01' },
+  { id: '2', version: '0.0', title: 'Refonte complète du dashboard — thèmes, modules, KPIs', pinned: false, createdAt: '2026-05-15' },
+  { id: '3', version: '0.0', title: 'Ajout des giveaways automatiques et tickets avancés', pinned: false, createdAt: '2026-04-28' },
 ];
 
 /* ─── Mouse Parallax Hook ─── */
@@ -1396,7 +1396,7 @@ export default function LandingPage() {
                     background: 'var(--success)',
                     boxShadow: '0 0 6px var(--success)',
                   }} />
-                  v3.1 — En ligne
+                  v0.1 — En ligne
                 </span>
               </div>
             </div>
