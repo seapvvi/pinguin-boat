@@ -111,12 +111,12 @@ const TERMINAL_LINES = [
   { text: 'pinguin@bot:~$ ./deploy --production', delay: 0 },
   { text: '✓ Vérification des permissions...', delay: 600 },
   { text: '✓ Connexion à l\'API Discord...', delay: 1200 },
-  { text: '✓ Chargement de 12 modules...', delay: 1800 },
+  { text: '✓ Chargement des modules...', delay: 1800 },
   { text: '✓ Synchronisation des commandes...', delay: 2400 },
   { text: '', delay: 2800 },
   { text: '╔══════════════════════════════════╗', delay: 3000 },
-  { text: '║  PINGUIN BOAT v3.0 — EN LIGNE   ║', delay: 3200 },
-  { text: '║  Prêt sur 1 000+ serveurs        ║', delay: 3400 },
+  { text: '║  PINGUIN BOAT v0.0 — EN LIGNE   ║', delay: 3200 },
+  { text: '║  Prêt sur 5+ serveurs        ║', delay: 3400 },
   { text: '╚══════════════════════════════════╝', delay: 3600 },
   { text: '', delay: 3800 },
   { text: 'pinguin@bot:~$ systemctl status --all', delay: 4200 },
@@ -1285,7 +1285,7 @@ export default function LandingPage() {
                   </svg>
                 </a>
                 {/* Discord */}
-                <a href="https://discord.gg/pinguin"
+                <a href="https://discord.gg/EJHhcYkXMQ"
                   target="_blank" rel="noopener noreferrer"
                   className="footer-social-link" aria-label="Discord">
                   <svg width="16" height="16" viewBox="0 0 127.14 96.36"
@@ -1326,7 +1326,7 @@ export default function LandingPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
                   { label: 'Documentation', href: 'https://docs.pinguin.ovh', external: true },
-                  { label: 'Serveur Support', href: 'https://discord.gg/pinguin', external: true },
+                  { label: 'Serveur Support', href: 'https://discord.gg/EJHhcYkXMQ', external: true },
                   { label: 'GitHub', href: 'https://github.com/seapvvi/pinguin-boat', external: true },
                   { label: 'Soutenir le projet', href: '/soutien' },
                 ].map((link) => (
