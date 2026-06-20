@@ -748,7 +748,7 @@ export default function LandingPage() {
           style={{ textAlign: 'center', marginBottom: 48 }}
         >
           <div className="section-badge"><Star size={12} /> Fonctionnalités</div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+          <h2 style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
             Tout ce qu'il faut pour votre serveur
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8, maxWidth: 400, marginLeft: 'auto', marginRight: 'auto' }}>
@@ -772,14 +772,15 @@ export default function LandingPage() {
                 transformStyle: 'preserve-3d', perspective: 800,
                 gridColumn: i === 0 ? 'span 2' : 'span 1',
                 position: 'relative', overflow: 'hidden',
-              }}
+                '--feature-color': feature.color,
+              } as React.CSSProperties}
               className="feature-card"
             >
-              <div style={{ padding: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                  <div style={{
+              <div style={{ padding: 28 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: i === 0 ? 20 : 16 }}>
+                  <div className="feature-icon" style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    width: 40, height: 40, flexShrink: 0,
+                    width: i === 0 ? 52 : 44, height: i === 0 ? 52 : 44, flexShrink: 0,
                     backgroundColor: `color-mix(in srgb, ${feature.color} 12%, transparent)`,
                     color: feature.color,
                   }}>
@@ -787,12 +788,12 @@ export default function LandingPage() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                      <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
                         {feature.title}
                       </h3>
                       <span className="module-tag">{feature.tag}</span>
                     </div>
-                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
                       {feature.desc}
                     </p>
                   </div>
@@ -816,7 +817,7 @@ export default function LandingPage() {
         padding: '80px 24px',
         borderTop: '1px solid var(--border-color)',
         borderBottom: '1px solid var(--border-color)',
-        backgroundColor: 'var(--bg-surface)',
+        backgroundColor: 'var(--bg-surface-alt)',
         position: 'relative',
         overflow: 'hidden',
       }}>
@@ -888,7 +889,7 @@ export default function LandingPage() {
           style={{ textAlign: 'center', marginBottom: 32 }}
         >
           <div className="section-badge"><Sliders size={12} /> Modules</div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+          <h2 style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
             Tous les modules disponibles
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8 }}>
@@ -933,12 +934,12 @@ export default function LandingPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.2, delay: i * 0.02 }}
-                className="feature-card"
-                style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}
+                className="feature-card module-card"
+                style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 12 }}
               >
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 32, height: 32, flexShrink: 0,
+                  width: 38, height: 38, flexShrink: 0,
                   backgroundColor: 'color-mix(in srgb, var(--accent) 8%, transparent)',
                   color: 'var(--accent)',
                 }}>
@@ -946,12 +947,12 @@ export default function LandingPage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
                       {mod.name}
                     </span>
                     <span className="module-tag" style={{ fontSize: 9 }}>{mod.tag}</span>
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
                     {mod.desc}
                   </p>
                 </div>
@@ -1141,7 +1142,7 @@ export default function LandingPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4 }}
-          style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'center', margin: '0 0 48px' }}
+          style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'center', margin: '0 0 48px' }}
         >
           Comment ça marche
         </motion.h2>
@@ -1154,7 +1155,8 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.1 }}
-              style={{ flex: 1, textAlign: 'center', padding: '0 16px', position: 'relative' }}
+              className="step-card"
+              style={{ flex: 1, textAlign: 'center', padding: '24px 16px', position: 'relative' }}
             >
               {i < STEPS.length - 1 && (
                 <div style={{
@@ -1195,7 +1197,7 @@ export default function LandingPage() {
       }}>
         <div style={{ maxWidth: 700, margin: '0 auto', textAlign: 'center' }}>
           <div className="section-badge"><Star size={12} /> Mises à jour</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: 32, color: 'var(--text-primary)' }}>
+          <h2 style={{ fontSize: '2rem', fontWeight: 600, marginBottom: 32, color: 'var(--text-primary)' }}>
             Toujours en évolution
           </h2>
 
@@ -1207,9 +1209,10 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.3, delay: i * 0.08 }}
+                className={`changelog-item${cl.pinned ? ' pinned' : ''}`}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '12px 16px',
+                  padding: '16px 20px',
                   background: 'var(--bg-surface)',
                   border: '1px solid var(--border-color)',
                   borderRadius: 'var(--radius-sm)',
