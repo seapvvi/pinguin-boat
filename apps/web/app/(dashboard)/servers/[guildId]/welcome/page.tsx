@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'motion/react';
@@ -19,6 +19,7 @@ import { ModuleGrid } from '@/components/layout/ModuleGrid';
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<WelcomeSettings | null>(null);
@@ -27,8 +28,11 @@ export default function WelcomePage() {
   const [welcomePreview, setWelcomePreview] = useState('');
   const [goodbyePreview, setGoodbyePreview] = useState('');
 
-  const load = async () => {
-    setLoading(true);
+  const lastLocalRef = useRef<WelcomeSettings | null>(null);
+
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
+    setIsFetching(true);
     setError(null);
     try {
       const res = await fetchGuildSettings(guildId);
@@ -61,12 +65,15 @@ export default function WelcomePage() {
           welcomeDMMessage?: string | null;
         };
 
-        setLocal({
+        const value = {
           ...defaultWelcome,
           ...w,
           dmWelcome: w.dmWelcome ?? w.welcomeDM ?? false,
           dmWelcomeMessage: w.dmWelcomeMessage ?? w.welcomeDMMessage ?? null,
-        });
+        } as WelcomeSettings;
+
+        setLocal(value);
+        lastLocalRef.current = value;
 
         setWelcomePreview(((w as WelcomeSettings).welcomeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
         setGoodbyePreview(((w as WelcomeSettings).goodbyeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
@@ -80,6 +87,7 @@ export default function WelcomePage() {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -115,7 +123,6 @@ export default function WelcomePage() {
       });
       setSaveBtnState('success');
       setTimeout(() => setSaveBtnState('idle'), 2000);
-      await load();
     } catch (e) {
       setSaveBtnState('idle');
       setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
@@ -139,8 +146,11 @@ export default function WelcomePage() {
   };
 
   const updateCard = (patch: Partial<WelcomeSettings>) => {
-    if (!local) return;
-    setLocal({ ...local, ...patch });
+    const base = local ?? lastLocalRef.current;
+    if (!base) return;
+    const next = { ...base, ...patch } as WelcomeSettings;
+    setLocal(next);
+    lastLocalRef.current = next;
   };
 
   function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -162,23 +172,24 @@ export default function WelcomePage() {
       </motion.div>
     );
   }
-
-  if (!local) {
-    // Fail-safe: éviter l’écran vide pendant les re-fetch/updates.
+  if (!local && !isFetching) {
+    // Seulement au premier chargement, jamais pendant un re-fetch
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <PageLayout title="Bienvenue / Au revoir">
+        <PageLayout title="Bienvenue / Au revoir" description="…">
           <SectionCard title="Chargement…">
             <div className="space-y-3">
-              <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-2/3" />
-              <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-full" />
-              <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-5/6" />
+              <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-2/3 animate-pulse" />
+              <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-full animate-pulse" />
+              <div className="h-6 bg-[var(--bg-surface-alt)] rounded-[var(--radius)] w-5/6 animate-pulse" />
             </div>
           </SectionCard>
         </PageLayout>
       </motion.div>
     );
   }
+
+  const displayLocal = local ?? lastLocalRef.current;
 
 
   const placeholders = [
@@ -241,21 +252,27 @@ export default function WelcomePage() {
             title="Carte de bienvenue"
             icon={<Palette size={16} />}
             headerAction={
-              <Toggle checked={local.cardEnabled} onChange={(v) => setLocal({ ...local, cardEnabled: v })} />
+              <Toggle checked={!!displayLocal?.cardEnabled} onChange={(v) => {
+                const base = local ?? displayLocal;
+                if (!base) return;
+                const next = { ...base, cardEnabled: v } as WelcomeSettings;
+                setLocal(next);
+                lastLocalRef.current = next;
+              }} />
             }
           >
-            {local.cardEnabled && (
+            {displayLocal?.cardEnabled && (
               <WelcomeCardEditor
                 settings={{
-                  cardBackground: local.cardBackground,
-                  cardBgColor: local.cardBgColor,
-                  cardBgImage: local.cardBgImage,
-                  cardTextColor: local.cardTextColor,
-                  cardSubtextColor: local.cardSubtextColor,
-                  cardAccentColor: local.cardAccentColor,
-                  cardBlurBackground: local.cardBlurBackground,
-                  cardText: local.cardText,
-                  cardSubtext: local.cardSubtext,
+                  cardBackground: displayLocal?.cardBackground,
+                  cardBgColor: displayLocal?.cardBgColor,
+                  cardBgImage: displayLocal?.cardBgImage,
+                  cardTextColor: displayLocal?.cardTextColor,
+                  cardSubtextColor: displayLocal?.cardSubtextColor,
+                  cardAccentColor: displayLocal?.cardAccentColor,
+                  cardBlurBackground: displayLocal?.cardBlurBackground,
+                  cardText: displayLocal?.cardText,
+                  cardSubtext: displayLocal?.cardSubtext,
                 }}
                 onChange={updateCard}
               />
@@ -270,9 +287,15 @@ export default function WelcomePage() {
                 icon={<LogIn size={16} />}
                 headerAction={
                   <Toggle
-                    checked={!!local.welcomeChannelId || local.enabled}
+                    checked={!!displayLocal?.welcomeChannelId || !!displayLocal?.enabled}
                     onChange={(v) => {
-                      if (!v) setLocal({ ...local, welcomeChannelId: null });
+                      const base = local ?? displayLocal;
+                      if (!base) return;
+                      if (!v) {
+                        const next = { ...base, welcomeChannelId: null } as WelcomeSettings;
+                        setLocal(next);
+                        lastLocalRef.current = next;
+                      }
                     }}
                   />
                 }
@@ -282,14 +305,27 @@ export default function WelcomePage() {
                     type="channel"
                     guildId={guildId}
                     label="Salon de bienvenue"
-                    value={local.welcomeChannelId ?? ''}
-                    onChange={(id) => setLocal({ ...local, welcomeChannelId: id || null })}
+                    value={displayLocal?.welcomeChannelId ?? ''}
+                    onChange={(id) => {
+                      const base = local ?? displayLocal;
+                      if (!base) return;
+                      const next = { ...base, welcomeChannelId: id || null } as WelcomeSettings;
+                      setLocal(next);
+                      lastLocalRef.current = next;
+                    }}
                   />
                   <div>
                     <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Message</label>
                     <textarea
-                      value={local.welcomeMessage ?? ''}
-                      onChange={(e) => { setLocal({ ...local, welcomeMessage: e.target.value || null }); updatePreview(e.target.value); }}
+                      value={displayLocal?.welcomeMessage ?? ''}
+                      onChange={(e) => {
+                        const base = local ?? displayLocal;
+                        if (!base) return;
+                        const next = { ...base, welcomeMessage: e.target.value || null } as WelcomeSettings;
+                        setLocal(next);
+                        lastLocalRef.current = next;
+                        updatePreview(e.target.value);
+                      }}
                       placeholder="Bienvenue {user} sur {server} !"
                       className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-transparent border border-[var(--border-color)] outline-none focus:border-[var(--accent)] transition-colors resize-none h-20"
                     />
@@ -297,8 +333,12 @@ export default function WelcomePage() {
                   <div className="flex flex-wrap gap-2">
                     {placeholders.map((p) => (
                       <span key={p.key} onClick={() => {
-                        const current = local.welcomeMessage ?? '';
-                        setLocal({ ...local, welcomeMessage: current + ' ' + p.key });
+                        const current = displayLocal?.welcomeMessage ?? '';
+                        const base = local ?? displayLocal;
+                        if (!base) return;
+                        const next = { ...base, welcomeMessage: current + ' ' + p.key } as WelcomeSettings;
+                        setLocal(next);
+                        lastLocalRef.current = next;
                         updatePreview(current + ' ' + p.key);
                       }} className="cursor-pointer inline-flex">
                         <Badge variant="info">
@@ -316,19 +356,37 @@ export default function WelcomePage() {
                       <Mail size={14} />
                       <span className="text-sm text-[var(--text-primary)]">MP de bienvenue</span>
                     </div>
-                    <Toggle checked={local.dmWelcome} onChange={(v) => setLocal({ ...local, dmWelcome: v })} />
+                    <Toggle checked={!!displayLocal?.dmWelcome} onChange={(v) => {
+                      const base = local ?? displayLocal;
+                      if (!base) return;
+                      const next = { ...base, dmWelcome: v } as WelcomeSettings;
+                      setLocal(next);
+                      lastLocalRef.current = next;
+                    }} />
                   </div>
                   <div className="flex items-center justify-between p-3 bg-[var(--bg-surface-alt)]">
                     <div className="flex items-center gap-2">
                       <Image size={14} />
                       <span className="text-sm text-[var(--text-primary)]">Embed de bienvenue</span>
                     </div>
-                    <Toggle checked={local.welcomeEmbed} onChange={(v) => setLocal({ ...local, welcomeEmbed: v })} />
+                    <Toggle checked={!!displayLocal?.welcomeEmbed} onChange={(v) => {
+                      const base = local ?? displayLocal;
+                      if (!base) return;
+                      const next = { ...base, welcomeEmbed: v } as WelcomeSettings;
+                      setLocal(next);
+                      lastLocalRef.current = next;
+                    }} />
                   </div>
                   <Input
                     label="URL de l'image"
-                    value={local.welcomeImageUrl ?? ''}
-                    onChange={(e) => setLocal({ ...local, welcomeImageUrl: e.target.value || null })}
+                    value={displayLocal?.welcomeImageUrl ?? ''}
+                    onChange={(e) => {
+                      const base = local ?? displayLocal;
+                      if (!base) return;
+                      const next = { ...base, welcomeImageUrl: e.target.value || null } as WelcomeSettings;
+                      setLocal(next);
+                      lastLocalRef.current = next;
+                    }}
                     placeholder="https://..."
                   />
                 </div>
@@ -341,9 +399,15 @@ export default function WelcomePage() {
                 icon={<LogOut size={16} />}
                 headerAction={
                   <Toggle
-                    checked={!!local.goodbyeChannelId || local.enabled}
+                    checked={!!displayLocal?.goodbyeChannelId || !!displayLocal?.enabled}
                     onChange={(v) => {
-                      if (!v) setLocal({ ...local, goodbyeChannelId: null });
+                      const base = local ?? displayLocal;
+                      if (!base) return;
+                      if (!v) {
+                        const next = { ...base, goodbyeChannelId: null } as WelcomeSettings;
+                        setLocal(next);
+                        lastLocalRef.current = next;
+                      }
                     }}
                   />
                 }
@@ -353,14 +417,27 @@ export default function WelcomePage() {
                     type="channel"
                     guildId={guildId}
                     label="Salon de départ"
-                    value={local.goodbyeChannelId ?? ''}
-                    onChange={(id) => setLocal({ ...local, goodbyeChannelId: id || null })}
+                    value={displayLocal?.goodbyeChannelId ?? ''}
+                    onChange={(id) => {
+                      const base = local ?? displayLocal;
+                      if (!base) return;
+                      const next = { ...base, goodbyeChannelId: id || null } as WelcomeSettings;
+                      setLocal(next);
+                      lastLocalRef.current = next;
+                    }}
                   />
                   <div>
                     <label className="text-xs font-medium text-[var(--text-secondary)] tracking-wide uppercase block mb-1.5">Message</label>
                     <textarea
-                      value={local.goodbyeMessage ?? ''}
-                      onChange={(e) => { setLocal({ ...local, goodbyeMessage: e.target.value || null }); updateGoodbyePreview(e.target.value); }}
+                      value={displayLocal?.goodbyeMessage ?? ''}
+                      onChange={(e) => {
+                        const base = local ?? displayLocal;
+                        if (!base) return;
+                        const next = { ...base, goodbyeMessage: e.target.value || null } as WelcomeSettings;
+                        setLocal(next);
+                        lastLocalRef.current = next;
+                        updateGoodbyePreview(e.target.value);
+                      }}
                       placeholder="Au revoir {user} !"
                       className="w-full px-3 py-2 text-sm text-[var(--text-primary)] bg-transparent border border-[var(--border-color)] outline-none focus:border-[var(--accent)] transition-colors resize-none h-20"
                     />
@@ -374,7 +451,13 @@ export default function WelcomePage() {
                       <Image size={14} />
                       <span className="text-sm text-[var(--text-primary)]">Embed de départ</span>
                     </div>
-                    <Toggle checked={local.goodbyeEmbed} onChange={(v) => setLocal({ ...local, goodbyeEmbed: v })} />
+                    <Toggle checked={!!displayLocal?.goodbyeEmbed} onChange={(v) => {
+                      const base = local ?? displayLocal;
+                      if (!base) return;
+                      const next = { ...base, goodbyeEmbed: v } as WelcomeSettings;
+                      setLocal(next);
+                      lastLocalRef.current = next;
+                    }} />
                   </div>
                 </div>
               </SectionCard>

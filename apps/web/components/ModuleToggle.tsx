@@ -37,20 +37,21 @@ export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleT
   }, [guildId, normalizedModuleKey]);
 
   const handleToggle = async (value: boolean) => {
+    const previous = enabled;
     setEnabled(value);
     setToggling(true);
     setError(null);
     try {
       await apiToggleModule(guildId, normalizedModuleKey, value);
       toast.success(value ? `${label} activé` : `${label} désactivé`);
+      // PAS de re-fetch ici — l'optimistic update suffit
     } catch (e) {
-      setEnabled(!value);
+      setEnabled(previous);
       const msg = e instanceof Error ? e.message : 'Erreur lors de la mise à jour';
       const is404 = msg.includes('404') || msg.includes('Not Found') || msg.includes('not found');
-      toast.error(
-        is404
-          ? `Module "${label}" introuvable. Contactez le support.`
-          : msg
+      toast.error(is404
+        ? `Module "${label}" introuvable. Contactez le support.`
+        : msg
       );
       setError(is404 ? `Route introuvable pour le module "${moduleKey}"` : msg);
     } finally {
