@@ -6,7 +6,7 @@ import {
   Play, Pause, SkipForward, SkipBack, Square, Volume2, Shuffle, Repeat,
   ListMusic, Settings, Headphones, MicVocal
 } from 'lucide-react';
-import { Toggle, Input, Button, Badge, Skeleton, EmptyState } from '@pinguin/ui';
+import { Toggle, Input, Button, Badge, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
@@ -19,7 +19,7 @@ import { ModuleGrid } from '@/components/layout/ModuleGrid';
 
 export default function MusicPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -102,15 +102,7 @@ export default function MusicPage() {
     );
   }
 
-  if (loading || !local) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
-      </motion.div>
-    );
-  }
+  if (!local) return null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>

@@ -67,7 +67,7 @@ export default function TicketsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
   const [tickets, setTickets] = useState<TicketData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);

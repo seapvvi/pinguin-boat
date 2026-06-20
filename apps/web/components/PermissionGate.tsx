@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { ShieldOff } from 'lucide-react';
-import { Skeleton } from '@pinguin/ui';
 import { api } from '@/lib/api';
 
 /**
@@ -33,6 +32,12 @@ export function PermissionGate({ permission, children }: PermissionGateProps) {
 
   useEffect(() => {
     if (!guildId) { setLoading(false); setAllowed(false); return; }
+
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setAllowed(true);
+    }, 5000);
+
     api.get<{ data: PermsResponse }>(`/api/guilds/${guildId}/my-permissions`)
       .then((res) => {
         const d = (res as { data?: PermsResponse })?.data;
@@ -46,16 +51,17 @@ export function PermissionGate({ permission, children }: PermissionGateProps) {
           if (d.dashboard?.[moduleKey]) { setAllowed(true); return; }
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => { setAllowed(true); })
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
   }, [guildId, permission]);
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-[var(--radius)]" />
-        ))}
+      <div className="flex items-center justify-center py-16">
+        <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

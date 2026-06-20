@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Trash2, Plus, Video, Radio, Palette, Play, Check, AlertTriangle } from 'lucide-react';
-import { Button, Badge, Skeleton, Select, Input, Toggle } from '@pinguin/ui';
+import { Button, Badge, Select, Input, Toggle } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchStreamNotifications, createStreamNotification, updateStreamNotification, deleteStreamNotification, testStreamNotification, fetchGuildRoles } from '@/lib/api';
 import type { StreamNotification } from '@pinguin/shared';
@@ -26,7 +26,7 @@ function formatRelativeTime(dateStr: string): string {
 
 export default function NotificationsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<StreamNotification[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -187,18 +187,6 @@ export default function NotificationsPage() {
     return (
       <PageLayout title="Notifications de stream">
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
-      </PageLayout>
-    );
-  }
-
-  if (loading) {
-    return (
-      <PageLayout title="Notifications de stream">
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
-        </div>
       </PageLayout>
     );
   }

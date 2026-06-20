@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Users, TrendingUp, Plus, X, Shield, Hash
 } from 'lucide-react';
-import { Toggle, Input, Button, Badge, Modal, Skeleton, EmptyState } from '@pinguin/ui';
+import { Toggle, Input, Button, Badge, Modal, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, updateGuildSettings, api } from '@/lib/api';
 import type { GuildConfig, AutoroleSettings, RoleReward } from '@pinguin/shared';
@@ -27,7 +27,7 @@ function hashRoleColor(id: string): string {
 export default function AutorolesPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [config, setConfig] = useState<GuildConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -120,15 +120,7 @@ export default function AutorolesPage() {
     );
   }
 
-  if (loading || !local) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
-      </motion.div>
-    );
-  }
+  if (!local) return null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>

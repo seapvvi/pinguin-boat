@@ -68,7 +68,7 @@ const statusVariants: Record<string, 'warning' | 'success' | 'error'> = {
 
 export default function FormsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);

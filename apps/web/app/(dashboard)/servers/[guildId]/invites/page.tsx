@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { RefreshCw, Search, Trash2, UserPlus } from 'lucide-react';
-import { Button, Input, Table, EmptyState, Skeleton } from '@pinguin/ui';
+import { Button, Input, Table, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { api } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
@@ -27,7 +27,7 @@ export default function InvitesPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [leaderboard, setLeaderboard] = useState<InviteEntry[]>([]);
   const [filteredLeaderboard, setFilteredLeaderboard] = useState<InviteEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -95,16 +95,6 @@ export default function InvitesPage() {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
-      </motion.div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
       </motion.div>
     );
   }

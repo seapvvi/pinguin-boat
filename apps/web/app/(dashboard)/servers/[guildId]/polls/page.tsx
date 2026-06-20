@@ -20,7 +20,7 @@ const OPTION_COLORS = ['#5865f2', '#ed4245', '#57f287', '#fee75c', '#eb459e', '#
 export default function PollsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [polls, setPolls] = useState<Poll[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page] = useState(1);
   const [, setTotalPages] = useState(1);

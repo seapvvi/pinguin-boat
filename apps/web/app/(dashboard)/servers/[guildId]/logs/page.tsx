@@ -14,7 +14,6 @@ import { ModuleToggle } from '@/components/ModuleToggle';
 import { PermissionGate } from '@/components/PermissionGate';
 import { DiscordSelect } from '@/components/DiscordSelect';
 import { useAutoSave } from '@/lib/hooks';
-import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
@@ -75,7 +74,7 @@ const defaultLogs: LogSettings = {
 
 export default function LogsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -153,9 +152,7 @@ export default function LogsPage() {
     );
   }
 
-  if (loading || !local) {
-    return <SkeletonPage rows={3} />;
-  }
+  if (!local) return null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>

@@ -30,7 +30,7 @@ interface StarboardEntry {
 
 export default function StarboardPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<{ channelId?: string; starEmoji?: string; minStars?: number; selfStar?: boolean } | null>(null);
 

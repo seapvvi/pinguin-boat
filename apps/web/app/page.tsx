@@ -54,7 +54,7 @@ function PinguinLogo({ size = 20 }: { size?: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <img
-        src="/favicon.svg"
+        src="/logo.svg"
         alt="Pinguin"
         width={size + 4}
         height={size + 4}
@@ -480,7 +480,7 @@ export default function LandingPage() {
 
         {/* Penguin with parallax */}
         <motion.div
-          style={{ marginBottom: 24, position: 'relative', x: springX, y: springY }}
+          style={{ marginBottom: 24, position: 'relative', padding: 48, margin: -48, overflow: 'visible', x: springX, y: springY }}
           animate={{ y: [0, -10, 0] }}
           transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
         >
@@ -493,26 +493,13 @@ export default function LandingPage() {
               borderRadius: '50%',
             }}
           />
-          <svg width="72" height="88" viewBox="0 0 80 96" fill="none" style={{ position: 'relative' }}>
-            <ellipse cx="40" cy="52" rx="32" ry="36" fill="#1a1a1a" />
-            <ellipse cx="40" cy="56" rx="22" ry="26" fill="#f5f5f5" />
-            <ellipse cx="40" cy="46" rx="16" ry="18" fill="#1a1a1a" />
-            <circle cx="30" cy="36" r="4" fill="#f5f5f5" />
-            <circle cx="50" cy="36" r="4" fill="#f5f5f5" />
-            <circle cx="30" cy="36" r="2" fill="#1a1a1a" />
-            <circle cx="50" cy="36" r="2" fill="#1a1a1a" />
-            <ellipse cx="28" cy="44" rx="2" ry="1.5" fill="#1a1a1a" />
-            <ellipse cx="52" cy="44" rx="2" ry="1.5" fill="#1a1a1a" />
-            <path d="M36 42 Q40 46 44 42" stroke="#1a1a1a" strokeWidth="1.5" fill="none" />
-            <path d="M30 66 L24 88 Q28 86 32 88 L40 76 L48 88 Q52 86 56 88 L50 66" fill="var(--accent)" />
-            <ellipse cx="24" cy="26" rx="10" ry="14" fill="#1a1a1a" transform="rotate(-20 24 26)" />
-            <ellipse cx="56" cy="26" rx="10" ry="14" fill="#1a1a1a" transform="rotate(20 56 26)" />
-          </svg>
+          <img src="/logo.svg" alt="Pinguin" width={80} height={80} style={{ position: 'relative', objectFit: 'contain' }} />
 
           {/* Floating cards */}
           <motion.div
             style={{
-              position: 'absolute', left: -130, top: 20,
+              position: 'absolute', left: -20, top: '30%',
+              transform: 'translateY(-50%)',
               x: floatCardLeftX, y: floatCardLeftY,
             }}
             className="floating-card"
@@ -526,7 +513,7 @@ export default function LandingPage() {
 
           <motion.div
             style={{
-              position: 'absolute', right: -130, top: 40,
+              position: 'absolute', right: -20, top: '20%',
               x: floatCardRightX, y: floatCardRightY,
             }}
             className="floating-card"
@@ -540,7 +527,7 @@ export default function LandingPage() {
 
           <motion.div
             style={{
-              position: 'absolute', bottom: -20, left: '50%',
+              position: 'absolute', bottom: 10, right: 0,
               x: floatCardBottomX,
             }}
             className="floating-card"

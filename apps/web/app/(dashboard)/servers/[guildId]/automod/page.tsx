@@ -16,7 +16,6 @@ import { settingsToRules, rulesToSettings } from '@/lib/automod-rules';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
-import { SkeletonPage } from '@/components/layout/SkeletonPage';
 
 function parseList(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.map(String);
@@ -34,7 +33,7 @@ function parseList(raw: unknown): string[] {
 export default function AutoModPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -101,9 +100,7 @@ export default function AutoModPage() {
     );
   }
 
-  if (loading || !settings) {
-    return <SkeletonPage rows={3} />;
-  }
+  if (!settings) return null;
 
   const whitelistRoles = parseList(settings.whitelistRoles);
   const whitelistChannels = parseList(settings.whitelistChannels);

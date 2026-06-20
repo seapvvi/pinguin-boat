@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Image, Mail, LogOut, Eye, Palette, UserPlus, LogIn, Loader2, Check } from 'lucide-react';
-import { Toggle, Input, Button, Badge, Skeleton } from '@pinguin/ui';
+import { Toggle, Input, Button, Badge } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
 import type { WelcomeSettings } from '@pinguin/shared';
@@ -18,7 +18,7 @@ import { ModuleGrid } from '@/components/layout/ModuleGrid';
 
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<WelcomeSettings | null>(null);
@@ -163,15 +163,7 @@ export default function WelcomePage() {
     );
   }
 
-  if (loading || !local) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
-      </motion.div>
-    );
-  }
+  if (!local) return null;
 
   const placeholders = [
     { key: '{user}', desc: 'Pseudo affiché (sans mention)' },

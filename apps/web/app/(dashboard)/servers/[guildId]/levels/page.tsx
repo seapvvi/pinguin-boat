@@ -14,7 +14,6 @@ import type { GuildConfig, LevelSettings, LeaderboardEntry, RoleReward } from '@
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
-import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { api } from '@/lib/api';
 import RankCardEditor from '@/components/levels/RankCardEditor';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -35,7 +34,7 @@ const LEVEL_UP_VARIABLES = [
 export default function LevelsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<LevelSettings | null>(null);
@@ -167,9 +166,7 @@ export default function LevelsPage() {
     );
   }
 
-  if (loading || !local) {
-    return <SkeletonPage rows={3} />;
-  }
+  if (!local) return null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>

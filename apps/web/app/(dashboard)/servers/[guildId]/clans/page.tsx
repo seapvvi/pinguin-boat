@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Users, Trophy, Settings, Eye, Crown
 } from 'lucide-react';
-import { Input, Toggle, Button, Skeleton, EmptyState } from '@pinguin/ui';
+import { Input, Toggle, Button, EmptyState } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchClans, fetchGuildSettings, updateGuildSettings, type Clan } from '@/lib/api';
 import { ModuleToggle } from '@/components/ModuleToggle';
@@ -25,7 +25,7 @@ interface ClanSettings {
 export default function ClansPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [clans, setClans] = useState<Clan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -85,16 +85,6 @@ export default function ClansPage() {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <ErrorMessage title="Erreur" message={error} onRetry={load} />
-      </motion.div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
       </motion.div>
     );
   }

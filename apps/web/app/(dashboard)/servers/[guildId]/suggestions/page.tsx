@@ -14,7 +14,6 @@ import type { Suggestion } from '@pinguin/shared';
 import type { Column } from '@pinguin/ui';
 import { ModuleToggle } from '@/components/ModuleToggle';
 import { DiscordSelect } from '@/components/DiscordSelect';
-import { SkeletonPage } from '@/components/layout/SkeletonPage';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
@@ -36,7 +35,7 @@ const statusVariants: Record<string, 'warning' | 'success' | 'error' | 'info'> =
 export default function SuggestionsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -167,10 +166,6 @@ export default function SuggestionsPage() {
         <ErrorMessage title="Erreur" message={error} onRetry={() => load(page)} />
       </motion.div>
     );
-  }
-
-  if (loading) {
-    return <SkeletonPage rows={1} />;
   }
 
   return (

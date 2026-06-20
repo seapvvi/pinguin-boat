@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: 'Pinguin BOAT — Forgé pour la communauté',
   description: 'Dashboard de gestion du bot Discord Pinguin BOAT',
   icons: {
-    icon: '/favicon.svg',
+    icon: '/logo.svg',
   },
 };
 

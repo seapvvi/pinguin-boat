@@ -34,7 +34,7 @@ const EMPTY_EMBED: EmbedData = {
 
 export default function EmbedsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [embeds, setEmbeds] = useState<SavedEmbed[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);

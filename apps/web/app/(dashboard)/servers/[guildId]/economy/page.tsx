@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Banknote, ShoppingCart, Plus, X, Coins, Trophy, Landmark
 } from 'lucide-react';
-import { Toggle, Input, Button, Table, Skeleton, EmptyState, Badge } from '@pinguin/ui';
+import { Toggle, Input, Button, Table, EmptyState, Badge } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, fetchEconomyLeaderboard, updateGuildSettings } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
@@ -99,7 +99,7 @@ function SliderField({
 export default function EconomyPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [leaderboard, setLeaderboard] = useState<EconomyEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -213,15 +213,7 @@ export default function EconomyPage() {
     );
   }
 
-  if (loading || !local) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
-      </motion.div>
-    );
-  }
+  if (!local) return null;
 
   const isReadOnly = !local.enabled;
 

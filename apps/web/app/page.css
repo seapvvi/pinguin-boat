@@ -280,7 +280,7 @@
 }
 
 /* ─── RESPONSIVE ─── */
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   .floating-card { display: none !important; }
 }
 @media (max-width: 640px) {

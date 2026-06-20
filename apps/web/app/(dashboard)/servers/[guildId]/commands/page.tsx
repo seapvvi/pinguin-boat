@@ -172,7 +172,7 @@ const MODULE_LABELS: Record<string, string> = {
 export default function CommandsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [config, setConfig] = useState<GuildConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');

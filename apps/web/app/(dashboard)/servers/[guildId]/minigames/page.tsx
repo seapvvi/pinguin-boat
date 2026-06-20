@@ -61,7 +61,7 @@ interface LeaderboardEntry {
 
 export default function MinigamesPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<{ gamesChannelId?: string; betMin?: number; betMax?: number } | null>(null);
 
