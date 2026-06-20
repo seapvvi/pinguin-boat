@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+
 import { motion, useScroll, useTransform, useInView, useSpring, AnimatePresence } from 'motion/react';
 import {
   Shield, BarChart3,

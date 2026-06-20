@@ -5,6 +5,50 @@
   animation: cursor-blink 0.9s steps(2, end) infinite;
 }
 
+/* CTA buttons used on the landing page */
+.cta-discord,
+.cta-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 0px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease;
+  user-select: none;
+}
+
+.cta-discord {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.cta-discord:hover {
+  background: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--accent-hover) 60%, transparent);
+  transform: translateY(-1px);
+}
+
+.cta-outline {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.cta-outline:hover {
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  border-color: color-mix(in srgb, var(--text-primary) 35%, transparent);
+  transform: translateY(-1px);
+}
+
+
 @keyframes cursor-blink {
   50% {
     opacity: 0;
