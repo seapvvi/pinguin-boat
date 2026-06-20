@@ -1,0 +1,57 @@
+/* Cards dashboard — glass morphism léger */
+.dashboard-card {
+  background: color-mix(in srgb, var(--bg-surface) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, var(--accent) 5%);
+  backdrop-filter: blur(4px);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dashboard-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 25%, var(--border-color));
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+/* KPI card — accent sur le dessus */
+.kpi-card {
+  border-top: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.kpi-card:hover {
+  border-top-color: color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+/* Section headings dans le dashboard */
+.dashboard-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--border-color), transparent);
+}
+
+/* Skeleton loader */
+@keyframes shimmer-dash {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--bg-surface-alt) 25%,
+    color-mix(in srgb, var(--accent) 4%, var(--bg-surface-alt)) 50%,
+    var(--bg-surface-alt) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-dash 1.8s ease-in-out infinite;
+}

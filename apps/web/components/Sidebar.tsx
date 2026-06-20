@@ -161,7 +161,8 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
         height: '100%',
         minHeight: 0,
         overflow: 'hidden',
-        backgroundColor: 'var(--bg-sidebar)',
+        backgroundColor: 'color-mix(in srgb, var(--bg-sidebar) 90%, transparent)',
+        backdropFilter: 'blur(16px)',
         borderRight: '1px solid var(--border-color)',
         position: 'relative',
       }}
@@ -175,6 +176,14 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
         <Link href="/" onClick={onClose}>
           <Logo withText size={28} />
         </Link>
+        <div
+          style={{
+            height: 1,
+            background: 'linear-gradient(to right, transparent, var(--accent), transparent)',
+            margin: '8px 0',
+            opacity: 0.4,
+          }}
+        />
       </div>
 
       <nav style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '8px 0' }}>

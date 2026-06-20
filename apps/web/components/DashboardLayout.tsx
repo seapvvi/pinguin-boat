@@ -121,28 +121,20 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
         }}
         className={sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}
       >
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 2,
-            zIndex: 50,
-            backgroundColor: 'var(--bg-primary)',
-            opacity: showProgress ? 1 : 0,
-            transition: 'opacity 300ms ease',
-            pointerEvents: 'none',
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              width: `${progress}%`,
-              backgroundColor: 'var(--accent)',
-              transition: 'width 500ms ease-out',
-            }}
-          />
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0,
+          height: 2, zIndex: 9999,
+          pointerEvents: 'none',
+          opacity: showProgress ? 1 : 0,
+          transition: 'opacity 300ms ease',
+        }}>
+          <div style={{
+            height: '100%',
+            width: `${progress}%`,
+            background: 'linear-gradient(to right, var(--accent), color-mix(in srgb, var(--accent) 70%, var(--info)))',
+            transition: 'width 500ms ease-out',
+            boxShadow: '0 0 8px color-mix(in srgb, var(--accent) 60%, transparent)',
+          }} />
         </div>
 
         <Header
@@ -156,6 +148,8 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
           style={{
             flex: 1,
             backgroundColor: 'transparent',
+            position: 'relative',
+            zIndex: 1,
           }}
           className="px-6 lg:px-10 py-6"
         >
@@ -175,15 +169,17 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
         <footer
           style={{
             borderTop: '1px solid var(--border-color)',
-            backgroundColor: 'var(--bg-surface)',
-            padding: '8px 20px',
+            backgroundColor: 'color-mix(in srgb, var(--bg-sidebar) 80%, transparent)',
+            backdropFilter: 'blur(8px)',
+            padding: '10px 20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: 8,
-            fontSize: 12,
+            fontSize: 11,
             color: 'var(--text-secondary)',
+            letterSpacing: '0.02em',
           }}
         >
           <span>

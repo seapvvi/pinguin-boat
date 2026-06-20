@@ -33,7 +33,9 @@ export default function Header({ user, onMenuToggle, onLogout, guildId }: Header
         justifyContent: 'space-between',
         height: 60,
         padding: '0 24px',
-        backgroundColor: 'var(--bg-header)',
+        backgroundColor: 'color-mix(in srgb, var(--bg-header) 85%, transparent)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: '0 1px 0 var(--border-color), 0 4px 20px color-mix(in srgb, var(--bg-primary) 40%, transparent)',
         borderBottom: '1px solid var(--border-color)',
       }}
     >
