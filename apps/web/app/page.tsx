@@ -306,6 +306,25 @@ export default function LandingPage() {
   const springX = useSpring(mouse.x, { stiffness: 80, damping: 20 });
   const springY = useSpring(mouse.y, { stiffness: 80, damping: 20 });
 
+  // Springs pour les floating cards — déclarés ici dans le corps du composant (Rules of Hooks)
+  const floatCardLeftX = useSpring(0, { stiffness: 80, damping: 20 });
+  const floatCardLeftY = useSpring(0, { stiffness: 80, damping: 20 });
+  const floatCardRightX = useSpring(0, { stiffness: 80, damping: 20 });
+  const floatCardRightY = useSpring(0, { stiffness: 80, damping: 20 });
+  const floatCardBottomX = useSpring(0, { stiffness: 80, damping: 20 });
+
+  // Mise à jour des springs flottantes quand la souris bouge
+  useEffect(() => {
+    floatCardLeftX.set(-mouse.x * 0.5);
+    floatCardLeftY.set(-mouse.y * 0.5);
+    floatCardRightX.set(-mouse.x * 0.5);
+    floatCardRightY.set(-mouse.y * 0.5);
+    floatCardBottomX.set(-mouse.x * 0.3);
+  }, [mouse.x, mouse.y,
+    floatCardLeftX, floatCardLeftY,
+    floatCardRightX, floatCardRightY,
+    floatCardBottomX]);
+
   const tags = ['all', 'core', 'fun', 'utility', 'social'] as const;
   const filteredModules = activeTag === 'all'
     ? MODULES
@@ -464,12 +483,11 @@ export default function LandingPage() {
             <ellipse cx="56" cy="26" rx="10" ry="14" fill="#1a1a1a" transform="rotate(20 56 26)" />
           </svg>
 
-          {/* Floating cards */}
+          {/* Floating cards — useSpring appelés dans le corps du composant, pas dans JSX */}
           <motion.div
             style={{
               position: 'absolute', left: -130, top: 20,
-              x: useSpring(-mouse.x * 0.5, { stiffness: 80, damping: 20 }),
-              y: useSpring(-mouse.y * 0.5, { stiffness: 80, damping: 20 }),
+              x: floatCardLeftX, y: floatCardLeftY,
             }}
             className="floating-card"
           >
@@ -483,8 +501,7 @@ export default function LandingPage() {
           <motion.div
             style={{
               position: 'absolute', right: -130, top: 40,
-              x: useSpring(-mouse.x * 0.5, { stiffness: 80, damping: 20 }),
-              y: useSpring(-mouse.y * 0.5, { stiffness: 80, damping: 20 }),
+              x: floatCardRightX, y: floatCardRightY,
             }}
             className="floating-card"
           >
@@ -498,8 +515,7 @@ export default function LandingPage() {
           <motion.div
             style={{
               position: 'absolute', bottom: -20, left: '50%',
-              transform: 'translateX(-50%)',
-              x: useSpring(-mouse.x * 0.3, { stiffness: 80, damping: 20 }),
+              x: floatCardBottomX,
             }}
             className="floating-card"
           >
