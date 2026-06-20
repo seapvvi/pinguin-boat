@@ -22,9 +22,7 @@ export function useSSE(options?: UseSSEOptions): UseSSEResult {
   onPopupRef.current = options?.onPopup;
 
   const connect = useCallback(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-    const url = `${apiUrl}/api/owner/events`;
-    const eventSource = new EventSource(url, { withCredentials: true });
+    const eventSource = new EventSource('/api/owner/events', { withCredentials: true });
 
     eventSource.onmessage = (event) => {
       try {

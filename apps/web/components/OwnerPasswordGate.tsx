@@ -18,7 +18,7 @@ export default function OwnerPasswordGate({ children }: Props) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/owner/status`, {
+    fetch('/api/owner/status', {
       credentials: 'include',
     })
       .then((res) => res.json())
@@ -42,8 +42,7 @@ export default function OwnerPasswordGate({ children }: Props) {
     setLoading(true);
     setError('');
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-      const res = await fetch(`${apiUrl}/api/owner/verify-password`, {
+      const res = await fetch('/api/owner/verify-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -72,8 +71,7 @@ export default function OwnerPasswordGate({ children }: Props) {
     setLoading(true);
     setError('');
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-      const res = await fetch(`${apiUrl}/api/owner/2fa/verify`, {
+      const res = await fetch('/api/owner/2fa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
