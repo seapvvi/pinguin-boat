@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Shield, BarChart3, LayoutDashboard,
-  Check, ArrowRight, Sparkles, Users,
+  ArrowRight, Sparkles, Users,
 } from 'lucide-react';
 import { Logo } from '@pinguin/ui';
 import { getUser, type User } from '@/lib/auth';
@@ -13,27 +13,6 @@ interface StatsData {
   totalGuilds: number;
   totalUsers: number;
 }
-
-const FEATURES = [
-  {
-    icon: Shield,
-    title: 'Modération intelligente',
-    description:
-      'Bannissements, mutes et logs automatiques configurables en un clic. Anti-spam, anti-raid et protection avancée contre les menaces, le tout depuis le dashboard.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Stats & Analytics',
-    description:
-      'Graphiques d\'activité en temps réel, commandes les plus utilisées, croissance du serveur. Suivez l\'évolution de votre communauté avec des données précises.',
-  },
-  {
-    icon: LayoutDashboard,
-    title: 'Dashboard web complet',
-    description:
-      'Gérez tout depuis bot.pinguin.ovh sans jamais taper une commande. Configuration visuelle, logs détaillés, permissions granulaires — une interface, tout contrôler.',
-  },
-];
 
 const STEPS = [
   { num: 1, title: 'Ajoute Pinguin', desc: 'Clique sur "Ajouter à Discord" et autorise les permissions.' },
