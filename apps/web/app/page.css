@@ -1,5 +1,6 @@
+/* ─── RESPONSIVE UTILITIES ─── */
 @media (max-width: 767px) {
-  header nav {
+  .hide-mobile {
     display: none !important;
   }
   .flex-col.md\:flex-row {
@@ -8,24 +9,202 @@
   .flex-col.md\:flex-row-reverse {
     flex-direction: column !important;
   }
-  .flex-col.md\:flex-row {
-    gap: 24px !important;
-  }
+  .flex-col.md\:flex-row,
   .flex-col.md\:flex-row-reverse {
     gap: 24px !important;
   }
-  .flex-col.md\:flex-row > div {
-    width: 100% !important;
-    flex: none !important;
-  }
+  .flex-col.md\:flex-row > div,
   .flex-col.md\:flex-row-reverse > div {
     width: 100% !important;
     flex: none !important;
   }
 }
 
-@media (max-width: 767px) {
-  .flex-col.md\:flex-row {
-    flex-direction: column !important;
-  }
+/* ─── SCANLINE OVERLAY ─── */
+@keyframes scanline {
+  0% { top: -100%; }
+  100% { top: 200%; }
+}
+.scanline {
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 6%, transparent), transparent);
+  opacity: 0.4;
+  z-index: 9999;
+  animation: scanline 8s linear infinite;
+}
+
+/* ─── GRID BACKGROUND ─── */
+@keyframes grid-pulse {
+  0%, 100% { opacity: 0.03; }
+  50% { opacity: 0.06; }
+}
+.grid-bg {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(var(--border-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: grid-pulse 4s ease-in-out infinite;
+}
+
+/* ─── CURSOR BLINK ─── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* ─── GLOW ─── */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 15%, transparent); }
+  50% { box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 25%, transparent); }
+}
+.glow-hover:hover {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* ─── TERMINAL LINE ─── */
+.terminal-line::before {
+  content: '> ';
+  color: var(--accent);
+  opacity: 0.6;
+}
+
+/* ─── HOVER CARD TERMINAL ─── */
+.feature-card {
+  position: relative;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+  cursor: default;
+}
+.feature-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid transparent;
+  transition: border-color 0.3s ease;
+  pointer-events: none;
+}
+.feature-card:hover {
+  border-color: var(--accent);
+  background-color: var(--bg-surface-alt);
+  transform: translateY(-2px);
+}
+
+/* ─── MODULE TAG ─── */
+.module-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  transition: border-color 0.15s, color 0.15s;
+}
+.feature-card:hover .module-tag {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* ─── STAT DIGIT ─── */
+.stat-digit {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── TYPEWRITER CURSOR ─── */
+.typewriter-cursor::after {
+  content: '▊';
+  color: var(--accent);
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+}
+
+/* ─── CTA DISCORD BUTTON ─── */
+.cta-discord {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px;
+  background-color: #5865F2;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+  overflow: hidden;
+}
+.cta-discord::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%);
+  transition: opacity 0.3s;
+}
+.cta-discord:hover {
+  background-color: #4752C4;
+  transform: translateY(-1px);
+}
+.cta-discord:hover::before {
+  opacity: 0;
+}
+
+/* ─── ACCENT BUTTON (outline) ─── */
+.cta-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+}
+.cta-outline:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background-color: var(--bg-surface-alt);
+}
+
+/* ─── SEPARATOR ─── */
+.section-sep {
+  width: 100%;
+  height: 0;
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 0;
+}
+
+/* ─── PROGRESS BAR (scroll) ─── */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 1px;
+  background-color: var(--accent);
+  z-index: 100;
+  transition: width 50ms linear;
 }

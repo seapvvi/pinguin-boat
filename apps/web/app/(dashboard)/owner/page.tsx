@@ -19,7 +19,7 @@ import ReactMarkdown from 'react-markdown';
 import { fetchBotStats, fetchOwnerLogs, triggerBackup, triggerRestart, triggerDeploy, triggerRollback, fetchOnboardingSources, api } from '@/lib/api';
 import { formatNumber, formatDuration, formatDate } from '@/lib/utils';
 import DeploymentProgressModal from '@/components/DeploymentProgressModal';
-import { ConfirmActionModal } from '@/components/ConfirmActionModal';
+import ConfirmActionModal from '@/components/ConfirmActionModal';
 import { ToastAlert } from '@/components/ToastAlert';
 import { Switch } from '@/components/Switch';
 
@@ -136,7 +136,13 @@ export default function OwnerDashboardPage() {
 
   const [logSearch, setLogSearch] = useState('');
   const [logFilter, setLogFilter] = useState<'all' | 'success' | 'error'>('all');
-  const [pendingAction, setPendingAction] = useState<{ key: string; fn: () => Promise<{ success?: boolean; data?: Record<string, unknown>; message?: string }> } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    key: string;
+    label: string;
+    confirmWord: string;
+    description: string;
+    fn: () => Promise<{ success?: boolean; data?: Record<string, unknown>; message?: string }>;
+  } | null>(null);
 
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [secondsAgo, setSecondsAgo] = useState(0);
@@ -548,7 +554,15 @@ export default function OwnerDashboardPage() {
                   <motion.button key={a.key} whileTap={{ scale: 0.97 }}
                     onClick={() => {
                       if (a.key === 'restart' || a.key === 'rollback') {
-                        setPendingAction({ key: a.key, fn: a.fn });
+                        setPendingAction({
+                          key: a.key,
+                          label: a.key === 'restart' ? 'Redémarrer tout' : 'Rollback',
+                          confirmWord: a.key === 'restart' ? 'RESTART' : 'ROLLBACK',
+                          description: a.key === 'restart'
+                            ? 'Voulez-vous vraiment redémarrer tous les services ?'
+                            : 'Voulez-vous vraiment revenir à la version précédente ?',
+                          fn: a.fn,
+                        });
                       } else {
                         handleAction(a.key, a.fn);
                       }
@@ -919,18 +933,18 @@ export default function OwnerDashboardPage() {
 
       <DeploymentProgressModal deploymentId={deployId} onClose={() => setDeployId(null)} />
 
-      <ConfirmActionModal
-        action={pendingAction?.key === 'restart' ? 'Redémarrer tout' : 'Rollback'}
-        confirmWord={pendingAction?.key === 'restart' ? 'RESTART' : 'ROLLBACK'}
-        description={pendingAction?.key === 'restart'
-          ? 'Voulez-vous vraiment redémarrer tous les services ?'
-          : 'Voulez-vous vraiment revenir à la version précédente ?'}
-        onConfirm={() => {
-          if (pendingAction) handleAction(pendingAction.key, pendingAction.fn);
-          setPendingAction(null);
-        }}
-        onCancel={() => setPendingAction(null)}
-      />
+      {pendingAction && (
+        <ConfirmActionModal
+          action={pendingAction.label}
+          confirmWord={pendingAction.confirmWord}
+          description={pendingAction.description}
+          onConfirm={() => {
+            handleAction(pendingAction.key, pendingAction.fn);
+            setPendingAction(null);
+          }}
+          onCancel={() => setPendingAction(null)}
+        />
+      )}
 
       <ToastAlert
         show={!!toastMsg}

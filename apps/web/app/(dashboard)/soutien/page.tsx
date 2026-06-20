@@ -142,10 +142,14 @@ export default function SupportPage() {
                 className="flex gap-3 p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface-alt)] border border-[var(--border-color)]"
               >
                 <span
-                  className="shrink-0 rounded-full p-2"
-                  style={{ backgroundColor: 'color-mix(in srgb, var(--accent) 10%, transparent)' }}
+                  className="shrink-0 rounded-full p-2 flex items-center justify-center text-[var(--accent)]"
+                  style={{
+                    backgroundColor: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+                    width: '2.25rem',
+                    height: '2.25rem',
+                  }}
                 >
-                  <span className="text-[var(--accent)]">{p.icon}</span>
+                  {p.icon}
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-[var(--text-primary)]">{p.title}</p>
