@@ -1,5 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { ZodSchema } from 'zod';
+import { z, ZodSchema } from 'zod';
 
 type ValidationTarget = 'body' | 'params' | 'query';
 
@@ -12,7 +12,8 @@ export function validate(
     reply: FastifyReply
   ): Promise<void> => {
     const data = request[target];
-    const result = schema.safeParse(data);
+    const effectiveSchema = target === 'params' && schema instanceof z.ZodObject ? schema.passthrough() : schema;
+    const result = effectiveSchema.safeParse(data);
 
     if (!result.success) {
       const errors = result.error.flatten();
@@ -26,10 +27,8 @@ export function validate(
 
     if (target === 'body') {
       (request as any).body = result.data;
-    } else if (target === 'params') {
-      (request as any).params = result.data;
-    } else if (target === 'query') {
-      (request as any).query = result.data;
+    } else if (target === 'params' || target === 'query') {
+      (request as any)[target] = result.data;
     }
   };
 }

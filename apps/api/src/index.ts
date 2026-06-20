@@ -46,6 +46,7 @@ async function main() {
   });
 
   await app.register(csrf, {
+    secret: config.SESSION_SECRET,
     cookieOpts: {
       signed: true,
       httpOnly: true,
@@ -53,17 +54,6 @@ async function main() {
       path: '/',
       secure: process.env.NODE_ENV === 'production',
     },
-  });
-
-  app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) && request.cookies?.session) {
-      await new Promise<void>((resolve, reject) => {
-        app.csrfProtection(request, reply, (err: Error | undefined) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
-    }
   });
 
   app.addHook('onRequest', checkMaintenance);
