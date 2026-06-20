@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { Logo, Avatar, Toggle, Snowflakes } from '@pinguin/ui';
 import { useSnowflakes } from '@pinguin/ui';
 import { getAvatarUrl } from '@/lib/utils';
@@ -178,6 +178,7 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
       </div>
 
       <nav style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '8px 0' }}>
+        <LayoutGroup>
         {categoryDefs.map((category) => {
           const visibleItems = category.items.filter(
             (item) => !item.ownerOnly || user?.isOwner
@@ -233,27 +234,42 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
                       fontSize: 14,
                       fontWeight: active ? 500 : 400,
                       color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                      backgroundColor: active ? 'var(--bg-sidebar-active)' : 'transparent',
-                      borderRight: active ? '2px solid var(--accent)' : '2px solid transparent',
+                      backgroundColor: active ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+                      borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
+                      borderRight: 'none',
+                      borderRadius: active ? '0 6px 6px 0' : 0,
                       textDecoration: 'none',
-                      transition: 'background-color 0.15s, color 0.15s',
+                      transition: 'transform 150ms ease, background-color 150ms ease, color 0.15s',
                       cursor: 'pointer',
                     }}
                     onMouseEnter={(e) => {
                       if (!active) {
                         e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
                       }
+                      e.currentTarget.style.transform = 'translateX(3px)';
                     }}
                     onMouseLeave={(e) => {
                       if (!active) {
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }
+                      e.currentTarget.style.transform = 'translateX(0)';
                     }}
                   >
-                    <span style={{ opacity: active ? 1 : 0.6, flexShrink: 0 }}>
-                      {item.icon}
-                    </span>
-                    {item.label}
+                    {active ? (
+                      <motion.div layoutId="sidebar-active-pill" style={{ display: 'contents' }}>
+                        <span style={{ opacity: active ? 1 : 0.6, flexShrink: 0 }}>
+                          {item.icon}
+                        </span>
+                        {item.label}
+                      </motion.div>
+                    ) : (
+                      <>
+                        <span style={{ opacity: active ? 1 : 0.6, flexShrink: 0 }}>
+                          {item.icon}
+                        </span>
+                        {item.label}
+                      </>
+                    )}
                   </Link>
                 );
               })}
@@ -280,38 +296,55 @@ export default function Sidebar({ user, isOpen, onClose, onLogout }: SidebarProp
               { href: '/owner/servers', label: 'Serveurs', icon: <Server size={18} /> },
               { href: '/owner/users', label: 'Utilisateurs', icon: <Users size={18} /> },
               { href: '/owner/connected', label: 'Connectés', icon: <Radio size={18} /> },
-            ].map(({ href, label, icon }) => (
-              <Link
-                key={href}
-                href={href}
-                onClick={onClose}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '8px 16px 8px 24px',
-                  fontSize: 14,
-                  fontWeight: isActive(href) ? 500 : 400,
-                  color: isActive(href) ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  backgroundColor: isActive(href) ? 'var(--bg-sidebar-active)' : 'transparent',
-                  borderRight: isActive(href) ? '2px solid var(--accent)' : '2px solid transparent',
-                  textDecoration: 'none',
-                  transition: 'background-color 0.15s, color 0.15s',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive(href)) e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive(href)) e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <span style={{ opacity: isActive(href) ? 1 : 0.6 }}>{icon}</span>
-                {label}
-              </Link>
-            ))}
+            ].map(({ href, label, icon }) => {
+              const active = isActive(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={onClose}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 16px 8px 24px',
+                    fontSize: 14,
+                    fontWeight: active ? 500 : 400,
+                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    backgroundColor: active ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+                    borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
+                    borderRight: 'none',
+                    borderRadius: active ? '0 6px 6px 0' : 0,
+                    textDecoration: 'none',
+                    transition: 'transform 150ms ease, background-color 150ms ease, color 0.15s',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) e.currentTarget.style.backgroundColor = 'var(--bg-surface-alt)';
+                    e.currentTarget.style.transform = 'translateX(3px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.transform = 'translateX(0)';
+                  }}
+                >
+                  {active ? (
+                    <motion.div layoutId="sidebar-active-pill" style={{ display: 'contents' }}>
+                      <span style={{ opacity: 1 }}>{icon}</span>
+                      {label}
+                    </motion.div>
+                  ) : (
+                    <>
+                      <span style={{ opacity: 0.6 }}>{icon}</span>
+                      {label}
+                    </>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         )}
+        </LayoutGroup>
       </nav>
 
       <div

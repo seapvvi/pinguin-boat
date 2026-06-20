@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-  Plus, X, Eye, Trophy, Award, Zap, Bell, Medal
+  Plus, X, Eye, Trophy, Award, Zap, Bell, Medal, Loader2, Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toggle, Input, Button, Badge, Modal, Table, EmptyState, Select } from '@pinguin/ui';
@@ -37,7 +37,6 @@ export default function LevelsPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<LevelSettings | null>(null);
   const [rewardModal, setRewardModal] = useState(false);
@@ -74,19 +73,22 @@ export default function LevelsPage() {
 
   useEffect(() => { load(); }, [guildId]);
 
+  const [saveBtnState, setSaveBtnState] = useState<'idle' | 'loading' | 'success'>('idle');
+
   const handleSave = async () => {
     if (!local) return;
-    setSaving(true);
+    setSaveBtnState('loading');
     setSaveError(null);
     try {
       await updateGuildSettings(guildId, { levels: local });
+      setSaveBtnState('success');
+      setTimeout(() => setSaveBtnState('idle'), 2000);
       toast.success('Paramètres enregistrés');
     } catch (e) {
+      setSaveBtnState('idle');
       const msg = e instanceof Error ? e.message : 'Erreur lors de la sauvegarde';
       setSaveError(msg);
       toast.error(msg);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -145,6 +147,18 @@ export default function LevelsPage() {
     { key: 'level', label: 'Niveau', sortable: true, render: (e) => <Badge variant="info">{e.level}</Badge> },
   ];
 
+  function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+
   if (error) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -162,17 +176,48 @@ export default function LevelsPage() {
       <PageLayout
         title="Niveaux / XP"
         description="Gérez le système d'XP et de niveaux."
-        actions={<Button loading={saving} onClick={handleSave}>Enregistrer</Button>}
+        actions={
+          <motion.button
+            type="button"
+            onClick={handleSave}
+            disabled={saveBtnState === 'loading'}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 14px',
+              border: '1px solid var(--accent)',
+              borderRadius: 6,
+              backgroundColor: saveBtnState === 'success' ? 'rgba(34,197,94,0.1)' : 'var(--accent)',
+              color: saveBtnState === 'success' ? '#22c55e' : 'var(--bg-primary)',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: saveBtnState === 'loading' ? 'not-allowed' : 'pointer',
+              opacity: saveBtnState === 'loading' ? 0.7 : 1,
+              transition: 'background-color 0.2s, color 0.2s, opacity 0.2s',
+            }}
+          >
+            {saveBtnState === 'loading' && <Loader2 size={14} className="animate-spin" />}
+            {saveBtnState === 'success' && <Check size={14} />}
+            {saveBtnState === 'idle' && 'Enregistrer'}
+            {saveBtnState === 'loading' && 'Enregistrement…'}
+            {saveBtnState === 'success' && 'Sauvegardé !'}
+          </motion.button>
+        }
       >
         {saveError && (
           <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 px-3 py-2 mb-4">{saveError}</div>
         )}
 
-        <div className="mb-4">
-          <ModuleToggle guildId={guildId} moduleKey="levels" label="Niveaux" />
-        </div>
+        <FadeInSection>
+          <div className="mb-4">
+            <ModuleToggle guildId={guildId} moduleKey="levels" label="Niveaux" />
+          </div>
+        </FadeInSection>
 
         <ModuleGrid>
+          <FadeInSection delay={0.05}>
           <SectionCard title="Paramètres XP" icon={<Zap size={16} />}>
             <div className="space-y-4">
               <div className="p-3 bg-[var(--bg-surface-alt)] text-sm text-[var(--text-secondary)]">
@@ -188,7 +233,9 @@ export default function LevelsPage() {
               </div>
             </div>
           </SectionCard>
+          </FadeInSection>
 
+          <FadeInSection delay={0.1}>
           <SectionCard title="Canal d'annonce" icon={<Bell size={16} />}>
             <div className="space-y-4">
               <Select
@@ -238,12 +285,16 @@ export default function LevelsPage() {
               )}
             </div>
           </SectionCard>
+          </FadeInSection>
         </ModuleGrid>
 
+        <FadeInSection delay={0.15}>
           <SectionCard title="Carte de rang" icon={<Medal size={16} />}>
             <RankCardEditor guildId={guildId} />
           </SectionCard>
+        </FadeInSection>
 
+        <FadeInSection delay={0.2}>
           <SectionCard title="Récompenses de rôles" icon={<Award size={16} />}>
             {(local.roleRewards ?? []).length === 0 ? (
               <span className="text-xs text-[var(--text-secondary)]">Aucune récompense définie.</span>
@@ -280,7 +331,9 @@ export default function LevelsPage() {
               </Button>
             </div>
           </SectionCard>
+        </FadeInSection>
 
+        <FadeInSection delay={0.25}>
           <SectionCard
             title="Classement"
             icon={<Trophy size={16} />}
@@ -329,6 +382,7 @@ export default function LevelsPage() {
               <Table columns={lbColumns} data={lbTab === 'guild' ? leaderboard : globalLb} keyExtractor={(e) => e.userId} />
             )}
             </SectionCard>
+        </FadeInSection>
       </PageLayout>
 
       <Modal open={rewardModal} onClose={() => setRewardModal(false)} title="Ajouter un palier">

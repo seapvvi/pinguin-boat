@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { AnimatePresence, motion } from 'motion/react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import OwnerPopupListener from './OwnerPopupListener';
@@ -16,10 +17,32 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, guildId }: DashboardLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [showProgress, setShowProgress] = useState(false);
   const { fire } = useConfetti();
+
+  useEffect(() => {
+    setShowProgress(true);
+    setProgress(0);
+    const frame1 = requestAnimationFrame(() => setProgress(30));
+    const frame2 = requestAnimationFrame(() => setTimeout(() => setProgress(70), 100));
+    const t1 = setTimeout(() => setProgress(95), 250);
+    const t2 = setTimeout(() => setProgress(100), 400);
+    const t3 = setTimeout(() => {
+      setTimeout(() => setShowProgress(false), 300);
+    }, 500);
+    return () => {
+      cancelAnimationFrame(frame1);
+      cancelAnimationFrame(frame2);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) setSidebarOpen(false);
@@ -98,6 +121,30 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
         }}
         className={sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}
       >
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            zIndex: 50,
+            backgroundColor: 'var(--bg-primary)',
+            opacity: showProgress ? 1 : 0,
+            transition: 'opacity 300ms ease',
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              height: '100%',
+              width: `${progress}%`,
+              backgroundColor: 'var(--accent)',
+              transition: 'width 500ms ease-out',
+            }}
+          />
+        </div>
+
         <Header
           user={user}
           onMenuToggle={() => setSidebarOpen((prev) => !prev)}
@@ -112,7 +159,17 @@ export default function DashboardLayout({ children, guildId }: DashboardLayoutPr
           }}
           className="px-6 lg:px-10 py-6"
         >
-          {children}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
 
         <footer

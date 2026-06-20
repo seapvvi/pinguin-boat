@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { Image, Mail, LogOut, Eye, Palette, UserPlus, LogIn } from 'lucide-react';
+import { Image, Mail, LogOut, Eye, Palette, UserPlus, LogIn, Loader2, Check } from 'lucide-react';
 import { Toggle, Input, Button, Badge, Skeleton } from '@pinguin/ui';
 import { ErrorMessage } from '@pinguin/ui';
 import { fetchGuildSettings, api } from '@/lib/api';
@@ -20,7 +20,6 @@ export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<WelcomeSettings | null>(null);
   const [autoroleCount, setAutoroleCount] = useState(0);
@@ -86,9 +85,11 @@ export default function WelcomePage() {
 
   useEffect(() => { load(); }, [guildId]);
 
+  const [saveBtnState, setSaveBtnState] = useState<'idle' | 'loading' | 'success'>('idle');
+
   const handleSave = async () => {
     if (!local) return;
-    setSaving(true);
+    setSaveBtnState('loading');
     setSaveError(null);
     try {
       await api.put(`/api/guilds/${guildId}/welcome`, {
@@ -112,11 +113,12 @@ export default function WelcomePage() {
         cardText: local.cardText,
         cardSubtext: local.cardSubtext,
       });
+      setSaveBtnState('success');
+      setTimeout(() => setSaveBtnState('idle'), 2000);
       await load();
     } catch (e) {
+      setSaveBtnState('idle');
       setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -140,6 +142,18 @@ export default function WelcomePage() {
     if (!local) return;
     setLocal({ ...local, ...patch });
   };
+
+  function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {children}
+      </motion.div>
+    );
+  }
 
   if (error) {
     return (
@@ -174,16 +188,47 @@ export default function WelcomePage() {
         <PageLayout
           title="Bienvenue / Au revoir"
           description="Personnalisez les messages d'accueil et de départ."
-          actions={<Button loading={saving} onClick={handleSave}>Enregistrer</Button>}
+          actions={
+            <motion.button
+              type="button"
+              onClick={handleSave}
+              disabled={saveBtnState === 'loading'}
+              animate={{ opacity: 1, scale: 1 }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px',
+                border: '1px solid var(--accent)',
+                borderRadius: 6,
+                backgroundColor: saveBtnState === 'success' ? 'rgba(34,197,94,0.1)' : 'var(--accent)',
+                color: saveBtnState === 'success' ? '#22c55e' : 'var(--bg-primary)',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: saveBtnState === 'loading' ? 'not-allowed' : 'pointer',
+                opacity: saveBtnState === 'loading' ? 0.7 : 1,
+                transition: 'background-color 0.2s, color 0.2s, opacity 0.2s',
+              }}
+            >
+              {saveBtnState === 'loading' && <Loader2 size={14} className="animate-spin" />}
+              {saveBtnState === 'success' && <Check size={14} />}
+              {saveBtnState === 'idle' && 'Enregistrer'}
+              {saveBtnState === 'loading' && 'Enregistrement…'}
+              {saveBtnState === 'success' && 'Sauvegardé !'}
+            </motion.button>
+          }
         >
           {saveError && (
             <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 px-3 py-2 mb-4">{saveError}</div>
           )}
 
-          <div className="mb-4">
-            <ModuleToggle guildId={guildId} moduleKey="welcome" label="Bienvenue" />
-          </div>
+          <FadeInSection>
+            <div className="mb-4">
+              <ModuleToggle guildId={guildId} moduleKey="welcome" label="Bienvenue" />
+            </div>
+          </FadeInSection>
 
+          <FadeInSection delay={0.05}>
           <SectionCard
             title="Carte de bienvenue"
             icon={<Palette size={16} />}
@@ -208,8 +253,10 @@ export default function WelcomePage() {
               />
             )}
           </SectionCard>
+          </FadeInSection>
 
           <ModuleGrid>
+            <FadeInSection delay={0.1}>
               <SectionCard
                 title="Canal de bienvenue"
                 icon={<LogIn size={16} />}
@@ -278,7 +325,9 @@ export default function WelcomePage() {
                   />
                 </div>
               </SectionCard>
+            </FadeInSection>
 
+            <FadeInSection delay={0.15}>
               <SectionCard
                 title="Canal de départ"
                 icon={<LogOut size={16} />}
@@ -321,8 +370,10 @@ export default function WelcomePage() {
                   </div>
                 </div>
               </SectionCard>
+            </FadeInSection>
             </ModuleGrid>
 
+          <FadeInSection delay={0.2}>
           <SectionCard
               title="Autorôle à l'arrivée"
               icon={<UserPlus size={16} />}
@@ -336,6 +387,7 @@ export default function WelcomePage() {
                 <Button variant="secondary" size="sm">Configurer dans Autorôles →</Button>
               </Link>
             </SectionCard>
+          </FadeInSection>
         </PageLayout>
       </PermissionGate>
     </motion.div>

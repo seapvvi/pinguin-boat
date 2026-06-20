@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { ThemeName, themes } from '@pinguin/shared';
 import { useTheme } from '@pinguin/ui';
 import { Palette, Check, ChevronDown, Lock } from 'lucide-react';
@@ -35,6 +36,13 @@ export default function ThemeSelector() {
   const [isDonor, setIsDonor] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    document.documentElement.style.transition = 'background-color 300ms ease, color 300ms ease';
+    return () => {
+      document.documentElement.style.transition = '';
+    };
+  }, []);
 
   useEffect(() => {
     api.get<{ data?: { isDonor?: boolean; isOwner?: boolean } }>('/api/auth/me')
@@ -114,9 +122,11 @@ export default function ThemeSelector() {
             const isDonorTheme = DONOR_THEMES.includes(name);
             const locked = isDonorTheme && !isDonor;
             return (
-              <button
+              <motion.button
                 type="button"
                 key={name}
+                whileHover={locked ? undefined : { scale: 1.03 }}
+                whileTap={locked ? undefined : { scale: 0.97 }}
                 onClick={() => {
                   if (locked) {
                     showToast('💙 Réservé aux donateurs — soutenez le projet !');
@@ -161,7 +171,7 @@ export default function ThemeSelector() {
                 <span style={{ flex: 1 }}>{themeLabels[name]}</span>
                 {locked && <Lock size={12} style={{ color: 'var(--text-secondary)' }} />}
                 {isSelected && !locked && <Check size={14} style={{ color: 'var(--accent)' }} />}
-              </button>
+              </motion.button>
             );
           })}
         </div>

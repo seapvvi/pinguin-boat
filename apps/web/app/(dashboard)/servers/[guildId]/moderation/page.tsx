@@ -234,6 +234,18 @@ export default function ModerationPage() {
     )},
   ];
 
+  function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+
   if (error) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -262,40 +274,47 @@ export default function ModerationPage() {
             </div>
           }
         >
-          <div className="mb-4">
-            <ModuleToggle guildId={guildId} moduleKey="moderation" label="Modération" />
-          </div>
+          <FadeInSection>
+            <div className="mb-4">
+              <ModuleToggle guildId={guildId} moduleKey="moderation" label="Modération" />
+            </div>
+          </FadeInSection>
 
           <ModuleGrid>
-            <SectionCard title="Recherche & filtres">
-              <div className="flex flex-col gap-3">
-                <Input
-                  placeholder="Rechercher par ID ou raison..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                <Select
-                  placeholder="Filtrer par type"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  options={[
-                    { value: '', label: 'Tous' },
-                    ...Object.entries(caseTypeLabels).map(([v, l]) => ({ value: v, label: l }))
-                  ]}
-                />
-              </div>
-            </SectionCard>
+            <FadeInSection delay={0.05}>
+              <SectionCard title="Recherche & filtres">
+                <div className="flex flex-col gap-3">
+                  <Input
+                    placeholder="Rechercher par ID ou raison..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  <Select
+                    placeholder="Filtrer par type"
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    options={[
+                      { value: '', label: 'Tous' },
+                      ...Object.entries(caseTypeLabels).map(([v, l]) => ({ value: v, label: l }))
+                    ]}
+                  />
+                </div>
+              </SectionCard>
+            </FadeInSection>
 
-            <SectionCard title="Actions rapides" description="Sanctions expresses depuis l'ID utilisateur">
-              <div className="flex flex-wrap gap-2">
-                <Button variant="ghost" size="sm" onClick={() => quickAction(ModerationCaseType.WARN)}><AlertTriangle size={14} /> Warn</Button>
-                <Button variant="ghost" size="sm" onClick={() => quickAction(ModerationCaseType.MUTE)}><MicOff size={14} /> Mute</Button>
-                <Button variant="ghost" size="sm" onClick={() => quickAction(ModerationCaseType.KICK)}><UserX size={14} /> Kick</Button>
-                <Button variant="ghost" size="sm" onClick={() => quickAction(ModerationCaseType.BAN)}><Ban size={14} /> Ban</Button>
-              </div>
-            </SectionCard>
+            <FadeInSection delay={0.1}>
+              <SectionCard title="Actions rapides" description="Sanctions expresses depuis l'ID utilisateur">
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => quickAction(ModerationCaseType.WARN)}><AlertTriangle size={14} /> Warn</Button>
+                  <Button variant="ghost" size="sm" onClick={() => quickAction(ModerationCaseType.MUTE)}><MicOff size={14} /> Mute</Button>
+                  <Button variant="ghost" size="sm" onClick={() => quickAction(ModerationCaseType.KICK)}><UserX size={14} /> Kick</Button>
+                  <Button variant="ghost" size="sm" onClick={() => quickAction(ModerationCaseType.BAN)}><Ban size={14} /> Ban</Button>
+                </div>
+              </SectionCard>
+            </FadeInSection>
           </ModuleGrid>
 
+          <FadeInSection delay={0.15}>
           <SectionCard
             title="Historique des sanctions"
               description={`Page ${page} / ${totalPages}`}
@@ -337,6 +356,7 @@ export default function ModerationPage() {
                 </>
               )}
             </SectionCard>
+          </FadeInSection>
         </PageLayout>
 
         <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Nouveau cas de modération">

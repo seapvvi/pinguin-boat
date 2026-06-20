@@ -15,7 +15,6 @@ import {
   Volume2,
   Award, Heart, ExternalLink,
 } from 'lucide-react';
-import { Logo } from '@pinguin/ui';
 import { getUser, type User } from '@/lib/auth';
 import './page.css';
 
@@ -50,6 +49,30 @@ interface ChangelogItem {
   pinned?: boolean;
 }
 
+/* ─── Pinguin Logo ─── */
+function PinguinLogo({ size = 20 }: { size?: number }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <img
+        src="/favicon.svg"
+        alt="Pinguin"
+        width={size + 4}
+        height={size + 4}
+        style={{ borderRadius: 4, objectFit: 'contain' }}
+      />
+      <span style={{
+        fontSize: size * 0.75,
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+        letterSpacing: '-0.02em',
+        fontFamily: 'var(--font-jetbrains), monospace',
+      }}>
+        Pinguin
+      </span>
+    </div>
+  );
+}
+
 /* ─── Data ─── */
 const FEATURES: FeatureItem[] = [
   { icon: <Shield size={20} />, title: 'Modération intelligente', desc: 'Anti-spam, anti-raid, logs auto, bannissements et mutes configurables en un clic depuis le dashboard.', tag: 'moderation', color: '#ef4444' },
@@ -58,6 +81,9 @@ const FEATURES: FeatureItem[] = [
   { icon: <Gamepad2 size={20} />, title: 'Mini-jeux & Économie', desc: 'Système économique complet, casino, classements, récompenses quotidiennes et boutique de rôles.', tag: 'economy', color: '#22c55e' },
   { icon: <MessageSquare size={20} />, title: 'Sondages & Suggestions', desc: 'Sondages personnalisés, système de suggestions avec votes, réactions automatiques et rapports.', tag: 'polls', color: '#f59e0b' },
   { icon: <Gift size={20} />, title: 'Giveaways & Tickets', desc: 'Giveaways automatiques, système de tickets personnalisable avec catégories et transcripts.', tag: 'giveaways', color: '#ec4899' },
+  { icon: <Bell size={20} />, title: 'Bienvenue & Départs', desc: 'Messages de bienvenue personnalisés avec images, rôles automatiques à l\'arrivée, et messages de départ configurables.', tag: 'utility', color: '#06b6d4' },
+  { icon: <Activity size={20} />, title: 'Système de Niveaux XP', desc: 'Classement XP, récompenses de palier, cartes de profil personnalisées et notifications de montée de niveau.', tag: 'levels', color: '#f97316' },
+  { icon: <Lock size={20} />, title: 'Sécurité & Backups', desc: 'Anti-raid avancé, backups automatiques de la configuration du serveur, alertes en temps réel et journaux d\'audit.', tag: 'security', color: '#10b981' },
 ];
 
 const MODULES: ModuleItem[] = [
@@ -278,7 +304,7 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/changelogs/public?limit=3')
+    fetch('/api/changelogs?limit=3&public=true')
       .then((r) => r.json())
       .then((data) => {
         const d = data.data ?? data ?? [];
@@ -366,7 +392,7 @@ export default function LandingPage() {
         }}
       >
         <motion.div whileHover={{ scale: 1.02 }} transition={{ duration: 0.15 }}>
-          <Logo withText size={20} />
+          <PinguinLogo size={20} />
         </motion.div>
 
         {/* Desktop nav links */}
@@ -397,7 +423,7 @@ export default function LandingPage() {
               Dashboard <ArrowRight size={12} />
             </Link>
           ) : (
-            <a href="/auth/login" className="cta-discord" style={{ padding: '10px 20px', fontSize: 13 }}>
+            <a href="/auth/login" className="cta-discord">
               <svg width="16" height="16" viewBox="0 0 127.14 96.36" fill="currentColor">
                 <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
               </svg>
@@ -483,7 +509,7 @@ export default function LandingPage() {
             <ellipse cx="56" cy="26" rx="10" ry="14" fill="#1a1a1a" transform="rotate(20 56 26)" />
           </svg>
 
-          {/* Floating cards — useSpring appelés dans le corps du composant, pas dans JSX */}
+          {/* Floating cards */}
           <motion.div
             style={{
               position: 'absolute', left: -130, top: 20,
@@ -562,7 +588,7 @@ export default function LandingPage() {
           <br className="hide-mobile" /> une seule intégration. Tout depuis le dashboard.
         </motion.p>
 
-        {/* CTA Buttons */}
+        {/* CTA Buttons — pas de style inline, classes uniformes */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -925,7 +951,7 @@ export default function LandingPage() {
             border: '1px solid var(--border-color)',
             borderRadius: 'var(--radius)',
             overflow: 'hidden',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px var(--border-color), 0 0 60px color-mix(in srgb, var(--accent) 6%, transparent)',
             position: 'relative',
           }}
         >
@@ -947,45 +973,56 @@ export default function LandingPage() {
           </div>
 
           {/* Corps du dashboard simulé */}
-          <div style={{ display: 'flex', height: 320, backgroundColor: 'var(--bg-primary)' }} className="flex-col md:flex-row">
-            {/* Sidebar simulée */}
+          <div style={{ display: 'flex', height: 360, backgroundColor: 'var(--bg-primary)' }} className="flex-col md:flex-row">
+            {/* Sidebar simulée avec icônes */}
             <div style={{
               width: 180, borderRight: '1px solid var(--border-color)',
               padding: 12, display: 'flex', flexDirection: 'column', gap: 6,
             }} className="dashboard-sidebar">
-              <Logo withText size={14} />
-              {['Vue d\'ensemble', 'Modération', 'Musique', 'Niveaux', 'Logs'].map((item, i) => (
-                <div key={item} style={{
+              <PinguinLogo size={14} />
+              {[
+                { label: 'Vue d\'ensemble', icon: <Activity size={10} /> },
+                { label: 'Modération', icon: <Shield size={10} /> },
+                { label: 'Musique', icon: <Music size={10} /> },
+                { label: 'Niveaux', icon: <Award size={10} /> },
+                { label: 'Logs', icon: <Terminal size={10} /> },
+              ].map((item, i) => (
+                <div key={item.label} style={{
                   padding: '6px 10px', fontSize: 11,
                   color: i === 0 ? 'var(--accent)' : 'var(--text-secondary)',
                   background: i === 0 ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
                   borderRadius: 'var(--radius-sm)', cursor: 'default',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>
-                  <span style={{
-                    width: 4, height: 4, borderRadius: '50%',
-                    background: i === 0 ? 'var(--accent)' : 'var(--border-color)',
-                  }} />
-                  {item}
+                  <span style={{ color: i === 0 ? 'var(--accent)' : 'var(--border-color)', opacity: 0.8 }}>
+                    {item.icon}
+                  </span>
+                  {item.label}
                 </div>
               ))}
             </div>
 
             {/* Contenu principal simulé */}
             <div style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* KPI row */}
+              {/* KPI row avec hover animation */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
                 {[
                   { label: 'Membres', value: usersDisplay.toLocaleString('fr-FR'), icon: <Users size={12} /> },
                   { label: 'Commandes/j', value: '1 248', icon: <Terminal size={12} /> },
                   { label: 'Uptime', value: `${uptimeDisplay}%`, icon: <Activity size={12} /> },
                 ].map((kpi) => (
-                  <div key={kpi.label} style={{
-                    padding: '10px 12px',
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: 'var(--radius-sm)',
-                  }}>
+                  <motion.div
+                    key={kpi.label}
+                    whileHover={{ scale: 1.03 }}
+                    transition={{ duration: 0.15 }}
+                    style={{
+                      padding: '10px 12px',
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'default',
+                    }}
+                  >
                     <div style={{
                       display: 'flex', justifyContent: 'space-between',
                       color: 'var(--text-secondary)', marginBottom: 4,
@@ -997,7 +1034,7 @@ export default function LandingPage() {
                       fontSize: 16, fontWeight: 700, color: 'var(--text-primary)',
                       fontVariantNumeric: 'tabular-nums',
                     }}>{kpi.value}</div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
 
@@ -1010,7 +1047,7 @@ export default function LandingPage() {
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>
                   Activité des 7 derniers jours
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 60 }}>
                   {[35, 52, 48, 63, 71, 88, 65].map((h, i) => (
                     <motion.div
                       key={i}
@@ -1025,6 +1062,21 @@ export default function LandingPage() {
                         borderRadius: '2px 2px 0 0',
                       }}
                     />
+                  ))}
+                </div>
+                {/* Module status row */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+                  {['Modération', 'Musique', 'Niveaux', 'Tickets'].map((mod) => (
+                    <span key={mod} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      fontSize: 9, padding: '2px 7px',
+                      background: 'color-mix(in srgb, var(--success) 10%, transparent)',
+                      color: 'var(--success)', borderRadius: 99,
+                      border: '1px solid color-mix(in srgb, var(--success) 25%, transparent)',
+                    }}>
+                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--success)' }} />
+                      {mod}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -1196,7 +1248,6 @@ export default function LandingPage() {
             <a
               href={user ? '/servers' : '/auth/login'}
               className="cta-discord"
-              style={{ fontSize: 16, padding: '18px 36px' }}
             >
               <svg width="22" height="22" viewBox="0 0 127.14 96.36" fill="currentColor">
                 <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
@@ -1227,7 +1278,7 @@ export default function LandingPage() {
 
             {/* Colonne 1 : Brand */}
             <div>
-              <Logo withText size={20} />
+              <PinguinLogo size={20} />
               <p style={{
                 fontSize: 12, color: 'var(--text-secondary)',
                 marginTop: 12, lineHeight: 1.7, maxWidth: 220,

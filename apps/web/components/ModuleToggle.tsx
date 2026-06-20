@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Toggle, Skeleton } from '@pinguin/ui';
 import { fetchGuildSettings, toggleModule as apiToggleModule } from '@/lib/api';
@@ -63,13 +64,29 @@ export function ModuleToggle({ guildId, moduleKey, label, description }: ModuleT
 
   return (
     <div>
-      <div className="flex items-center justify-between p-4 border border-[var(--border-color)] bg-[var(--bg-surface)]">
-        <div>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">{label}</p>
-          {description && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        className="flex items-center justify-between p-4 border border-[var(--border-color)] bg-[var(--bg-surface)]"
+      >
+        <div className="flex items-center gap-2">
+          <div>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{label}</p>
+            {description && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>}
+          </div>
+          {enabled && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20">
+              <span className="relative flex w-1.5 h-1.5">
+                <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 animate-ping" />
+                <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-green-400" />
+              </span>
+              <span className="text-[10px] font-medium text-green-400">Actif</span>
+            </div>
+          )}
         </div>
         {enabled !== null && <Toggle checked={enabled} onChange={handleToggle} disabled={toggling} />}
-      </div>
+      </motion.div>
       {error && <p className="text-xs text-[var(--error)] mt-1">{error}</p>}
     </div>
   );
