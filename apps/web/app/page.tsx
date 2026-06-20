@@ -387,7 +387,6 @@ export default function LandingPage() {
     floatCardRightX.set(-mouse.x * 0.5);
     floatCardRightY.set(-mouse.y * 0.5);
     floatCardBottomX.set(-mouse.y * 0.3);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mouse.x, mouse.y]);
 
   const tags = ['all', 'core', 'fun', 'utility', 'social'] as const;
