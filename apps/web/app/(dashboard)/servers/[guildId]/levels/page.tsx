@@ -34,7 +34,7 @@ const LEVEL_UP_VARIABLES = [
 export default function LevelsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<LevelSettings | null>(null);

@@ -99,7 +99,7 @@ function SliderField({
 export default function EconomyPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [leaderboard, setLeaderboard] = useState<EconomyEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);

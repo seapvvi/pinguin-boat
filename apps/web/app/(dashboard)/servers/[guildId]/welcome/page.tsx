@@ -18,7 +18,7 @@ import { ModuleGrid } from '@/components/layout/ModuleGrid';
 
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [local, setLocal] = useState<WelcomeSettings | null>(null);

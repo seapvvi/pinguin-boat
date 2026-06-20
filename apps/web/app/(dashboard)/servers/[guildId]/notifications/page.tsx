@@ -26,7 +26,7 @@ function formatRelativeTime(dateStr: string): string {
 
 export default function NotificationsPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<StreamNotification[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);

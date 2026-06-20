@@ -27,7 +27,7 @@ export default function InvitesPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [leaderboard, setLeaderboard] = useState<InviteEntry[]>([]);
   const [filteredLeaderboard, setFilteredLeaderboard] = useState<InviteEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);

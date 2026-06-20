@@ -27,7 +27,7 @@ function hashRoleColor(id: string): string {
 export default function AutorolesPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [config, setConfig] = useState<GuildConfig | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);

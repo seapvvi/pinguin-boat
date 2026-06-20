@@ -33,7 +33,7 @@ function parseList(raw: unknown): string[] {
 export default function AutoModPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);

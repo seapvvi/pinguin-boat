@@ -25,7 +25,7 @@ interface ClanSettings {
 export default function ClansPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [clans, setClans] = useState<Clan[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
