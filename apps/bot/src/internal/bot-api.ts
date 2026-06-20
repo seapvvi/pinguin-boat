@@ -405,7 +405,7 @@ async function executeRestore(
   const deletePromises: Promise<void>[] = [];
   for (const [, channel] of channels) {
     if (channel) {
-      deletePromises.push(channel.delete('Restauration de backup').catch(() => {}));
+      deletePromises.push(channel.delete('Restauration de backup').catch(() => {}) as Promise<void>);
     }
   }
   await Promise.all(deletePromises);
@@ -417,7 +417,7 @@ async function executeRestore(
   const deleteRolePromises: Promise<void>[] = [];
   for (const [, role] of roles) {
     if (role && role.name !== '@everyone' && !role.managed && role.editable) {
-      deleteRolePromises.push(role.delete('Restauration de backup').catch(() => {}));
+      deleteRolePromises.push(role.delete('Restauration de backup').catch(() => {}) as Promise<void>);
     }
   }
   await Promise.all(deleteRolePromises);
