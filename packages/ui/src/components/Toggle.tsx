@@ -54,14 +54,14 @@ export function Toggle({ checked, onChange, disabled = false, label, size = 'md'
           className={cn(
             'relative shrink-0',
             'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-            'focus-visible:outline-[var(--accent-primary)]',
+            'focus-visible:outline-[var(--accent)]',
           )}
           style={{
             width: trackW,
             height: trackH,
             borderRadius: 0,
-            border: checked ? '2px solid var(--accent-primary)' : '2px solid var(--border-color-strong)',
-      backgroundColor: checked ? 'var(--accent-primary)' : 'var(--toggle-bg-off)',
+            border: checked ? '2px solid var(--accent)' : '2px solid var(--border-color-strong)',
+      backgroundColor: checked ? 'var(--accent)' : 'var(--toggle-bg-off)',
       transition: 'background-color 150ms ease, border-color 150ms ease',
       padding: 0,
       cursor: disabled ? 'not-allowed' : 'pointer',
@@ -80,7 +80,7 @@ export function Toggle({ checked, onChange, disabled = false, label, size = 'md'
               width: thumbSize,
               height: thumbSize,
               borderRadius: 0,
-              backgroundColor: '#ffffff',
+              backgroundColor: 'var(--toggle-thumb, #ffffff)',
             }}
           />
         </button>
