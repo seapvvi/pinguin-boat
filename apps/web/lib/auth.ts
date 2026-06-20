@@ -28,10 +28,11 @@ export async function handleCallback(code: string, state: string): Promise<AuthC
     throw new Error('Variable d\'environnement NEXT_PUBLIC_APP_URL requise');
   }
 
-  const redirect_uri = encodeURIComponent(`${NEXT_PUBLIC_APP_URL}/auth/callback`);
+  const redirect_uri = `${NEXT_PUBLIC_APP_URL}/auth/callback`;
+  const params = new URLSearchParams({ code, state, redirect_uri });
 
   const data = await api.get<APIResponse<AuthCallbackDTO>>(
-    `/api/auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&redirect_uri=${redirect_uri}`
+    `/api/auth/callback?${params.toString()}`
   );
   if (!data.success || !data.data) {
     throw new Error(data.error || 'Échec de l\'authentification');

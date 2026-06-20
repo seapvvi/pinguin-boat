@@ -138,31 +138,28 @@ const STATIC_CHANGELOGS: ChangelogItem[] = [
 ];
 
 /* ─── Mouse Parallax Hook (zéro re-render React) ─── */
-function useMouseParallaxMotion(strength = 20) {
-  const ref = useRef({ x: 0, y: 0 });
+function useMouseParallax(strength = 20) {
+  const [pos, setPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    let rafId: number | null = null;
-    const onMove = (e: MouseEvent) => {
-      const next = {
-        x: (e.clientX / window.innerWidth - 0.5) * strength,
-        y: (e.clientY / window.innerHeight - 0.5) * strength,
-      };
-      ref.current = next;
-      if (rafId !== null) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
+    let ticking = false;
+    const handler = (e: MouseEvent) => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        setPos({
+          x: (e.clientX / window.innerWidth - 0.5) * strength,
+          y: (e.clientY / window.innerHeight - 0.5) * strength,
+        });
+        ticking = false;
       });
     };
 
-    window.addEventListener('mousemove', onMove, { passive: true });
-    return () => {
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
-      window.removeEventListener('mousemove', onMove);
-    };
+    window.addEventListener('mousemove', handler, { passive: true });
+    return () => window.removeEventListener('mousemove', handler);
   }, [strength]);
 
-  return ref;
+  return pos;
 }
 
 
@@ -318,13 +315,11 @@ function ScrollProgress() {
 export default function LandingPage() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [stats, setStats] = useState<StatsData | null>(null);
-  const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeTag, setActiveTag] = useState<string>('all');
   const [changelogs, setChangelogs] = useState<ChangelogItem[]>([]);
 
   useEffect(() => {
-    setMounted(true);
     getUser().then(setUser).catch(() => setUser(null));
   }, []);
 
@@ -371,7 +366,7 @@ export default function LandingPage() {
   const commandsDisplay = stats?.totalCommands || 120;
   const uptimeDisplay = stats?.uptime || 99.9;
 
-  const mouse = useMouseParallaxMotion(12);
+  const mouse = useMouseParallax(12);
   const springX = useSpring(0, { stiffness: 80, damping: 20 });
   const springY = useSpring(0, { stiffness: 80, damping: 20 });
 
@@ -384,21 +379,16 @@ export default function LandingPage() {
 
   // Mise à jour des springs flottantes quand la souris bouge (sans re-render React)
   useEffect(() => {
-    const id = window.setInterval(() => {
-      const x = mouse.current.x;
-      const y = mouse.current.y;
-      springX.set(x);
-      springY.set(y);
+    springX.set(mouse.x);
+    springY.set(mouse.y);
 
-      floatCardLeftX.set(-x * 0.5);
-      floatCardLeftY.set(-y * 0.5);
-      floatCardRightX.set(-x * 0.5);
-      floatCardRightY.set(-y * 0.5);
-      floatCardBottomX.set(-x * 0.3);
-    }, 16);
-
-    return () => window.clearInterval(id);
-  }, [mouse, springX, springY, floatCardLeftX, floatCardLeftY, floatCardRightX, floatCardRightY, floatCardBottomX]);
+    floatCardLeftX.set(-mouse.x * 0.5);
+    floatCardLeftY.set(-mouse.y * 0.5);
+    floatCardRightX.set(-mouse.x * 0.5);
+    floatCardRightY.set(-mouse.y * 0.5);
+    floatCardBottomX.set(-mouse.y * 0.3);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mouse.x, mouse.y]);
 
   const tags = ['all', 'core', 'fun', 'utility', 'social'] as const;
   const filteredModules = activeTag === 'all'
@@ -406,8 +396,6 @@ export default function LandingPage() {
     : MODULES.filter((m) => m.tag === activeTag);
 
   const displayChangelogs = changelogs.length > 0 ? changelogs : STATIC_CHANGELOGS;
-
-  if (!mounted) return null;
 
   const navLinkStyle: React.CSSProperties = {
     color: 'var(--text-secondary)',
@@ -536,9 +524,7 @@ export default function LandingPage() {
               position: 'relative',
               width: 80,
               height: 80,
-              padding: '60px',
-              margin: '-60px auto 24px',
-              overflow: 'visible',
+              margin: '0 auto 24px',
             }}
           >
             <motion.div
@@ -556,7 +542,7 @@ export default function LandingPage() {
             <motion.div
               style={{
                 position: 'absolute',
-                left: '-140px',
+                left: '-150px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 x: floatCardLeftX,
@@ -574,8 +560,8 @@ export default function LandingPage() {
             <motion.div
               style={{
                 position: 'absolute',
-                right: '-160px',
-                top: '10%',
+                right: '-170px',
+                top: '0',
                 x: floatCardRightX,
                 y: floatCardRightY,
               }}
@@ -591,7 +577,7 @@ export default function LandingPage() {
             <motion.div
               style={{
                 position: 'absolute',
-                bottom: '-20px',
+                bottom: '-40px',
                 left: '50%',
                 transform: 'translateX(-50%)',
                 x: floatCardBottomX,

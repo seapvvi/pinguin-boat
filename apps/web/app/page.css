@@ -64,4 +64,88 @@
   background: var(--accent);
 }
 
+/* Grid background */
+.grid-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(var(--border-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.4;
+}
+
+/* Scanline overlay */
+.scanline {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    color-mix(in srgb, var(--bg-primary) 4%, transparent) 2px,
+    color-mix(in srgb, var(--bg-primary) 4%, transparent) 4px
+  );
+}
+
+/* Badge animé hero */
+.badge-animated {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  padding: 1px;
+}
+.badge-animated-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--bg-surface-alt);
+}
+
+/* Floating dots */
+.floating-dots span {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.15;
+  animation: float-dot linear infinite;
+}
+@keyframes float-dot {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+/* Floating cards */
+.floating-card {
+  position: absolute;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+@media (max-width: 768px) {
+  .floating-card { display: none; }
+}
+
+/* Hide on mobile helper */
+@media (max-width: 640px) {
+  .hide-mobile { display: none !important; }
+}
+
 
