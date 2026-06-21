@@ -979,7 +979,7 @@ export async function guildRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.patch('/:guildId/automod', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.patch('/:guildId/automod', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;

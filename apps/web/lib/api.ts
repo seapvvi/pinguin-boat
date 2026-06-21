@@ -357,7 +357,7 @@ export async function fetchEconomyLeaderboard(
   guildId: string,
   params?: Record<string, string>
 ): Promise<APIResponse<EconomyLeaderboardDTO>> {
-  return api.get<APIResponse<EconomyLeaderboardDTO>>(`/api/guilds/${guildId}/economy`, params);
+  return api.get<APIResponse<EconomyLeaderboardDTO>>(`/api/guilds/${guildId}/economy/leaderboard`, params);
 }
 
 export async function fetchEconomyWallet(guildId: string, userId: string): Promise<APIResponse<EconomyWalletDTO>> {

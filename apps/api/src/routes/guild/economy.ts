@@ -11,21 +11,9 @@ export async function economyRoutes(app: FastifyInstance) {
   app.get('/', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
-      const wallets = await prisma.economyWallet.findMany({
-        where: { guildId }, orderBy: { wallet: 'desc' }, take: 10,
-        include: { user: { select: { username: true, avatar: true } } },
-      });
-      const totalEconomy = await prisma.economyWallet.aggregate({
-        where: { guildId },
-        _sum: { wallet: true, bank: true },
-      });
-      reply.send(success({
-        wallets,
-        totalWallet: totalEconomy._sum.wallet || 0,
-        totalBank: totalEconomy._sum.bank || 0,
-        currencyName: 'pièces',
-        currencySymbol: '🪙',
-      }));
+      let settings = await prisma.economySettings.findUnique({ where: { guildId } });
+      if (!settings) settings = await prisma.economySettings.create({ data: { guildId } });
+      reply.send(success({ settings }));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 

@@ -38,7 +38,7 @@ export async function protectionRoutes(app: FastifyInstance) {
           altAccountAge: body.altAccountAge as number | undefined,
           verificationLevel: body.verificationLevel as string | undefined,
           captchaVerification: body.captchaVerification as boolean | undefined,
-          verifiedRoleId: body.verifiedRoleId as string | undefined,
+          verifiedRoleId: body.verifiedRoleId ? String(body.verifiedRoleId) : null,
           punishment: body.punishment as string | undefined,
         },
         create: { guildId, ...body },
@@ -54,7 +54,7 @@ export async function protectionRoutes(app: FastifyInstance) {
       const enable = body.enable !== false;
       await prisma.protectionSettings.upsert({
         where: { guildId },
-        update: { emergencyMode: enable, enabled: enable ? true : undefined },
+        update: { emergencyMode: enable, ...(enable ? { enabled: true } : {}) },
         create: { guildId, emergencyMode: enable, enabled: true },
       });
       const { botEmergencyMode } = await import('../../services/bot-proxy');

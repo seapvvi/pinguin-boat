@@ -76,8 +76,8 @@ export default function AutoModPage() {
       const payload = {
         ...settings,
         bannedWordsList: bannedWordsText.split(',').map((s) => s.trim()).filter(Boolean),
-        whitelistRoles: parseList(settings.whitelistRoles),
-        whitelistChannels: parseList(settings.whitelistChannels),
+        whitelistRoles: Array.isArray(settings.whitelistRoles) ? settings.whitelistRoles : parseList(settings.whitelistRoles),
+        whitelistChannels: Array.isArray(settings.whitelistChannels) ? settings.whitelistChannels : parseList(settings.whitelistChannels),
         forbiddenPingRoles: forbiddenPingRolesText.split(',').map((s) => s.trim()).filter(Boolean),
         forbiddenMarkdownList: forbiddenMarkdownListText.split(',').map((s) => s.trim()).filter(Boolean),
       };
@@ -262,7 +262,7 @@ export default function AutoModPage() {
                 type="role"
                 guildId={guildId}
                 value={whitelistRoles}
-                onChange={(ids) => update('whitelistRoles', JSON.stringify(ids))}
+                onChange={(ids) => update('whitelistRoles', ids)}
                 label="Rôles exemptés"
                 adminWarning
               />
@@ -270,7 +270,7 @@ export default function AutoModPage() {
                 type="channel"
                 guildId={guildId}
                 value={whitelistChannels}
-                onChange={(ids) => update('whitelistChannels', JSON.stringify(ids))}
+                onChange={(ids) => update('whitelistChannels', ids)}
                 label="Salons exemptés"
               />
             </ModuleGrid>

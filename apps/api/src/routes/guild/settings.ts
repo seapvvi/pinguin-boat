@@ -93,7 +93,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
 
-  app.patch('/modules/:moduleKey', { preHandler: [authenticate, requireGuildAdmin] }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.patch('/modules/:moduleKey', { preHandler: [authenticate, requireGuildAdmin, validateParams(guildIdSchema)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId, moduleKey } = request.params as { guildId: string; moduleKey: string };
       const { enabled } = request.body as { enabled?: boolean };

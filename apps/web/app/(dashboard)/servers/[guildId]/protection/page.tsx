@@ -157,6 +157,51 @@ export default function ProtectionPage() {
             </SectionCard>
           </ModuleGrid>
 
+            <ModuleGrid>
+              <SectionCard
+                title="Anti-spam"
+                icon={<Swords size={16} />}
+                headerAction={<Toggle checked={local.antiSpam} onChange={(v) => update('antiSpam', v)} />}
+                expandable
+                accent={local.antiSpam ? '#ef4444' : undefined}
+              >
+                <div className="space-y-4">
+                  <Input label="Seuil de messages" type="number" value={String(local.spamThreshold)} onChange={(e) => update('spamThreshold', Number(e.target.value))} />
+                  <Input label="Intervalle (secondes)" type="number" value={String(local.spamInterval)} onChange={(e) => update('spamInterval', Number(e.target.value))} />
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                title="Anti-mass mention"
+                icon={<Users size={16} />}
+                headerAction={<Toggle checked={local.antiMassMention} onChange={(v) => update('antiMassMention', v)} />}
+                expandable
+                accent={local.antiMassMention ? '#ef4444' : undefined}
+              >
+                <Input label="Seuil de mentions" type="number" value={String(local.mentionThreshold)} onChange={(e) => update('mentionThreshold', Number(e.target.value))} />
+              </SectionCard>
+
+              <SectionCard
+                title="Anti-liens"
+                icon={<Sliders size={16} />}
+                headerAction={<Toggle checked={local.antiLink} onChange={(v) => update('antiLink', v)} />}
+                accent={local.antiLink ? '#ef4444' : undefined}
+              />
+
+              <SectionCard title="Punition" icon={<AlertTriangle size={16} />} expandable>
+                <Select
+                  label="Action en cas d'infraction"
+                  options={[
+                    { value: 'KICK', label: 'Expulsion' },
+                    { value: 'BAN', label: 'Bannissement' },
+                    { value: 'MUTE', label: 'Mute' },
+                  ]}
+                  value={local.punishment}
+                  onChange={(e) => update('punishment', e.target.value)}
+                />
+              </SectionCard>
+            </ModuleGrid>
+
             <SectionCard
               title="Mode urgence"
               icon={<AlertTriangle size={16} />}
