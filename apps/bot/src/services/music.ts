@@ -91,7 +91,7 @@ if (YTDLP_COOKIE_PATH) {
   });
 }
 
-function createYtDlpStream(url: string): Readable {
+function createYtDlpStream(url: string, startTime?: number): Readable {
   const args = [
     '--no-playlist',
     '-f', 'bestaudio/best',
@@ -99,6 +99,10 @@ function createYtDlpStream(url: string): Readable {
     '--quiet',
     '--no-warnings',
   ];
+
+  if (startTime !== undefined) {
+    args.push('--download-sections', `*${startTime}-inf`);
+  }
 
   if (YTDLP_COOKIE_PATH) {
     args.push('--cookies', YTDLP_COOKIE_PATH);
@@ -129,8 +133,8 @@ function createYtDlpStream(url: string): Readable {
   return proc.stdout as Readable;
 }
 
-async function createStreamFromUrl(url: string): Promise<{ stream: any; type: StreamType }> {
-  const stream = createYtDlpStream(url);
+async function createStreamFromUrl(url: string, startTime?: number): Promise<{ stream: any; type: StreamType }> {
+  const stream = createYtDlpStream(url, startTime);
   return { stream, type: StreamType.Arbitrary };
 }
 
@@ -143,6 +147,7 @@ export enum LoopMode {
 interface GuildMusicState {
   queue: TrackInfo[];
   currentTrack: TrackInfo | null;
+  history: TrackInfo[];
   position: number;
   loopMode: LoopMode;
   autoplay: boolean;
@@ -160,7 +165,7 @@ export function getState(guildId: string): GuildMusicState {
   let state = states.get(guildId);
   if (!state) {
     state = {
-      queue: [], currentTrack: null, position: 0,
+      queue: [], currentTrack: null, history: [], position: 0,
       loopMode: LoopMode.NONE, autoplay: false, volume: 50,
       voiceChannelId: null, textChannelId: null,
       player: null, connection: null, destroyed: false,
@@ -209,29 +214,60 @@ async function playNext(guildId: string): Promise<void> {
   }
 
   if (state.queue.length === 0) {
-    state.currentTrack = null;
-    state.player?.stop();
-    saveQueueToDb(guildId);
-    return;
+    if (state.autoplay && state.currentTrack) {
+      try {
+        const raw = await ytDlp(`ytsearch1:${state.currentTrack.title} mix`, {
+          dumpSingleJson: true,
+          noWarnings: true,
+          preferFreeFormats: true,
+          skipDownload: true,
+          noPlaylist: true,
+          cookies: YTDLP_COOKIE_PATH ?? undefined,
+        });
+        const data = Array.isArray(raw) ? raw[0] : raw;
+        if (data && data.webpage_url) {
+          state.queue.push({
+            title: data.title ?? 'Inconnu',
+            url: data.webpage_url,
+            duration: data.duration ?? 0,
+            thumbnail: data.thumbnail ?? '',
+            author: data.channel ?? data.uploader ?? 'Inconnu',
+            source: 'YOUTUBE',
+          });
+        }
+      } catch (err: any) {
+        musicLogger.error('Autoplay search failed', { guildId, err: err.message });
+      }
+    }
+
+    if (state.queue.length === 0) {
+      state.currentTrack = null;
+      state.player?.stop();
+      saveQueueToDb(guildId);
+      return;
+    }
   }
 
   if (state.loopMode === LoopMode.QUEUE && state.currentTrack) {
     state.queue.push(state.currentTrack);
   }
 
+  if (state.currentTrack) {
+    state.history.push(state.currentTrack);
+  }
   state.currentTrack = state.queue.shift()!;
   state.position = 0;
   saveQueueToDb(guildId);
   await playTrack(guildId, state.currentTrack);
 }
 
-async function playTrack(guildId: string, track: TrackInfo): Promise<void> {
+async function playTrack(guildId: string, track: TrackInfo, startTime?: number): Promise<void> {
   const state = getState(guildId);
   if (state.destroyed || !state.connection) return;
 
   let streamData: { stream: any; type: StreamType };
   try {
-    streamData = await createStreamFromUrl(track.url);
+    streamData = await createStreamFromUrl(track.url, startTime);
   } catch (streamErr: any) {
     musicLogger.error('Stream error', { guildId, title: track.title, err: streamErr.message });
 
@@ -434,8 +470,15 @@ export async function stop(guildId: string): Promise<void> {
   state.queue = [];
   state.currentTrack = null;
   state.player?.stop();
-  destroyState(guildId);
   await saveQueueToDb(guildId);
+  destroyState(guildId);
+}
+
+export async function seek(guildId: string, seconds: number): Promise<void> {
+  const state = getState(guildId);
+  if (!state.currentTrack) return;
+  state.position = seconds;
+  await playTrack(guildId, state.currentTrack, seconds);
 }
 
 export async function pause(guildId: string): Promise<void> {
@@ -451,8 +494,8 @@ export function setVolume(guildId: string, vol: number): void {
   state.volume = Math.max(0, Math.min(100, vol));
   // Apply to current playback
   const player = state.player;
-  if (player?.state.status === AudioPlayerStatus.Playing) {
-    const resource = player.state.resource;
+  if (player?.state.status === AudioPlayerStatus.Playing || player?.state.status === AudioPlayerStatus.Paused) {
+    const resource = (player.state as any).resource;
     resource.volume?.setVolume(state.volume / 100);
   }
 }

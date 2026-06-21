@@ -20,23 +20,17 @@ export async function execute(interaction: CommandInteraction, client: Client): 
 
   const state = getState(interaction.guild.id);
 
-  if (!state.currentTrack) {
-    await interaction.reply({ embeds: [errorEmbed('Erreur', 'Aucune musique en cours de lecture.')], ephemeral: true });
-    return;
-  }
-
-  if (state.queue.length === 0) {
+  if (state.history.length === 0) {
     await interaction.reply({ embeds: [errorEmbed('Erreur', 'Aucune musique précédente.')], ephemeral: true });
     return;
   }
 
-  const previousTrack = state.currentTrack;
-  state.currentTrack = state.queue.shift() || null;
-  state.queue.unshift(previousTrack);
-
-  if (state.player) {
-    try { state.player.stop(); } catch {}
+  const prev = state.history.pop()!;
+  if (state.currentTrack) {
+    state.queue.unshift(state.currentTrack);
   }
+  state.currentTrack = prev;
+  state.player?.stop();
 
   await interaction.reply({ embeds: [successEmbed('Musique précédente', 'Retour à la musique précédente.')] });
 }

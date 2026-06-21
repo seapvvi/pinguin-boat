@@ -52,6 +52,14 @@ export function startInternalBotApi(client: Client): void {
         return;
       }
 
+      // POST /internal/invalidate-modules/:guildId — invalidate module cache
+      const invalidateModulesMatch = path.match(/\/internal\/invalidate-modules\/([^/]+)/);
+      if (invalidateModulesMatch && req.method === 'POST') {
+        invalidateModuleCache(invalidateModulesMatch[1]);
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
       if (!guildId) {
         res.statusCode = 400;
         res.end(JSON.stringify({ error: 'Missing guildId' }));
@@ -262,14 +270,6 @@ export function startInternalBotApi(client: Client): void {
       // POST /internal/guilds/:guildId/automod/invalidate — invalidate automod cache
       if (path === `/internal/guilds/${guildId}/automod/invalidate` && req.method === 'POST') {
         invalidateAutoModCache(guildId);
-        res.end(JSON.stringify({ success: true }));
-        return;
-      }
-
-      // POST /internal/invalidate-modules/:guildId — invalidate module cache
-      const invalidateModulesMatch = path.match(/\/internal\/invalidate-modules\/([^/]+)/);
-      if (invalidateModulesMatch && req.method === 'POST') {
-        invalidateModuleCache(invalidateModulesMatch[1]);
         res.end(JSON.stringify({ success: true }));
         return;
       }

@@ -58,15 +58,33 @@ export async function openTicket(options: OpenTicketOptions): Promise<{ success:
 
     const parent = categoryId ? categoryId : (ticketSettings?.categoryId ?? undefined);
 
+    const permissionOverwrites = [
+      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+      { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
+    ];
+
+    if (guildSettings?.modRoleIds) {
+      try {
+        const modRoleIds = JSON.parse(guildSettings.modRoleIds) as string[];
+        for (const roleId of modRoleIds) {
+          if (!permissionOverwrites.find(p => p.id === roleId)) {
+            permissionOverwrites.push({
+              id: roleId,
+              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages],
+            });
+          }
+        }
+      } catch {
+        // Invalid JSON, ignore
+      }
+    }
+
     ticketChannel = await guild.channels.create({
       name: channelName,
       type: ChannelType.GuildText,
       parent,
-      permissionOverwrites: [
-        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-        { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] },
-      ],
+      permissionOverwrites,
       reason: `Ticket ouvert par ${username}`,
     }) as TextChannel;
   } catch (error) {

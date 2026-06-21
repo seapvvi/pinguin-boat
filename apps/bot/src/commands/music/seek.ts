@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, Client, GuildMember } from 'discord.js';
 import { errorEmbed, infoEmbed } from '../../services/embed';
-import { getState, formatDuration, requireDjRole } from '../../services/music';
+import { getState, formatDuration, requireDjRole, seek } from '../../services/music';
 
 export const data = new SlashCommandBuilder()
   .setName('seek')
@@ -35,5 +35,6 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     return;
   }
 
+  await seek(interaction.guild.id, position);
   await interaction.reply({ embeds: [infoEmbed('Seek', `Avancé à **${formatDuration(position)}**.`)] });
 }
