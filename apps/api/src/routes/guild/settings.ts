@@ -88,7 +88,7 @@ export async function settingsRoutes(app: FastifyInstance) {
         update: updates,
         create: { guildId, ...updates },
       });
-      try { await notifyModuleChange(guildId, validModules.filter((m) => !result[m as keyof typeof result])); } catch (e) { request.log?.warn?.('notifyModuleChange failed', String(e)); }
+      try { await notifyModuleChange(guildId, validModules.filter((m) => !result[m as keyof typeof result])); } catch (e) { request.log?.warn?.('notifyModuleChange failed'); }
       reply.send(success(result, 'Modules mis à jour'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
@@ -106,7 +106,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       });
       const allModules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
       const disabled = allModules ? validModules.filter((m) => !allModules[m as keyof typeof allModules]) : [];
-      try { await notifyModuleChange(guildId, disabled); } catch (e) { request.log?.warn?.('notifyModuleChange failed', String(e)); }
+      try { await notifyModuleChange(guildId, disabled); } catch (e) { request.log?.warn?.('notifyModuleChange failed'); }
       reply.send(success({ moduleKey, enabled }, 'Module mis à jour'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
