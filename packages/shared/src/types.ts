@@ -56,6 +56,13 @@ export interface ProtectionSettings {
   verificationLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
   captchaVerification: boolean;
   verifiedRoleId: string | null;
+  antiSpam: boolean;
+  spamThreshold: number;
+  spamInterval: number;
+  antiMassMention: boolean;
+  mentionThreshold: number;
+  antiLink: boolean;
+  punishment: 'KICK' | 'BAN' | 'MUTE';
 }
 
 export interface TicketSettings {
