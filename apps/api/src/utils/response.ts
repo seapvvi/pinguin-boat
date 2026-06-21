@@ -12,6 +12,14 @@ export function error(message: string, details?: unknown): APIResponse<never> {
   return res;
 }
 
+export function notFound(message = 'Ressource introuvable'): APIResponse<never> {
+  return { success: false, error: message };
+}
+
+export function badRequest(message: string): APIResponse<never> {
+  return { success: false, error: message };
+}
+
 export function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === 'string') return err;
@@ -21,7 +29,8 @@ export function getErrorMessage(err: unknown): string {
 export function sanitizeError(err: unknown): string {
   if (typeof err === 'string') return err;
   if (err instanceof Error) {
-    if ((err as any).code?.startsWith?.('P')) return 'Erreur de base de données';
+    const prismaErr = err as { code?: string };
+    if (prismaErr.code?.startsWith?.('P')) return 'Erreur de base de données';
     if (err.message.includes('Discord API error')) return 'Erreur de communication avec Discord';
     if (err.message === 'BOT_OFFLINE') return 'Le bot est actuellement hors ligne';
     return err.message;

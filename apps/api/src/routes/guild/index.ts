@@ -43,7 +43,7 @@ export async function guildRoutes(app: FastifyInstance) {
         });
         try {
           await notifyModuleChange(guildId, body.disabledModules as string[]);
-        } catch {}
+        } catch (e) { request.log?.warn?.('notifyModuleChange failed', e); }
       }
 
       if (body.economy) {
@@ -172,35 +172,35 @@ export async function guildRoutes(app: FastifyInstance) {
           return reply.status(400).send(error(parsed.error.errors.map(e => e.message).join(', ')));
         }
         const w = parsed.data;
-        await (prisma.welcomeSettings as { upsert: Function }).upsert({
+        await prisma.welcomeSettings.upsert({
           where: { guildId },
           update: {
-            enabled: w.enabled ?? undefined,
-            welcomeChannelId: w.welcomeChannelId ?? undefined,
-            welcomeMessage: w.welcomeMessage ?? undefined,
-            welcomeEmbed: w.welcomeEmbed ?? undefined,
-            welcomeEmbedColor: w.welcomeEmbedColor ?? undefined,
-            welcomeEmbedTitle: w.welcomeEmbedTitle ?? undefined,
-            welcomeEmbedDescription: w.welcomeEmbedDescription ?? undefined,
-            welcomeEmbedFooter: w.welcomeEmbedFooter ?? undefined,
-            welcomeEmbedImage: w.welcomeEmbedImage ?? undefined,
-            welcomeDM: w.welcomeDM ?? w.dmWelcome ?? undefined,
-            welcomeDMMessage: w.welcomeDMMessage ?? w.dmWelcomeMessage ?? undefined,
-            goodbyeEnabled: w.goodbyeEnabled ?? undefined,
-            goodbyeChannelId: w.goodbyeChannelId ?? undefined,
-            goodbyeMessage: w.goodbyeMessage ?? undefined,
-            goodbyeEmbed: w.goodbyeEmbed ?? undefined,
-            goodbyeEmbedColor: w.goodbyeEmbedColor ?? undefined,
-            cardEnabled: w.cardEnabled ?? undefined,
-            cardBackground: w.cardBackground ?? undefined,
-            cardBgColor: w.cardBgColor ?? undefined,
-            cardBgImage: w.cardBgImage ?? undefined,
-            cardTextColor: w.cardTextColor ?? undefined,
-            cardSubtextColor: w.cardSubtextColor ?? undefined,
-            cardAccentColor: w.cardAccentColor ?? undefined,
-            cardBlurBackground: w.cardBlurBackground ?? undefined,
-            cardText: w.cardText ?? undefined,
-            cardSubtext: w.cardSubtext ?? undefined,
+            enabled: w.enabled,
+            welcomeChannelId: w.welcomeChannelId,
+            welcomeMessage: w.welcomeMessage,
+            welcomeEmbed: w.welcomeEmbed,
+            welcomeEmbedColor: w.welcomeEmbedColor,
+            welcomeEmbedTitle: w.welcomeEmbedTitle,
+            welcomeEmbedDescription: w.welcomeEmbedDescription,
+            welcomeEmbedFooter: w.welcomeEmbedFooter,
+            welcomeEmbedImage: w.welcomeEmbedImage,
+            welcomeDM: w.welcomeDM,
+            welcomeDMMessage: w.welcomeDMMessage,
+            goodbyeEnabled: w.goodbyeEnabled,
+            goodbyeChannelId: w.goodbyeChannelId,
+            goodbyeMessage: w.goodbyeMessage,
+            goodbyeEmbed: w.goodbyeEmbed,
+            goodbyeEmbedColor: w.goodbyeEmbedColor,
+            cardEnabled: w.cardEnabled,
+            cardBackground: w.cardBackground,
+            cardBgColor: w.cardBgColor,
+            cardBgImage: w.cardBgImage,
+            cardTextColor: w.cardTextColor,
+            cardSubtextColor: w.cardSubtextColor,
+            cardAccentColor: w.cardAccentColor,
+            cardBlurBackground: w.cardBlurBackground,
+            cardText: w.cardText,
+            cardSubtext: w.cardSubtext,
           },
           create: { guildId, ...w },
         });
@@ -516,7 +516,7 @@ export async function guildRoutes(app: FastifyInstance) {
     try {
       const { guildId } = request.params as { guildId: string };
       const body = request.body as Record<string, unknown>;
-      if (!body.question || !(body.options as any[])?.length)
+      if (!body.question || !(body.options as Array<unknown>)?.length)
         return reply.status(400).send(error('Question et options requises'));
       const channelId = body.channelId as string;
       if (!channelId) return reply.status(400).send(error('channelId requis pour publier le sondage sur Discord'));
@@ -708,7 +708,7 @@ export async function guildRoutes(app: FastifyInstance) {
           prize: body.prize as string, winnerCount: (body.winners as number) || 1,
           duration: body.duration as number,
           endsAt,
-          requiredRoleId: ((body.requirements as any)?.requiredRoleId as string) || null,
+          requiredRoleId: ((body.requirements as Record<string, unknown>)?.requiredRoleId as string) || null,
           requiredLevel: 0, requiredAccountAge: 0,
           status: 'RUNNING',
         },

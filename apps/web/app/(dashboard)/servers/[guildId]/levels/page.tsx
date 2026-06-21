@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
@@ -42,6 +42,7 @@ export default function LevelsPage() {
   const [newReward, setNewReward] = useState<RoleReward>({ level: 1, roleId: '', xpMultiplier: 1.0 });
   const [lbTab, setLbTab] = useState<'guild' | 'global'>('guild');
   const [globalLb, setGlobalLb] = useState<LeaderboardEntry[]>([]);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const load = async () => {
     setLoading(true);
@@ -74,6 +75,10 @@ export default function LevelsPage() {
 
   const [saveBtnState, setSaveBtnState] = useState<'idle' | 'loading' | 'success'>('idle');
 
+  useEffect(() => {
+    return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
+  }, []);
+
   const handleSave = async () => {
     if (!local) return;
     setSaveBtnState('loading');
@@ -81,7 +86,7 @@ export default function LevelsPage() {
     try {
       await updateGuildSettings(guildId, { levels: local });
       setSaveBtnState('success');
-      setTimeout(() => setSaveBtnState('idle'), 2000);
+      saveTimeoutRef.current = setTimeout(() => setSaveBtnState('idle'), 2000);
       toast.success('Paramètres enregistrés');
     } catch (e) {
       setSaveBtnState('idle');

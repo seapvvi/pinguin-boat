@@ -47,7 +47,7 @@ export async function levelsRoutes(app: FastifyInstance) {
       });
       if (body.roleRewards) {
         await prisma.xPRoleReward.deleteMany({ where: { guildId } });
-        for (const r of body.roleRewards as any[]) {
+        for (const r of body.roleRewards as Array<{ roleId: string; level: number; xpMultiplier?: number }>) {
           await prisma.xPRoleReward.create({ data: { guildId, roleId: r.roleId, levelRequired: r.level, xpMultiplier: r.xpMultiplier ?? 1.0 } });
         }
       }
@@ -73,17 +73,17 @@ export async function levelsRoutes(app: FastifyInstance) {
       const settings = await prisma.rankCardSettings.upsert({
         where: { guildId },
         update: {
-          backgroundType: body.backgroundType as any,
-          backgroundColor: body.backgroundColor as any,
-          backgroundImage: body.backgroundImage as any,
-          gradientFrom: body.gradientFrom as any,
-          gradientTo: body.gradientTo as any,
-          xpBarColor: body.xpBarColor as any,
-          xpBarBackground: body.xpBarBackground as any,
-          textColor: body.textColor as any,
-          avatarBorder: body.avatarBorder as any,
-          avatarBorderColor: body.avatarBorderColor as any,
-          fontFamily: body.fontFamily as any,
+          backgroundType: body.backgroundType as string | undefined,
+          backgroundColor: body.backgroundColor as string | undefined,
+          backgroundImage: body.backgroundImage as string | undefined,
+          gradientFrom: body.gradientFrom as string | undefined,
+          gradientTo: body.gradientTo as string | undefined,
+          xpBarColor: body.xpBarColor as string | undefined,
+          xpBarBackground: body.xpBarBackground as string | undefined,
+          textColor: body.textColor as string | undefined,
+          avatarBorder: body.avatarBorder as boolean | undefined,
+          avatarBorderColor: body.avatarBorderColor as string | undefined,
+          fontFamily: body.fontFamily as string | undefined,
         },
         create: { guildId, ...body },
       });

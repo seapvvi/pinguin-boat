@@ -158,8 +158,9 @@ export interface WelcomeSettings {
   goodbyeChannelId: string | null;
   goodbyeMessage: string | null;
   goodbyeEmbed: boolean;
-  dmWelcome: boolean;
-  dmWelcomeMessage: string | null;
+  goodbyeEnabled: boolean;
+  welcomeDM: boolean;
+  welcomeDMMessage: string | null;
   welcomeImageUrl: string | null;
   cardEnabled: boolean;
   cardBackground: 'COLOR' | 'IMAGE' | 'GRADIENT';

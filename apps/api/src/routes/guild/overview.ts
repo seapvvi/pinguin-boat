@@ -135,8 +135,8 @@ export async function overviewRoutes(app: FastifyInstance) {
           getGuildChannels(guildId),
           getGuildRoles(guildId),
         ]);
-        channelCount = channels.filter((c: any) => c.type !== 4).length;
-        roleCount = roles.filter((r: any) => r.id !== guildId).length;
+        channelCount = channels.filter((c: { type?: number }) => c.type !== 4).length;
+        roleCount = roles.filter((r: { id?: string }) => r.id !== guildId).length;
       } catch {}
       const payload = {
         ...guild,
@@ -158,8 +158,8 @@ export async function overviewRoutes(app: FastifyInstance) {
           interestRate: es.interestRate,
           interestInterval: es.interestInterval,
           bankCapacity: es.bankCapacity,
-          shopItems: (es as { shopItems?: Array<Record<string, unknown>> }).shopItems?.map((i) => ({
-            id: i.id as string, name: i.name as string, description: i.description as string | null, price: i.price as number, roleId: i.roleId as string | null,
+          shopItems: es.shopItems?.map((i) => ({
+            id: i.id, name: i.name, description: i.description, price: i.price, roleId: i.roleId,
           })) ?? [],
         },
         levels: guild.xpSettings ? {
@@ -175,7 +175,7 @@ export async function overviewRoutes(app: FastifyInstance) {
           ignoredRoles: JSON.parse(guild.xpSettings.ignoredRoles),
           announcementChannelId: guild.xpSettings.announcementChannelId,
           announcementMessage: guild.xpSettings.announcementMessage,
-          roleRewards: (guild as { xpRoleRewards?: Array<Record<string, unknown>> }).xpRoleRewards?.map((rr) => ({ level: rr.levelRequired as number, roleId: rr.roleId as string, xpMultiplier: rr.xpMultiplier as number | null })) ?? [],
+          roleRewards: guild.xpRoleRewards?.map((rr) => ({ level: rr.levelRequired, roleId: rr.roleId, xpMultiplier: rr.xpMultiplier })) ?? [],
         } : undefined,
         welcome: guild.welcomeSettings || undefined,
         logs: mapLogsPayload(guild.logSettings, guild.modulesEnabled),
@@ -185,7 +185,7 @@ export async function overviewRoutes(app: FastifyInstance) {
           ignoredChannels: JSON.parse(guild.logSettings.ignoredChannels),
           ignoredRoles: JSON.parse(guild.logSettings.ignoredRoles),
         } : undefined,
-        embeds: (guild.savedEmbeds || []).map((e: any) => ({
+        embeds: (guild.savedEmbeds || []).map((e) => ({
           id: e.id,
           name: e.name,
           title: e.title,

@@ -69,20 +69,20 @@ export const levelsSchema = z.object({
   })).optional(),
 });
 
+const httpsUrl = z.string().url().regex(/^https:\/\//).optional().nullable();
+
 export const welcomeSchema = z.object({
   enabled: z.boolean().optional(),
   welcomeChannelId: z.string().optional(),
   welcomeMessage: z.string().max(2000).optional(),
   welcomeEmbed: z.boolean().optional(),
   welcomeEmbedColor: z.string().optional(),
-  welcomeEmbedTitle: z.string().optional(),
-  welcomeEmbedDescription: z.string().optional(),
-  welcomeEmbedFooter: z.string().optional(),
-  welcomeEmbedImage: z.string().optional(),
+  welcomeEmbedTitle: z.string().max(256).optional(),
+  welcomeEmbedDescription: z.string().max(4096).optional(),
+  welcomeEmbedFooter: z.string().max(2048).optional(),
+  welcomeEmbedImage: httpsUrl,
   welcomeDM: z.boolean().optional(),
-  welcomeDMMessage: z.string().optional(),
-  dmWelcome: z.boolean().optional(),
-  dmWelcomeMessage: z.string().optional(),
+  welcomeDMMessage: z.string().max(2000).optional(),
   goodbyeEnabled: z.boolean().optional(),
   goodbyeChannelId: z.string().optional(),
   goodbyeMessage: z.string().max(2000).optional(),
@@ -91,13 +91,13 @@ export const welcomeSchema = z.object({
   cardEnabled: z.boolean().optional(),
   cardBackground: z.string().optional(),
   cardBgColor: z.string().optional(),
-  cardBgImage: z.string().optional(),
+  cardBgImage: httpsUrl,
   cardTextColor: z.string().optional(),
   cardSubtextColor: z.string().optional(),
   cardAccentColor: z.string().optional(),
   cardBlurBackground: z.boolean().optional(),
-  cardText: z.string().optional(),
-  cardSubtext: z.string().optional(),
+  cardText: z.string().max(500).optional(),
+  cardSubtext: z.string().max(500).optional(),
 });
 
 export const protectionSchema = z.object({
@@ -129,7 +129,7 @@ export const importSchema = z.object({
   modules: z.array(importModulesEnum).min(1),
 });
 
-export function computeDisabledModules(modulesEnabled: any): string[] {
+export function computeDisabledModules(modulesEnabled: Record<string, boolean> | null | undefined): string[] {
   return MODULE_FIELDS
     .filter(f => modulesEnabled ? !modulesEnabled[f] : !MODULE_DEFAULTS[f])
     .map(f => f.toUpperCase());

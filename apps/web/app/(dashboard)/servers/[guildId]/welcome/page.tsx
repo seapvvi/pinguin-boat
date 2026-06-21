@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'motion/react';
@@ -16,9 +16,29 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { SectionCard } from '@/components/layout/SectionCard';
 import { ModuleGrid } from '@/components/layout/ModuleGrid';
 
+const PLACEHOLDERS = [
+  { key: '{user}', desc: 'Pseudo affiché (sans mention)' },
+  { key: '{username}', desc: 'Nom d\'utilisateur Discord' },
+  { key: '{server}', desc: 'Nom du serveur' },
+  { key: '{members}', desc: 'Nombre de membres' },
+  { key: '{count}', desc: 'Alias de {members}' },
+  { key: '{inviter}', desc: 'Pseudo de l\'inviteur (sans mention)' },
+];
+
+function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export default function WelcomePage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const [, setLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -29,9 +49,17 @@ export default function WelcomePage() {
   const [goodbyePreview, setGoodbyePreview] = useState('');
 
   const lastLocalRef = useRef<WelcomeSettings | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-  const load = async (silent = false) => {
-    if (!silent) setLoading(true);
+  const previewReplace = useCallback((msg: string) => msg
+    .replace(/\{user\}/gi, 'JeanDupont')
+    .replace(/\{username\}/gi, 'jean_dupont')
+    .replace(/\{server\}/gi, 'Nom du serveur')
+    .replace(/\{members\}/gi, '42')
+    .replace(/\{count\}/gi, '42')
+    .replace(/\{inviter\}/gi, 'MarieInvite'), []);
+
+  const load = useCallback(async () => {
     setIsFetching(true);
     setError(null);
     try {
@@ -42,9 +70,10 @@ export default function WelcomePage() {
           welcomeChannelId: null,
           welcomeMessage: 'Bienvenue {user} sur {server} !',
           welcomeEmbed: false,
-          dmWelcome: false,
-          dmWelcomeMessage: null,
+          welcomeDM: false,
+          welcomeDMMessage: null,
           welcomeImageUrl: null,
+          goodbyeEnabled: true,
           goodbyeChannelId: null,
           goodbyeMessage: 'Au revoir {user} !',
           goodbyeEmbed: false,
@@ -60,23 +89,13 @@ export default function WelcomePage() {
           cardSubtext: 'Tu es le {memberCount}ème membre',
         };
 
-        const w = (res.data.guild.welcome ?? defaultWelcome) as WelcomeSettings & {
-          welcomeDM?: boolean;
-          welcomeDMMessage?: string | null;
-        };
+        const w = res.data.guild.welcome ?? defaultWelcome;
 
-        const value = {
-          ...defaultWelcome,
-          ...w,
-          dmWelcome: w.dmWelcome ?? w.welcomeDM ?? false,
-          dmWelcomeMessage: w.dmWelcomeMessage ?? w.welcomeDMMessage ?? null,
-        } as WelcomeSettings;
+        setLocal({ ...defaultWelcome, ...w });
+        lastLocalRef.current = { ...defaultWelcome, ...w };
 
-        setLocal(value);
-        lastLocalRef.current = value;
-
-        setWelcomePreview(((w as WelcomeSettings).welcomeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
-        setGoodbyePreview(((w as WelcomeSettings).goodbyeMessage || '').replace('{user}', '@utilisateur').replace('{server}', 'Nom du serveur').replace('{count}', '42'));
+        setWelcomePreview(previewReplace((w.welcomeMessage || '')));
+        setGoodbyePreview(previewReplace((w.goodbyeMessage || '')));
 
         const autoroles = res.data.guild.autoroles;
         if (autoroles?.roleIds) {
@@ -86,12 +105,17 @@ export default function WelcomePage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement');
     } finally {
-      setLoading(false);
       setIsFetching(false);
     }
-  };
+  }, [guildId, previewReplace]);
 
-  useEffect(() => { load(); }, [guildId]);
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
 
   const [saveBtnState, setSaveBtnState] = useState<'idle' | 'loading' | 'success'>('idle');
 
@@ -100,70 +124,30 @@ export default function WelcomePage() {
     setSaveBtnState('loading');
     setSaveError(null);
     try {
-      await api.put(`/api/guilds/${guildId}/welcome`, {
-        enabled: local.enabled,
-        welcomeChannelId: local.welcomeChannelId,
-        welcomeMessage: local.welcomeMessage,
-        welcomeEmbed: local.welcomeEmbed,
-        goodbyeChannelId: local.goodbyeChannelId,
-        goodbyeMessage: local.goodbyeMessage,
-        goodbyeEmbed: local.goodbyeEmbed,
-        welcomeDM: local.dmWelcome,
-        welcomeDMMessage: local.dmWelcomeMessage,
-        cardEnabled: local.cardEnabled,
-        cardBackground: local.cardBackground,
-        cardBgColor: local.cardBgColor,
-        cardBgImage: local.cardBgImage,
-        cardTextColor: local.cardTextColor,
-        cardSubtextColor: local.cardSubtextColor,
-        cardAccentColor: local.cardAccentColor,
-        cardBlurBackground: local.cardBlurBackground,
-        cardText: local.cardText,
-        cardSubtext: local.cardSubtext,
-      });
+      await api.put(`/api/guilds/${guildId}/welcome`, local);
       setSaveBtnState('success');
-      setTimeout(() => setSaveBtnState('idle'), 2000);
+      saveTimeoutRef.current = setTimeout(() => setSaveBtnState('idle'), 2000);
     } catch (e) {
       setSaveBtnState('idle');
       setSaveError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde');
     }
   };
 
-  const previewReplace = (msg: string) => msg
-    .replace(/\{user\}/gi, 'JeanDupont')
-    .replace(/\{username\}/gi, 'jean_dupont')
-    .replace(/\{server\}/gi, 'Nom du serveur')
-    .replace(/\{members\}/gi, '42')
-    .replace(/\{count\}/gi, '42')
-    .replace(/\{inviter\}/gi, 'MarieInvite');
-
-  const updatePreview = (msg: string) => {
+  const updatePreview = useCallback((msg: string) => {
     setWelcomePreview(previewReplace(msg));
-  };
+  }, [previewReplace]);
 
-  const updateGoodbyePreview = (msg: string) => {
+  const updateGoodbyePreview = useCallback((msg: string) => {
     setGoodbyePreview(previewReplace(msg));
-  };
+  }, [previewReplace]);
 
-  const updateCard = (patch: Partial<WelcomeSettings>) => {
+  const updateCard = useCallback((patch: Partial<WelcomeSettings>) => {
     const base = local ?? lastLocalRef.current;
     if (!base) return;
-    const next = { ...base, ...patch } as WelcomeSettings;
+    const next = { ...base, ...patch };
     setLocal(next);
     lastLocalRef.current = next;
-  };
-
-  function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {children}
-      </motion.div>
-    );
-  }
+  }, [local]);
 
   if (error) {
     return (
@@ -173,7 +157,6 @@ export default function WelcomePage() {
     );
   }
   if (!local && !isFetching) {
-    // Seulement au premier chargement, jamais pendant un re-fetch
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <PageLayout title="Bienvenue / Au revoir" description="…">
@@ -190,16 +173,6 @@ export default function WelcomePage() {
   }
 
   const displayLocal = local ?? lastLocalRef.current;
-
-
-  const placeholders = [
-    { key: '{user}', desc: 'Pseudo affiché (sans mention)' },
-    { key: '{username}', desc: 'Nom d\'utilisateur Discord' },
-    { key: '{server}', desc: 'Nom du serveur' },
-    { key: '{members}', desc: 'Nombre de membres' },
-    { key: '{count}', desc: 'Alias de {members}' },
-    { key: '{inviter}', desc: 'Pseudo de l\'inviteur (sans mention)' },
-  ];
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
@@ -255,7 +228,7 @@ export default function WelcomePage() {
               <Toggle checked={!!displayLocal?.cardEnabled} onChange={(v) => {
                 const base = local ?? displayLocal;
                 if (!base) return;
-                const next = { ...base, cardEnabled: v } as WelcomeSettings;
+                const next = { ...base, cardEnabled: v };
                 setLocal(next);
                 lastLocalRef.current = next;
               }} />
@@ -264,15 +237,15 @@ export default function WelcomePage() {
             {displayLocal?.cardEnabled && (
               <WelcomeCardEditor
                 settings={{
-                  cardBackground: displayLocal?.cardBackground,
-                  cardBgColor: displayLocal?.cardBgColor,
-                  cardBgImage: displayLocal?.cardBgImage,
-                  cardTextColor: displayLocal?.cardTextColor,
-                  cardSubtextColor: displayLocal?.cardSubtextColor,
-                  cardAccentColor: displayLocal?.cardAccentColor,
-                  cardBlurBackground: displayLocal?.cardBlurBackground,
-                  cardText: displayLocal?.cardText,
-                  cardSubtext: displayLocal?.cardSubtext,
+                  cardBackground: displayLocal.cardBackground,
+                  cardBgColor: displayLocal.cardBgColor,
+                  cardBgImage: displayLocal.cardBgImage,
+                  cardTextColor: displayLocal.cardTextColor,
+                  cardSubtextColor: displayLocal.cardSubtextColor,
+                  cardAccentColor: displayLocal.cardAccentColor,
+                  cardBlurBackground: displayLocal.cardBlurBackground,
+                  cardText: displayLocal.cardText,
+                  cardSubtext: displayLocal.cardSubtext,
                 }}
                 onChange={updateCard}
               />
@@ -292,7 +265,7 @@ export default function WelcomePage() {
                       const base = local ?? displayLocal;
                       if (!base) return;
                       if (!v) {
-                        const next = { ...base, welcomeChannelId: null } as WelcomeSettings;
+                        const next = { ...base, welcomeChannelId: null };
                         setLocal(next);
                         lastLocalRef.current = next;
                       }
@@ -309,7 +282,7 @@ export default function WelcomePage() {
                     onChange={(id) => {
                       const base = local ?? displayLocal;
                       if (!base) return;
-                      const next = { ...base, welcomeChannelId: id || null } as WelcomeSettings;
+                      const next = { ...base, welcomeChannelId: id || null };
                       setLocal(next);
                       lastLocalRef.current = next;
                     }}
@@ -321,7 +294,7 @@ export default function WelcomePage() {
                       onChange={(e) => {
                         const base = local ?? displayLocal;
                         if (!base) return;
-                        const next = { ...base, welcomeMessage: e.target.value || null } as WelcomeSettings;
+                        const next = { ...base, welcomeMessage: e.target.value || null };
                         setLocal(next);
                         lastLocalRef.current = next;
                         updatePreview(e.target.value);
@@ -331,12 +304,12 @@ export default function WelcomePage() {
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {placeholders.map((p) => (
+                    {PLACEHOLDERS.map((p) => (
                       <span key={p.key} onClick={() => {
                         const current = displayLocal?.welcomeMessage ?? '';
                         const base = local ?? displayLocal;
                         if (!base) return;
-                        const next = { ...base, welcomeMessage: current + ' ' + p.key } as WelcomeSettings;
+                        const next = { ...base, welcomeMessage: current + ' ' + p.key };
                         setLocal(next);
                         lastLocalRef.current = next;
                         updatePreview(current + ' ' + p.key);
@@ -356,10 +329,10 @@ export default function WelcomePage() {
                       <Mail size={14} />
                       <span className="text-sm text-[var(--text-primary)]">MP de bienvenue</span>
                     </div>
-                    <Toggle checked={!!displayLocal?.dmWelcome} onChange={(v) => {
+                    <Toggle checked={!!displayLocal?.welcomeDM} onChange={(v) => {
                       const base = local ?? displayLocal;
                       if (!base) return;
-                      const next = { ...base, dmWelcome: v } as WelcomeSettings;
+                      const next = { ...base, welcomeDM: v };
                       setLocal(next);
                       lastLocalRef.current = next;
                     }} />
@@ -372,7 +345,7 @@ export default function WelcomePage() {
                     <Toggle checked={!!displayLocal?.welcomeEmbed} onChange={(v) => {
                       const base = local ?? displayLocal;
                       if (!base) return;
-                      const next = { ...base, welcomeEmbed: v } as WelcomeSettings;
+                      const next = { ...base, welcomeEmbed: v };
                       setLocal(next);
                       lastLocalRef.current = next;
                     }} />
@@ -383,7 +356,7 @@ export default function WelcomePage() {
                     onChange={(e) => {
                       const base = local ?? displayLocal;
                       if (!base) return;
-                      const next = { ...base, welcomeImageUrl: e.target.value || null } as WelcomeSettings;
+                      const next = { ...base, welcomeImageUrl: e.target.value || null };
                       setLocal(next);
                       lastLocalRef.current = next;
                     }}
@@ -399,12 +372,12 @@ export default function WelcomePage() {
                 icon={<LogOut size={16} />}
                 headerAction={
                   <Toggle
-                    checked={!!displayLocal?.goodbyeChannelId || !!displayLocal?.enabled}
+                    checked={!!displayLocal?.goodbyeChannelId || !!displayLocal?.goodbyeEnabled}
                     onChange={(v) => {
                       const base = local ?? displayLocal;
                       if (!base) return;
                       if (!v) {
-                        const next = { ...base, goodbyeChannelId: null } as WelcomeSettings;
+                        const next = { ...base, goodbyeChannelId: null };
                         setLocal(next);
                         lastLocalRef.current = next;
                       }
@@ -421,7 +394,7 @@ export default function WelcomePage() {
                     onChange={(id) => {
                       const base = local ?? displayLocal;
                       if (!base) return;
-                      const next = { ...base, goodbyeChannelId: id || null } as WelcomeSettings;
+                      const next = { ...base, goodbyeChannelId: id || null };
                       setLocal(next);
                       lastLocalRef.current = next;
                     }}
@@ -433,7 +406,7 @@ export default function WelcomePage() {
                       onChange={(e) => {
                         const base = local ?? displayLocal;
                         if (!base) return;
-                        const next = { ...base, goodbyeMessage: e.target.value || null } as WelcomeSettings;
+                        const next = { ...base, goodbyeMessage: e.target.value || null };
                         setLocal(next);
                         lastLocalRef.current = next;
                         updateGoodbyePreview(e.target.value);
@@ -454,7 +427,7 @@ export default function WelcomePage() {
                     <Toggle checked={!!displayLocal?.goodbyeEmbed} onChange={(v) => {
                       const base = local ?? displayLocal;
                       if (!base) return;
-                      const next = { ...base, goodbyeEmbed: v } as WelcomeSettings;
+                      const next = { ...base, goodbyeEmbed: v };
                       setLocal(next);
                       lastLocalRef.current = next;
                     }} />

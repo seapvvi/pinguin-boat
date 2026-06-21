@@ -88,7 +88,7 @@ export async function settingsRoutes(app: FastifyInstance) {
         update: updates,
         create: { guildId, ...updates },
       });
-      try { await notifyModuleChange(guildId, validModules.filter((m) => !(result as unknown as Record<string, boolean | undefined>)[m])); } catch {}
+      try { await notifyModuleChange(guildId, validModules.filter((m) => !result[m as keyof typeof result])); } catch (e) { request.log?.warn?.('notifyModuleChange failed', e); }
       reply.send(success(result, 'Modules mis à jour'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
@@ -105,8 +105,8 @@ export async function settingsRoutes(app: FastifyInstance) {
         create: { guildId, [moduleKey]: enabled },
       });
       const allModules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
-      const disabled = allModules ? validModules.filter((m) => !(allModules as unknown as Record<string, boolean | undefined>)[m]) : [];
-      try { await notifyModuleChange(guildId, disabled); } catch {}
+      const disabled = allModules ? validModules.filter((m) => !allModules[m as keyof typeof allModules]) : [];
+      try { await notifyModuleChange(guildId, disabled); } catch (e) { request.log?.warn?.('notifyModuleChange failed', e); }
       reply.send(success({ moduleKey, enabled }, 'Module mis à jour'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
@@ -168,13 +168,13 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.put('/embeds', guildParam, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { guildId } = request.params as { guildId: string };
-      const body = request.body as { embeds?: any[] };
+      const body = request.body as { embeds?: Record<string, unknown>[] };
       if (!Array.isArray(body.embeds)) {
         return reply.status(400).send(error('embeds (tableau) requis'));
       }
       await prisma.$transaction([
         prisma.savedEmbed.deleteMany({ where: { guildId } }),
-        ...body.embeds.map((e: any) =>
+        ...body.embeds.map((e) =>
           prisma.savedEmbed.create({
             data: {
               id: e.id ?? undefined,
@@ -577,10 +577,10 @@ export async function settingsRoutes(app: FastifyInstance) {
               }
 
               operations.push(
-                (prisma.guildSettings as { upsert: Function }).upsert({
+                prisma.guildSettings.upsert({
                   where: { guildId },
-                  update: updateData,
-                  create: { guildId, ...createData },
+                  update: updateData as any,
+                  create: { guildId, ...createData } as any,
                 })
               );
             }
