@@ -88,7 +88,7 @@ export async function settingsRoutes(app: FastifyInstance) {
         update: updates,
         create: { guildId, ...updates },
       });
-      try { await notifyModuleChange(guildId, validModules.filter((m) => !result[m as keyof typeof result])); } catch (e) { request.log?.warn?.('notifyModuleChange failed', e); }
+      try { await notifyModuleChange(guildId, validModules.filter((m) => !result[m as keyof typeof result])); } catch (e) { request.log?.warn?.('notifyModuleChange failed', String(e)); }
       reply.send(success(result, 'Modules mis à jour'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
@@ -106,7 +106,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       });
       const allModules = await prisma.moduleEnabled.findUnique({ where: { guildId } });
       const disabled = allModules ? validModules.filter((m) => !allModules[m as keyof typeof allModules]) : [];
-      try { await notifyModuleChange(guildId, disabled); } catch (e) { request.log?.warn?.('notifyModuleChange failed', e); }
+      try { await notifyModuleChange(guildId, disabled); } catch (e) { request.log?.warn?.('notifyModuleChange failed', String(e)); }
       reply.send(success({ moduleKey, enabled }, 'Module mis à jour'));
     } catch (err: unknown) { reply.status(500).send(error(sanitizeError(err))); }
   });
@@ -174,22 +174,22 @@ export async function settingsRoutes(app: FastifyInstance) {
       }
       await prisma.$transaction([
         prisma.savedEmbed.deleteMany({ where: { guildId } }),
-        ...body.embeds.map((e) =>
+        ...body.embeds.map((e: Record<string, unknown>) =>
           prisma.savedEmbed.create({
             data: {
-              id: e.id ?? undefined,
+              id: (e.id as string | undefined) ?? undefined,
               guildId,
-              name: e.name,
-              title: e.title ?? null,
-              description: e.description ?? null,
-              color: e.color ?? '#e0e0e0',
+              name: e.name as string,
+              title: (e.title as string | null) ?? null,
+              description: (e.description as string | null) ?? null,
+              color: (e.color as string) ?? '#e0e0e0',
               fields: Array.isArray(e.fields) ? JSON.stringify(e.fields) : '[]',
-              footer: e.footer ?? null,
-              image: e.image ?? null,
-              thumbnail: e.thumbnail ?? null,
-              authorName: e.authorName ?? null,
-              authorIcon: e.authorIcon ?? null,
-              timestamp: e.timestamp ?? true,
+              footer: (e.footer as string | null) ?? null,
+              image: (e.image as string | null) ?? null,
+              thumbnail: (e.thumbnail as string | null) ?? null,
+              authorName: (e.authorName as string | null) ?? null,
+              authorIcon: (e.authorIcon as string | null) ?? null,
+              timestamp: (e.timestamp as boolean | undefined) ?? true,
             },
           })
         ),

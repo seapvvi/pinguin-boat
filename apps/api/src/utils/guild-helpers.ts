@@ -129,7 +129,7 @@ export const importSchema = z.object({
   modules: z.array(importModulesEnum).min(1),
 });
 
-export function computeDisabledModules(modulesEnabled: Record<string, boolean> | null | undefined): string[] {
+export function computeDisabledModules(modulesEnabled: Record<string, unknown> | null | undefined): string[] {
   return MODULE_FIELDS
     .filter(f => modulesEnabled ? !modulesEnabled[f] : !MODULE_DEFAULTS[f])
     .map(f => f.toUpperCase());

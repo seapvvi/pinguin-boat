@@ -43,7 +43,7 @@ export async function guildRoutes(app: FastifyInstance) {
         });
         try {
           await notifyModuleChange(guildId, body.disabledModules as string[]);
-        } catch (e) { request.log?.warn?.('notifyModuleChange failed', e); }
+        } catch (e) { request.log?.warn?.('notifyModuleChange failed', String(e)); }
       }
 
       if (body.economy) {
