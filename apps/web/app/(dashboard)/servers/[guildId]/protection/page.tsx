@@ -186,7 +186,9 @@ export default function ProtectionPage() {
                 icon={<Sliders size={16} />}
                 headerAction={<Toggle checked={local.antiLink} onChange={(v) => update('antiLink', v)} />}
                 accent={local.antiLink ? '#ef4444' : undefined}
-              />
+              >
+                <div />
+              </SectionCard>
 
               <SectionCard title="Punition" icon={<AlertTriangle size={16} />} expandable>
                 <Select
