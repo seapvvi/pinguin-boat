@@ -42,6 +42,18 @@ const caseTypeVariants: Record<string, 'warning' | 'error' | 'info' | 'default'>
   TIMEOUT: 'warning',
 };
 
+function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export default function ModerationPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [cases, setCases] = useState<ModCase[]>([]);
@@ -235,18 +247,6 @@ export default function ModerationPage() {
       </div>
     )},
   ];
-
-  function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {children}
-      </motion.div>
-    );
-  }
 
   if (error) {
     return (

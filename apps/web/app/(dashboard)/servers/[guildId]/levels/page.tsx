@@ -31,6 +31,18 @@ const LEVEL_UP_VARIABLES = [
   { key: '{{server}}', label: 'Serveur' },
 ];
 
+function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export default function LevelsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -150,18 +162,6 @@ export default function LevelsPage() {
     { key: 'xp', label: 'XP', sortable: true, render: (e) => <span className="text-xs font-mono">{formatNumber(e.xp)}</span> },
     { key: 'level', label: 'Niveau', sortable: true, render: (e) => <Badge variant="info">{e.level}</Badge> },
   ];
-
-  function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {children}
-      </motion.div>
-    );
-  }
 
   if (error) {
     return (
