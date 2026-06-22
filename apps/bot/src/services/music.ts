@@ -2,7 +2,8 @@ import { GuildMember, VoiceChannel, TextChannel, CommandInteraction, ChatInputCo
 import {
   joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus,
   VoiceConnectionStatus, entersState, NoSubscriberBehavior,
-  AudioPlayer, VoiceConnection, StreamType,
+  AudioPlayer, VoiceConnection, StreamType, AudioPlayerState, VoiceConnectionState,
+  AudioPlayerPlayingState, AudioPlayerPausedState,
 } from '@discordjs/voice';
 import type { TrackInfo } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
@@ -50,7 +51,7 @@ export async function initMusicService(): Promise<void> {
       setTimeout(() => reject(new Error('yt-dlp version check timed out')), 5000);
     });
     musicLogger.info('yt-dlp detected', { version });
-  } catch (err: any) {
+  } catch (err: unknown) {
     throw new Error(
       'yt-dlp n\'est pas installé. Installez-le via "pip install yt-dlp" ' +
       'ou téléchargez-le depuis https://github.com/yt-dlp/yt-dlp/releases'
@@ -85,9 +86,15 @@ const YTDLP_COOKIE_PATH: string | null = (() => {
 })();
 
 // Clean up the temporary cookies file on exit
+export function cleanupCookieFile(): void {
+  if (YTDLP_COOKIE_PATH && existsSync(YTDLP_COOKIE_PATH)) {
+    try { unlinkSync(YTDLP_COOKIE_PATH); } catch {}
+  }
+}
+
 if (YTDLP_COOKIE_PATH) {
   process.once('exit', () => {
-    try { if (existsSync(YTDLP_COOKIE_PATH)) unlinkSync(YTDLP_COOKIE_PATH); } catch {}
+    cleanupCookieFile();
   });
 }
 
@@ -133,7 +140,7 @@ function createYtDlpStream(url: string, startTime?: number): Readable {
   return proc.stdout as Readable;
 }
 
-async function createStreamFromUrl(url: string, startTime?: number): Promise<{ stream: any; type: StreamType }> {
+async function createStreamFromUrl(url: string, startTime?: number): Promise<{ stream: Readable; type: StreamType }> {
   const stream = createYtDlpStream(url, startTime);
   return { stream, type: StreamType.Arbitrary };
 }
@@ -191,7 +198,7 @@ export function getPlayer(guildId: string): AudioPlayer {
     state.player = createAudioPlayer({
       behaviors: { noSubscriber: NoSubscriberBehavior.Play },
     });
-    state.player.on('stateChange', (oldState: any, newState: any) => {
+    state.player.on('stateChange', (oldState: AudioPlayerState, newState: AudioPlayerState) => {
       if (newState.status === AudioPlayerStatus.Idle && oldState.status !== AudioPlayerStatus.Idle) {
         playNext(guildId).catch(() => {});
       }
@@ -235,8 +242,9 @@ async function playNext(guildId: string): Promise<void> {
             source: 'YOUTUBE',
           });
         }
-      } catch (err: any) {
-        musicLogger.error('Autoplay search failed', { guildId, err: err.message });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        musicLogger.error('Autoplay search failed', { guildId, err: message });
       }
     }
 
@@ -265,11 +273,12 @@ async function playTrack(guildId: string, track: TrackInfo, startTime?: number):
   const state = getState(guildId);
   if (state.destroyed || !state.connection) return;
 
-  let streamData: { stream: any; type: StreamType };
+  let streamData: { stream: Readable; type: StreamType };
   try {
     streamData = await createStreamFromUrl(track.url, startTime);
-  } catch (streamErr: any) {
-    musicLogger.error('Stream error', { guildId, title: track.title, err: streamErr.message });
+  } catch (streamErr: unknown) {
+    const message = streamErr instanceof Error ? streamErr.message : String(streamErr);
+    musicLogger.error('Stream error', { guildId, title: track.title, err: message });
 
     playNext(guildId).catch(() => {});
     return;
@@ -307,8 +316,9 @@ async function playTrack(guildId: string, track: TrackInfo, startTime?: number):
         playedAt: new Date(),
       },
     }).catch(() => {});
-  } catch (err: any) {
-    musicLogger.error('Error playing', { guildId, title: track.title, err: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    musicLogger.error('Error playing', { guildId, title: track.title, err: message });
 
     playNext(guildId).catch(() => {});
   }
@@ -365,12 +375,13 @@ export async function play(guildId: string, query: string, requester: GuildMembe
         source: 'YOUTUBE',
       };
     }
-  } catch (err: any) {
-    musicLogger.error('yt-dlp search/info failed', { err: err.message, query });
-    if (err.message?.includes('429') || err.message?.includes('Too Many Requests') || err.message?.includes('HTTP Error 429')) {
+  } catch (err: unknown) {
+    const errMessage = err instanceof Error ? err.message : String(err);
+    musicLogger.error('yt-dlp search/info failed', { err: errMessage, query });
+    if (errMessage.includes('429') || errMessage.includes('Too Many Requests') || errMessage.includes('HTTP Error 429')) {
       throw new Error('YouTube bloque les requêtes. Vérifiez la variable d\'environnement YOUTUBE_COOKIE dans le fichier .env.');
     }
-    throw new Error(`Erreur lors de la recherche: ${err.message}`);
+    throw new Error(`Erreur lors de la recherche: ${errMessage}`);
   }
 
   musicLogger.info('Resolved track', { title: track.title, url: track.url });
@@ -399,7 +410,7 @@ export async function play(guildId: string, query: string, requester: GuildMembe
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
       selfDeaf: true,
     });
-    connection.on('stateChange', async (_oldState: any, newState: any) => {
+    connection.on('stateChange', async (_oldState: VoiceConnectionState, newState: VoiceConnectionState) => {
       if (newState.status === VoiceConnectionStatus.Disconnected) {
         musicLogger.warn('Voice disconnected, attempting reconnect', { guildId });
         try {
@@ -495,7 +506,7 @@ export function setVolume(guildId: string, vol: number): void {
   // Apply to current playback
   const player = state.player;
   if (player?.state.status === AudioPlayerStatus.Playing || player?.state.status === AudioPlayerStatus.Paused) {
-    const resource = (player.state as any).resource;
+    const resource = (player.state as AudioPlayerPlayingState | AudioPlayerPausedState).resource;
     resource.volume?.setVolume(state.volume / 100);
   }
 }
@@ -521,7 +532,7 @@ export async function saveQueueToDb(guildId: string): Promise<void> {
         tracks: JSON.stringify(state.queue),
         currentTrack: state.currentTrack ? JSON.stringify(state.currentTrack) : null,
         position: state.position,
-        loopMode: state.loopMode as any,
+        loopMode: state.loopMode,
         autoplay: state.autoplay,
         volume: state.volume,
         voiceChannelId: state.voiceChannelId,
@@ -532,7 +543,7 @@ export async function saveQueueToDb(guildId: string): Promise<void> {
         tracks: JSON.stringify(state.queue),
         currentTrack: state.currentTrack ? JSON.stringify(state.currentTrack) : null,
         position: state.position,
-        loopMode: state.loopMode as any,
+        loopMode: state.loopMode,
         autoplay: state.autoplay,
         volume: state.volume,
         voiceChannelId: state.voiceChannelId,
@@ -553,7 +564,7 @@ export async function loadQueueFromDb(guildId: string): Promise<void> {
     state.queue = JSON.parse(data.tracks);
     state.currentTrack = data.currentTrack ? JSON.parse(data.currentTrack) : null;
     state.position = data.position;
-    state.loopMode = data.loopMode as any;
+    state.loopMode = data.loopMode as LoopMode;
     state.autoplay = data.autoplay;
     state.volume = data.volume;
     state.voiceChannelId = data.voiceChannelId;
@@ -579,7 +590,23 @@ export function getQueueState(guildId: string) {
   };
 }
 
-const musicSettingsCache = new Map<string, { data: any; at: number }>();
+interface MusicSettingsCache {
+  id: string;
+  guildId: string;
+  enabled: boolean;
+  maxQueueLength: number;
+  maxPlaylistLength: number;
+  defaultVolume: number;
+  allowDjRole: boolean;
+  djRoleId: string | null;
+  restrictToVoiceChannel: boolean;
+  voiceChannelId: string | null;
+  announceTracks: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const musicSettingsCache = new Map<string, { data: MusicSettingsCache; at: number }>();
 const MUSIC_SETTINGS_CACHE_MS = 30_000;
 
 export async function getMusicSettings(guildId: string) {

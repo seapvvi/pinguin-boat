@@ -26,6 +26,24 @@ export async function execute(reaction: MessageReaction | PartialMessageReaction
     try { await reaction.message.fetch(); } catch { return; }
   }
 
+  // Fetch partials before any use
+  if (reaction.partial) {
+    try {
+      await reaction.fetch();
+    } catch (error: unknown) {
+      logger.error('Erreur lors du fetch de la réaction partielle:', { error: error instanceof Error ? error.message : String(error) });
+      return;
+    }
+  }
+  if (reaction.message.partial) {
+    try {
+      await reaction.message.fetch();
+    } catch (error: unknown) {
+      logger.error('Erreur lors du fetch du message partiel:', { error: error instanceof Error ? error.message : String(error) });
+      return;
+    }
+  }
+
   const guildId = reaction.message.guildId;
   const messageId = reaction.message.id;
 

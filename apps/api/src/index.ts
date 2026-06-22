@@ -27,6 +27,7 @@ import { ensureOwnerPasswordHash } from './services/ownerPassword';
 import { getSystemMetrics, getGlobalStats } from './services/metrics';
 import { botFetch } from './services/bot-proxy';
 import { startSessionCleanup } from './jobs/cleanup';
+import { startTicketCleanup } from './jobs/cleanup-tickets';
 
 const config = getConfig();
 
@@ -37,7 +38,7 @@ async function main() {
   app = Fastify({ logger: true });
 
   await app.register(cors, {
-    origin: config.CORS_ORIGIN,
+    origin: config.CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean),
     credentials: true,
   });
 
@@ -319,6 +320,7 @@ async function main() {
   }
 
   startSessionCleanup();
+  startTicketCleanup();
 }
 
 main();

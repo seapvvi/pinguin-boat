@@ -14,7 +14,7 @@ const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1),
   DISCORD_OWNER_ID: z.string().min(1),
   DISCORD_PUBLIC_KEY: z.string().min(1),
-  DISCORD_SUPPORT_INVITE: z.string().url().optional().default(''),
+  DISCORD_SUPPORT_INVITE: z.union([z.string().url(), z.literal('')]).default(''),
 
   // Database
   DATABASE_URL: z.string().trim().url(),
@@ -28,7 +28,8 @@ const envSchema = z.object({
   API_PORT: z.coerce.number().default(4000),
   API_URL: z.string().url(),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
-  BOT_INTERNAL_PORT: z.coerce.number().default(4001),
+  // ^ Multiples origines séparées par des virgules. Ex: "http://localhost:3000,https://bot.pinguin.ovh"
+  BOT_INTERNAL_PORT: z.coerce.number().default(3002),
   BOT_INTERNAL_SECRET: z.string().min(32),
 
   // Web
@@ -49,7 +50,7 @@ const envSchema = z.object({
 
   // GitHub
   GITHUB_REPO: z.string().default(''),
-  GITHUB_BRANCH: z.string().default('main'),
+  GITHUB_BRANCH: z.string().default('master'),
   GITHUB_TOKEN: z.string().optional(),
 
   // Deploy

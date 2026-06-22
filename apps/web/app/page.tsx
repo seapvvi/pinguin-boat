@@ -117,7 +117,7 @@ const TERMINAL_LINES = [
   { text: '', delay: 2800 },
   { text: '╔══════════════════════════════════╗', delay: 3000 },
   { text: '║  PINGUIN BOAT v0.0 — EN LIGNE   ║', delay: 3200 },
-  { text: '║  Prêt sur 5+ serveurs        ║', delay: 3400 },
+  { text: '║  Prêt sur 0+ serveurs                 ║', delay: 3400 },
   { text: '╚══════════════════════════════════╝', delay: 3600 },
   { text: '', delay: 3800 },
   { text: 'pinguin@bot:~$ systemctl status --all', delay: 4200 },
@@ -214,8 +214,13 @@ function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: strin
 
 
 /* ─── Terminal Demo ─── */
-function TerminalDemo() {
+function TerminalDemo({ guildsCount = 0 }: { guildsCount?: number }) {
   const [visibleLines, setVisibleLines] = useState(0);
+  const liveTerminalLines = TERMINAL_LINES.map(line =>
+    line.text === '║  Prêt sur 0+ serveurs                 ║'
+      ? { ...line, text: `║  Prêt sur ${guildsCount}+ serveurs${' '.repeat(Math.max(0, 32 - String(guildsCount).length))}║` }
+      : line
+  );
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-100px' });
 
@@ -225,7 +230,7 @@ function TerminalDemo() {
     let isCancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    TERMINAL_LINES.forEach((line) => {
+    liveTerminalLines.forEach((line) => {
       const t = setTimeout(() => {
         if (isCancelled) return;
         setVisibleLines((prev) => prev + 1);
@@ -269,7 +274,7 @@ function TerminalDemo() {
       </div>
       {/* Terminal body */}
       <div style={{ padding: '14px 16px', minHeight: 320 }}>
-        {TERMINAL_LINES.slice(0, visibleLines).map((line, i) => (
+        {liveTerminalLines.slice(0, visibleLines).map((line, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0 }}
@@ -361,7 +366,7 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const guildsDisplay = stats?.totalGuilds || 1000;
+  const guildsDisplay = stats?.totalGuilds || 0;
   const usersDisplay = stats?.totalUsers || 50000;
   const commandsDisplay = stats?.totalCommands || 120;
   const uptimeDisplay = stats?.uptime || 99.9;
@@ -634,15 +639,15 @@ export default function LandingPage() {
           transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 32, flexWrap: 'wrap', justifyContent: 'center', position: 'relative', zIndex: 1 }}
         >
-          <a
-            href={user ? '/servers' : '/auth/login'}
-            className="cta-discord"
-          >
-            <svg width="20" height="20" viewBox="0 0 127.14 96.36" fill="currentColor">
-              <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
-            </svg>
-            Ajouter à Discord
-          </a>
+            <a
+              href={user ? '/dashboard' : '/auth/login'}
+              className="cta-discord"
+            >
+              <svg width="20" height="20" viewBox="0 0 127.14 96.36" fill="currentColor">
+                <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
+              </svg>
+              {user ? 'Accéder au dashboard' : 'Ajouter à Discord'}
+            </a>
           <a href="#features" className="cta-outline">
             Découvrir <ChevronRight size={14} />
           </a>
@@ -700,7 +705,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
             >
-              <TerminalDemo />
+              <TerminalDemo guildsCount={guildsDisplay} />
             </motion.div>
 
             {/* Right: Info */}
@@ -1288,13 +1293,13 @@ export default function LandingPage() {
           </p>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
             <a
-              href={user ? '/servers' : '/auth/login'}
+              href={user ? '/dashboard' : '/auth/login'}
               className="cta-discord"
             >
               <svg width="22" height="22" viewBox="0 0 127.14 96.36" fill="currentColor">
                 <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
               </svg>
-              Ajouter maintenant
+              {user ? 'Accéder au dashboard' : 'Ajouter maintenant'}
             </a>
             <a href="https://discord.gg/pinguin" target="_blank" rel="noopener noreferrer" className="cta-outline">
               <ExternalLink size={14} />

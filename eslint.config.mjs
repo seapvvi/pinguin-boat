@@ -14,15 +14,21 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tseslint,
-      '@next/next': next,
     },
     rules: {
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
       'no-console': 'warn',
+    },
+  },
+  {
+    files: ['apps/web/**/*.{ts,tsx}'],
+    plugins: {
+      '@next/next': next,
+    },
+    rules: {
       ...next.configs.recommended.rules,
     },
   },
-
 ];

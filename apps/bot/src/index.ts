@@ -6,7 +6,7 @@ import { loadEvents } from './events/_loader';
 import { loadCommands } from './commands/_loader';
 import { startInternalBotApi } from './internal/bot-api';
 import { cleanStaleSessions } from './services/minigames';
-import { initMusicService } from './services/music';
+import { initMusicService, cleanupCookieFile } from './services/music';
 import { logger } from '@pinguin/shared';
 import './interactions';
 
@@ -69,6 +69,7 @@ process.on('uncaughtException', (err: unknown) => {
 
 process.on('SIGTERM', async () => {
   logger.info('Arrêt...', { app: 'bot' });
+  cleanupCookieFile();
   client.destroy();
   await prisma.$disconnect();
   process.exit(0);
@@ -76,6 +77,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   logger.info('Arrêt...', { app: 'bot' });
+  cleanupCookieFile();
   client.destroy();
   await prisma.$disconnect();
   process.exit(0);

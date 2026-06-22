@@ -5,6 +5,15 @@ const nextConfig = {
   outputFileTracingRoot: path.join(__dirname, '../..'),
   transpilePackages: ['@pinguin/shared', '@pinguin/ui'],
   allowedDevOrigins: [process.env.NEXT_PUBLIC_DEV_ORIGIN].filter(Boolean),
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cdn.discordapp.com',
+        pathname: '/**',
+      },
+    ],
+  },
   experimental: {
     optimizePackageImports: ['lucide-react', 'motion'],
   },
