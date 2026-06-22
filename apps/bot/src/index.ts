@@ -42,7 +42,9 @@ async function start() {
     const cleaned = await cleanStaleSessions();
     if (cleaned > 0) logger.info(`Nettoyage: ${cleaned} sessions expirées`, { app: 'bot' });
 
-    initMusicService();
+    initMusicService().catch((err: unknown) => {
+      logger.warn('Service musical indisponible', { err, app: 'bot' });
+    });
 
     await client.login(config.DISCORD_TOKEN);
     logger.info('Connecté à Discord', { app: 'bot' });
