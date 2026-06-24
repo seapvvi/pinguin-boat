@@ -324,9 +324,9 @@ async function main() {
   try {
     await internalApp.listen({
       host: '127.0.0.1',
-      port: config.BOT_INTERNAL_PORT,
+      port: config.API_INTERNAL_PORT,
     });
-    internalApp.log.info(`Serveur interne démarré sur 127.0.0.1:${config.BOT_INTERNAL_PORT}`);
+    internalApp.log.info(`Serveur interne démarré sur 127.0.0.1:${config.API_INTERNAL_PORT}`);
   } catch (err) {
     internalApp.log.error(err);
     process.exit(1);

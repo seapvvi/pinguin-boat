@@ -30,6 +30,7 @@ const envSchema = z.object({
   API_URL: z.string().url(),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   // ^ Multiples origines séparées par des virgules. Ex: "http://localhost:3000,https://bot.pinguin.ovh"
+  API_INTERNAL_PORT: z.coerce.number().default(3004),
   BOT_INTERNAL_PORT: z.coerce.number().default(3003),
   BOT_INTERNAL_SECRET: z.string().min(32),
   BOT_INTERNAL_URL: z.string().url().default('http://127.0.0.1:3003'),
