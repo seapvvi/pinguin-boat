@@ -12,7 +12,7 @@ export async function registerCommands(client: Client): Promise<void> {
     logger.info(`[Bot] Enregistrement de ${commands.length} commandes...`);
 
     if (config.NODE_ENV === 'development') {
-      const guildId = process.env.DISCORD_DEV_GUILD_ID;
+      const guildId = config.DISCORD_DEV_GUILD_ID;
       if (guildId) {
         await rest.put(Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, guildId), {
           body: commands,

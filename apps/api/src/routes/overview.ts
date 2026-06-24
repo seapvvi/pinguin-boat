@@ -26,7 +26,7 @@ export async function computePublicOverview() {
 
   let onlineMembers = 0;
   try {
-    const botGuilds = await botFetch('/internal/stats');
+    const botGuilds = await botFetch('/internal/stats') as { data?: { onlineMembers?: number } };
     onlineMembers = botGuilds?.data?.onlineMembers ?? 0;
   } catch { /* bot offline */ }
 

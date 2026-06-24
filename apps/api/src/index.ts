@@ -152,10 +152,23 @@ async function main() {
     }
   });
 
-  app.get('/api/health', async () => ({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-  }));
+  app.get('/api/health', async (_request: FastifyRequest, reply: FastifyReply) => {
+    const checks: Record<string, 'ok' | 'error'> = {};
+
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      checks.database = 'ok';
+    } catch {
+      checks.database = 'error';
+    }
+
+    const allOk = Object.values(checks).every(v => v === 'ok');
+    reply.status(allOk ? 200 : 503).send({
+      status: allOk ? 'ok' : 'degraded',
+      timestamp: new Date().toISOString(),
+      checks,
+    });
+  });
 
   app.get('/api/health/bot', { preHandler: [authenticate] }, async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -219,7 +232,7 @@ async function main() {
         ]);
         let onlineMembers = 0;
         try {
-          const botStats = await botFetch('/internal/stats');
+          const botStats = await botFetch('/internal/stats') as { data?: { onlineMembers?: number } };
           onlineMembers = botStats?.data?.onlineMembers ?? 0;
         } catch { /* bot offline */ }
         return reply.send(success({
@@ -238,7 +251,7 @@ async function main() {
       ]);
       let onlineMembers = 0;
       try {
-        const botStats = await botFetch('/internal/stats');
+        const botStats = await botFetch('/internal/stats') as { data?: { onlineMembers?: number } };
         onlineMembers = botStats?.data?.onlineMembers ?? 0;
       } catch { /* bot offline */ }
       reply.send(success({

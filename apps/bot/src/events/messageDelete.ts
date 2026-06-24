@@ -1,6 +1,8 @@
 import { Message, PartialMessage, Client } from 'discord.js';
 import { sendGuildLog } from '../services/logs';
 
+export const name = 'messageDelete';
+
 export async function execute(message: Message | PartialMessage, client: Client): Promise<void> {
   if (!message.guild || message.author?.bot) return;
   if (message.partial) {

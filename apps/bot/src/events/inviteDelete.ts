@@ -2,6 +2,8 @@ import { Invite, Client } from 'discord.js';
 import { removeInvite } from '../services/invite-cache';
 import { logger } from '@pinguin/shared';
 
+export const name = 'inviteDelete';
+
 export async function execute(invite: Invite, _client: Client): Promise<void> {
   const guild = invite.guild;
   if (!guild) return;

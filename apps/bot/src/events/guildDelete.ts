@@ -3,6 +3,8 @@ import { prisma } from '@pinguin/db';
 import { deleteGuildInvites } from '../services/invite-cache';
 import { logger } from '@pinguin/shared';
 
+export const name = 'guildDelete';
+
 export async function execute(guild: Guild, client: Client): Promise<void> {
   try {
     await prisma.guild.update({

@@ -29,17 +29,9 @@
     "db:migrate": {
       "cache": false
     },
-    "test:unit": {
-      "dependsOn": [],
-      "outputs": []
-    },
-    "test:integration": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
     "test": {
-      "dependsOn": ["test:unit", "test:integration"],
-      "outputs": []
+      "outputs": [],
+      "cache": false
     }
   }
 }

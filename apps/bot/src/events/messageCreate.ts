@@ -8,6 +8,8 @@ import { handleCaptchaDM } from '../services/captcha';
 import { updateQuestProgress } from '../services/quests';
 import { isEconomyActive } from '../services/economy';
 
+export const name = 'messageCreate';
+
 export async function execute(message: Message, client: Client): Promise<void> {
   if (message.author.bot) return;
 

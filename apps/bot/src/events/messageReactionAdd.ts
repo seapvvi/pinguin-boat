@@ -13,6 +13,8 @@ import {
 import { logger } from '@pinguin/shared';
 import { createEmbed } from '../services/embed';
 
+export const name = 'messageReactionAdd';
+
 const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
 export async function execute(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser, _client: Client): Promise<void> {

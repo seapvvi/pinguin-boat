@@ -7,6 +7,7 @@ import {
 } from '@discordjs/voice';
 import type { TrackInfo } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
+import { getConfig } from '@pinguin/config';
 import { getLogger } from '@pinguin/shared';
 import { errorEmbed } from './embed';
 import { spawn } from 'child_process';
@@ -64,23 +65,36 @@ export async function initMusicService(): Promise<void> {
   } else {
     musicLogger.info('YouTube cookie will be used by yt-dlp via temp file', { cookieLength: rawCookie.length });
   }
+
+  const config = getConfig();
+  if (!config.SPOTIFY_CLIENT_ID || !config.SPOTIFY_CLIENT_SECRET) {
+    musicLogger.warn('Spotify non configuré — le support Spotify est désactivé. Ajoutez SPOTIFY_CLIENT_ID et SPOTIFY_CLIENT_SECRET dans .env pour l\'activer.');
+  }
+  if (!config.SOUNDCLOUD_CLIENT_ID) {
+    musicLogger.warn('SoundCloud non configuré — le support SoundCloud est désactivé.');
+  }
 }
 
 const YTDLP_COOKIE_PATH: string | null = (() => {
   const raw = process.env.YOUTUBE_COOKIE;
-  if (!raw || raw.trim().startsWith('(optionnel') || raw.trim().length < 10) return null;
+  if (!raw || raw.trim().length < 10) return null;
+
   const path = join(tmpdir(), `pinguin-ytdlp-cookies-${Date.now()}.txt`);
   try {
-    // Write Netscape HTTP Cookie Format — yt-dlp expects # Netscape HTTP Cookie File header
-    const lines = [
-      '# Netscape HTTP Cookie File',
-      '.youtube.com\tTRUE\t/\tTRUE\t9999999999\tYOUTUBE_COOKIE\t' + raw.replace(/\t/g, ' '),
-    ];
-    writeFileSync(path, lines.join('\n'), 'utf-8');
-    musicLogger.info('Wrote temporary cookies.txt for yt-dlp', { path });
+    const lines = ['# Netscape HTTP Cookie File', '# https://curl.se/docs/http-cookies.html', ''];
+    const pairs = raw.split(';').map(s => s.trim()).filter(Boolean);
+    for (const pair of pairs) {
+      const eqIdx = pair.indexOf('=');
+      if (eqIdx === -1) continue;
+      const name = pair.slice(0, eqIdx).trim();
+      const value = pair.slice(eqIdx + 1).trim();
+      lines.push(`.youtube.com\tTRUE\t/\tTRUE\t9999999999\t${name}\t${value}`);
+    }
+    writeFileSync(path, lines.join('\n') + '\n', 'utf-8');
+    musicLogger.info('Wrote cookies.txt for yt-dlp', { path, cookieCount: pairs.length });
     return path;
   } catch (e) {
-    musicLogger.warn('Failed to write cookies.txt for yt-dlp', { err: (e as Error).message });
+    musicLogger.warn('Failed to write cookies.txt', { err: (e as Error).message });
     return null;
   }
 })();
@@ -119,7 +133,23 @@ function createYtDlpStream(url: string, startTime?: number): Readable {
 
   const proc = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
+  let bytesReceived = false;
+  const watchdog = setTimeout(() => {
+    if (!bytesReceived) {
+      proc.kill('SIGKILL');
+      musicLogger.error('yt-dlp timeout — aucun byte reçu après 30s', { url });
+    }
+  }, 30_000);
+
+  proc.stdout.once('data', () => {
+    bytesReceived = true;
+    clearTimeout(watchdog);
+  });
+
+  proc.once('close', () => clearTimeout(watchdog));
+
   proc.on('error', (err: NodeJS.ErrnoException) => {
+    clearTimeout(watchdog);
     if (err.code === 'ENOENT') {
       throw new Error(
         'yt-dlp n\'est pas installé. Installez-le via "pip install yt-dlp" ' +
@@ -166,6 +196,7 @@ interface GuildMusicState {
   destroyed: boolean;
 }
 
+const playLocks = new Set<string>();
 const states = new Map<string, GuildMusicState>();
 
 export function getState(guildId: string): GuildMusicState {
@@ -325,144 +356,150 @@ async function playTrack(guildId: string, track: TrackInfo, startTime?: number):
 }
 
 export async function play(guildId: string, query: string, requester: GuildMember, textChannel: TextChannel): Promise<TrackInfo | null> {
-  const state = getState(guildId);
-  const voiceChannel = requester.voice.channel as VoiceChannel;
-  if (!voiceChannel) throw new Error('Tu dois être dans un salon vocal.');
-
-  let trackUrl: string;
-  let track: TrackInfo;
-
-  // yt-dlp-exec for both direct URLs and text searches
+  if (playLocks.has(guildId)) {
+    throw new Error('Une recherche est déjà en cours. Patiente un instant.');
+  }
+  playLocks.add(guildId);
   try {
-    const isYouTubeUrl = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(query.trim());
+    const state = getState(guildId);
+    const voiceChannel = requester.voice.channel as VoiceChannel;
+    if (!voiceChannel) throw new Error('Tu dois être dans un salon vocal.');
 
-    const ytDlpOptions = {
-      dumpSingleJson: true,
-      noWarnings: true,
-      preferFreeFormats: true,
-      skipDownload: true,
-      noPlaylist: true,
-      cookies: YTDLP_COOKIE_PATH ?? undefined,
-    } as const;
-
-    if (isYouTubeUrl) {
-      const raw = await ytDlp(query, ytDlpOptions);
-      const data = Array.isArray(raw) ? raw[0] : raw;
-      if (!data) throw new Error('Aucune information trouvée pour cette URL.');
-
-      trackUrl = data.webpage_url ?? query;
-      track = {
-        title: data.title ?? 'Inconnu',
-        url: trackUrl,
-        duration: data.duration ?? 0,
-        thumbnail: data.thumbnail ?? '',
-        author: data.channel ?? data.uploader ?? 'Inconnu',
-        source: 'YOUTUBE',
-      };
-    } else {
-      const raw = await ytDlp(`ytsearch1:${query}`, ytDlpOptions);
-      const data = Array.isArray(raw) ? raw[0] : raw;
-      if (!data) throw new Error('Aucun résultat trouvé.');
-
-      trackUrl = data.webpage_url ?? '';
-      if (!trackUrl) throw new Error('URL introuvable dans le résultat de recherche.');
-      track = {
-        title: data.title ?? 'Inconnu',
-        url: trackUrl,
-        duration: data.duration ?? 0,
-        thumbnail: data.thumbnail ?? '',
-        author: data.channel ?? data.uploader ?? 'Inconnu',
-        source: 'YOUTUBE',
-      };
-    }
-  } catch (err: unknown) {
-    const errMessage = err instanceof Error ? err.message : String(err);
-    musicLogger.error('yt-dlp search/info failed', { err: errMessage, query });
-    if (errMessage.includes('429') || errMessage.includes('Too Many Requests') || errMessage.includes('HTTP Error 429')) {
-      throw new Error('YouTube bloque les requêtes. Vérifiez la variable d\'environnement YOUTUBE_COOKIE dans le fichier .env.');
-    }
-    throw new Error(`Erreur lors de la recherche: ${errMessage}`);
-  }
-
-  musicLogger.info('Resolved track', { title: track.title, url: track.url });
-
-
-  const botMember = voiceChannel.guild.members.me!;
-  if (!voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
-    throw new Error('Je n\'ai pas la permission de rejoindre ce salon vocal.');
-  }
-
-  const needsJoin =
-    !state.connection ||
-    state.connection.state.status === VoiceConnectionStatus.Disconnected ||
-    state.voiceChannelId !== voiceChannel.id;
-
-  if (needsJoin) {
-    if (state.connection) {
-      try {
-        state.connection.destroy();
-      } catch {}
-      state.connection = null;
-    }
-    const connection = joinVoiceChannel({
-      channelId: voiceChannel.id,
-      guildId: voiceChannel.guild.id,
-      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-      selfDeaf: true,
-    });
-    connection.on('stateChange', async (_oldState: VoiceConnectionState, newState: VoiceConnectionState) => {
-      if (newState.status === VoiceConnectionStatus.Disconnected) {
-        musicLogger.warn('Voice disconnected, attempting reconnect', { guildId });
-        try {
-          await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
-        } catch {
-          musicLogger.error('Reconnect failed, cleaning up', { guildId });
-          state.connection = null;
-          state.voiceChannelId = null;
-        }
-      }
-    });
-    connection.on('error', (err: Error) => {
-      musicLogger.error('Voice connection error', { guildId, err: err.message });
-    });
+    let trackUrl: string;
+    let track: TrackInfo;
 
     try {
-      await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
-    } catch (err) {
-      connection.destroy();
-      throw new Error('Impossible de se connecter au salon vocal. Vérifiez les permissions.');
-    }
-    state.connection = connection;
-    connection.subscribe(getPlayer(guildId));
-    state.voiceChannelId = voiceChannel.id;
-  } else {
-    const connection = state.connection;
-    if (connection && connection.state.status !== VoiceConnectionStatus.Ready) {
-      try {
-        await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
-      } catch {
-        connection.destroy();
-        state.connection = null;
-        state.voiceChannelId = null;
-        throw new Error('Connexion vocale instable, réessayez.');
+      const isYouTubeUrl = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(query.trim());
+
+      const ytDlpOptions = {
+        dumpSingleJson: true,
+        noWarnings: true,
+        preferFreeFormats: true,
+        skipDownload: true,
+        noPlaylist: true,
+        cookies: YTDLP_COOKIE_PATH ?? undefined,
+      } as const;
+
+      if (isYouTubeUrl) {
+        const raw = await ytDlp(query, ytDlpOptions);
+        const data = Array.isArray(raw) ? raw[0] : raw;
+        if (!data) throw new Error('Aucune information trouvée pour cette URL.');
+
+        trackUrl = data.webpage_url ?? query;
+        track = {
+          title: data.title ?? 'Inconnu',
+          url: trackUrl,
+          duration: data.duration ?? 0,
+          thumbnail: data.thumbnail ?? '',
+          author: data.channel ?? data.uploader ?? 'Inconnu',
+          source: 'YOUTUBE',
+        };
+      } else {
+        const raw = await ytDlp(`ytsearch1:${query}`, ytDlpOptions);
+        const data = Array.isArray(raw) ? raw[0] : raw;
+        if (!data) throw new Error('Aucun résultat trouvé.');
+
+        trackUrl = data.webpage_url ?? '';
+        if (!trackUrl) throw new Error('URL introuvable dans le résultat de recherche.');
+        track = {
+          title: data.title ?? 'Inconnu',
+          url: trackUrl,
+          duration: data.duration ?? 0,
+          thumbnail: data.thumbnail ?? '',
+          author: data.channel ?? data.uploader ?? 'Inconnu',
+          source: 'YOUTUBE',
+        };
       }
-      connection.subscribe(getPlayer(guildId));
+    } catch (err: unknown) {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      musicLogger.error('yt-dlp search/info failed', { err: errMessage, query });
+      if (errMessage.includes('429') || errMessage.includes('Too Many Requests') || errMessage.includes('HTTP Error 429')) {
+        throw new Error('YouTube bloque les requêtes. Vérifiez la variable d\'environnement YOUTUBE_COOKIE dans le fichier .env.');
+      }
+      throw new Error(`Erreur lors de la recherche: ${errMessage}`);
     }
-  }
 
-  state.voiceChannelId = voiceChannel.id;
-  state.textChannelId = textChannel.id;
+    musicLogger.info('Resolved track', { title: track.title, url: track.url });
 
-  if (state.currentTrack) {
-    state.queue.push(track);
+    const botMember = voiceChannel.guild.members.me!;
+    if (!voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
+      throw new Error('Je n\'ai pas la permission de rejoindre ce salon vocal.');
+    }
+
+    const needsJoin =
+      !state.connection ||
+      state.connection.state.status === VoiceConnectionStatus.Disconnected ||
+      state.voiceChannelId !== voiceChannel.id;
+
+    if (needsJoin) {
+      if (state.connection) {
+        try {
+          state.connection.destroy();
+        } catch {}
+        state.connection = null;
+      }
+      const connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: voiceChannel.guild.id,
+        adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+        selfDeaf: true,
+      });
+      connection.on('stateChange', async (_oldState: VoiceConnectionState, newState: VoiceConnectionState) => {
+        if (newState.status === VoiceConnectionStatus.Disconnected) {
+          musicLogger.warn('Voice disconnected, attempting reconnect', { guildId });
+          try {
+            await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
+          } catch {
+            musicLogger.error('Reconnect failed, cleaning up', { guildId });
+            state.connection = null;
+            state.voiceChannelId = null;
+          }
+        }
+      });
+      connection.on('error', (err: Error) => {
+        musicLogger.error('Voice connection error', { guildId, err: err.message });
+      });
+
+      try {
+        await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+      } catch (err) {
+        connection.destroy();
+        throw new Error('Impossible de se connecter au salon vocal. Vérifiez les permissions.');
+      }
+      state.connection = connection;
+      connection.subscribe(getPlayer(guildId));
+      state.voiceChannelId = voiceChannel.id;
+    } else {
+      const connection = state.connection;
+      if (connection && connection.state.status !== VoiceConnectionStatus.Ready) {
+        try {
+          await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
+        } catch {
+          connection.destroy();
+          state.connection = null;
+          state.voiceChannelId = null;
+          throw new Error('Connexion vocale instable, réessayez.');
+        }
+        connection.subscribe(getPlayer(guildId));
+      }
+    }
+
+    state.voiceChannelId = voiceChannel.id;
+    state.textChannelId = textChannel.id;
+
+    if (state.currentTrack) {
+      state.queue.push(track);
+      saveQueueToDb(guildId);
+      return track;
+    }
+
+    state.currentTrack = track;
     saveQueueToDb(guildId);
+    await playTrack(guildId, track);
     return track;
+  } finally {
+    playLocks.delete(guildId);
   }
-
-  state.currentTrack = track;
-  saveQueueToDb(guildId);
-  await playTrack(guildId, track);
-  return track;
 }
 
 export async function skip(guildId: string): Promise<TrackInfo | null> {

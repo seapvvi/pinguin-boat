@@ -2,6 +2,8 @@ import { Guild, Client } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { logger } from '@pinguin/shared';
 
+export const name = 'guildCreate';
+
 export async function execute(guild: Guild, client: Client): Promise<void> {
   try {
     await prisma.guild.upsert({

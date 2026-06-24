@@ -9,6 +9,7 @@ import { startPollCron } from '../services/poll-cron';
 import { initializeInviteCache } from '../services/invite-cache';
 import { logger } from '@pinguin/shared';
 
+export const name = 'ready';
 export const once = true;
 
 export async function execute(client: Client): Promise<void> {

@@ -46,7 +46,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
         embeds: [successEmbed('🎵 Ajouté', `**${track.title}** — ${formatDuration(track.duration)}`)]
       });
     }
-  } catch (err: any) {
-    await interaction.editReply({ embeds: [errorEmbed('Erreur', err.message)] });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Une erreur inattendue est survenue.';
+    await interaction.editReply({ embeds: [errorEmbed('Erreur', message)] });
   }
 }

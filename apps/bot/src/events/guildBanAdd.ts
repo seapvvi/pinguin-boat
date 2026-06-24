@@ -1,6 +1,8 @@
 import { GuildBan, Client, EmbedBuilder } from 'discord.js';
 import { sendGuildLog } from '../services/logs';
 
+export const name = 'guildBanAdd';
+
 export async function execute(ban: GuildBan, client: Client): Promise<void> {
   await sendGuildLog(
     client,

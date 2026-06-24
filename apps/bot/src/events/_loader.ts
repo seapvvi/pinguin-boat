@@ -12,17 +12,21 @@ export function loadEvents(client: Client): void {
   );
 
   for (const file of eventFiles) {
-
     const eventModule = require(join(eventsPath, file));
-    const eventName = file.replace(/\.(ts|js)$/, '');
     const eventHandler = eventModule.default || eventModule;
+
+    const eventName: string = eventHandler.name || file.replace(/\.(ts|js)$/, '');
+
+    if (!eventHandler.execute) {
+      logger.warn(`[Bot] Événement ignoré (execute manquant): ${file}`);
+      continue;
+    }
 
     if (eventHandler.once) {
       client.once(eventName, (...args: unknown[]) => eventHandler.execute(...args, client));
     } else {
       client.on(eventName, (...args: unknown[]) => eventHandler.execute(...args, client));
     }
-
     logger.info(`[Bot] Événement chargé: ${eventName}`);
   }
 }

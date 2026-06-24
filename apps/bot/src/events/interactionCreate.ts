@@ -7,6 +7,8 @@ import { errorEmbed } from '../services/embed';
 import { logger } from '@pinguin/shared';
 import { registry } from '../interactions';
 
+export const name = 'interactionCreate';
+
 async function replyButtonError(interaction: ButtonInteraction, message: string): Promise<void> {
   const payload = { embeds: [errorEmbed('Erreur', message)], ephemeral: true as const };
   if (interaction.deferred || interaction.replied) {

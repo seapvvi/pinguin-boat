@@ -1,6 +1,8 @@
 import { Message, PartialMessage, Client, EmbedBuilder } from 'discord.js';
 import { sendGuildLog } from '../services/logs';
 
+export const name = 'messageUpdate';
+
 export async function execute(
   oldMessage: Message | PartialMessage,
   newMessage: Message | PartialMessage,

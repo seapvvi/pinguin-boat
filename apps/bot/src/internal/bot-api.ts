@@ -1,6 +1,7 @@
 import http from 'http';
 import { Client, TextChannel, EmbedBuilder } from 'discord.js';
 import { prisma } from '@pinguin/db';
+import { getConfig } from '@pinguin/config';
 import * as music from '../services/music';
 import { invalidateCache } from '../utils/cache';
 import { invalidateAutoModCache } from '../services/automod';
@@ -8,8 +9,9 @@ import { invalidateModuleCache } from '../guards/module';
 import { logger } from '@pinguin/shared';
 
 export function startInternalBotApi(client: Client): void {
-  const port = parseInt(process.env.BOT_INTERNAL_PORT || '3003');
-  const secret = process.env.BOT_INTERNAL_SECRET || (process.env.NODE_ENV === 'production' ? (() => { throw new Error('BOT_INTERNAL_SECRET must be set in production'); })() : 'dev-secret');
+  const config = getConfig();
+  const port = config.BOT_INTERNAL_PORT;
+  const secret = config.BOT_INTERNAL_SECRET || (process.env.NODE_ENV === 'production' ? (() => { throw new Error('BOT_INTERNAL_SECRET must be set in production'); })() : 'dev-secret');
 
   const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');

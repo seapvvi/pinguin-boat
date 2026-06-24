@@ -8,6 +8,8 @@ import { findUsedInvite, getCachedInvites, setGuildInvites } from '../services/i
 import { generateCard } from '../services/WelcomeCardService';
 import type { InviteData } from '../services/invite-cache';
 
+export const name = 'guildMemberAdd';
+
 export async function execute(member: GuildMember, client: Client): Promise<void> {
   if (member.user.bot) return;
   const guildId = member.guild.id;

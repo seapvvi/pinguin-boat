@@ -1,11 +1,11 @@
-import { Collection, CommandInteraction, Client as DiscordClient } from 'discord.js';
+import { Collection, SlashCommandBuilder, ChatInputCommandInteraction, AutocompleteInteraction, Client as DiscordClient } from 'discord.js';
 
 declare module 'discord.js' {
   interface Client {
     commands: Collection<string, {
-      data: any;
-      execute: (interaction: CommandInteraction, client: Client) => Promise<void>;
-      autocomplete?: (interaction: any, client: Client) => Promise<void>;
+      data: SlashCommandBuilder | Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
+      execute: (interaction: ChatInputCommandInteraction, client: DiscordClient) => Promise<void>;
+      autocomplete?: (interaction: AutocompleteInteraction, client: DiscordClient) => Promise<void>;
       permissions?: boolean;
       requireAdmin?: boolean;
       cooldown?: number;

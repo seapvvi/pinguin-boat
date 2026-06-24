@@ -14,6 +14,7 @@ const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1),
   DISCORD_OWNER_ID: z.string().min(1),
   DISCORD_PUBLIC_KEY: z.string().min(1),
+  DISCORD_DEV_GUILD_ID: z.string().optional(),
   DISCORD_SUPPORT_INVITE: z.union([z.string().url(), z.literal('')]).default(''),
 
   // Database
@@ -29,8 +30,9 @@ const envSchema = z.object({
   API_URL: z.string().url(),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   // ^ Multiples origines séparées par des virgules. Ex: "http://localhost:3000,https://bot.pinguin.ovh"
-  BOT_INTERNAL_PORT: z.coerce.number().default(3002),
+  BOT_INTERNAL_PORT: z.coerce.number().default(3003),
   BOT_INTERNAL_SECRET: z.string().min(32),
+  BOT_INTERNAL_URL: z.string().url().default('http://127.0.0.1:3003'),
 
   // Web
   NEXT_PUBLIC_API_URL: z.string().url(),
@@ -116,7 +118,7 @@ function validateSecrets(env: EnvConfig): void {
   const isProd = env.NODE_ENV === 'production';
 
   const checks: { key: string; value: string; minLength: number; label: string; forbidden?: string[] }[] = [
-    { key: 'SESSION_SECRET', value: env.SESSION_SECRET, minLength: 32, label: 'SESSION_SECRET' },
+    { key: 'SESSION_SECRET', value: env.SESSION_SECRET, minLength: 32, label: 'SESSION_SECRET', forbidden: ['changeme', 'secret', 'dev'] },
     { key: 'BOT_INTERNAL_SECRET', value: env.BOT_INTERNAL_SECRET, minLength: 32, label: 'BOT_INTERNAL_SECRET', forbidden: ['dev-secret', 'changeme_generate_a_random_32char_string'] },
     { key: 'OWNER_PASSWORD', value: env.OWNER_PASSWORD, minLength: 12, label: 'OWNER_PASSWORD' },
   ];

@@ -3,6 +3,8 @@ import { prisma } from '@pinguin/db';
 import { addVoiceXp } from '../services/xp';
 import { isModuleEnabled } from '../guards/module';
 
+export const name = 'voiceStateUpdate';
+
 const voiceTimers = new Map<string, { startTime: number; channelId: string }>();
 
 export async function execute(oldState: VoiceState, newState: VoiceState, client: Client): Promise<void> {

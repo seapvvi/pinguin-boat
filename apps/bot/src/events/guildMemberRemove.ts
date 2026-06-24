@@ -2,6 +2,8 @@ import { GuildMember, Client, PartialGuildMember, EmbedBuilder } from 'discord.j
 import { prisma } from '@pinguin/db';
 import { sendGuildLog } from '../services/logs';
 
+export const name = 'guildMemberRemove';
+
 export async function execute(member: GuildMember | PartialGuildMember, client: Client): Promise<void> {
   if (member.user?.bot) return;
   const guildId = member.guild.id;
