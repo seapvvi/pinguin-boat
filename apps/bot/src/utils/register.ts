@@ -11,20 +11,16 @@ export async function registerCommands(client: Client): Promise<void> {
   try {
     logger.info(`[Bot] Enregistrement de ${commands.length} commandes...`);
 
-    if (config.NODE_ENV === 'development') {
-      const guildId = config.DISCORD_DEV_GUILD_ID;
-      if (guildId) {
-        await rest.put(Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, guildId), {
-          body: commands,
-        });
-        logger.info(`[Bot] Commandes enregistrées sur la guild dev ${guildId}`);
-      } else {
-        console.warn('[WARN] DISCORD_DEV_GUILD_ID non défini — enregistrement global (peut prendre jusqu\'à 1h)');
-        await rest.put(Routes.applicationCommands(config.DISCORD_CLIENT_ID), { body: commands });
-      }
-    } else {
-      await rest.put(Routes.applicationCommands(config.DISCORD_CLIENT_ID), { body: commands });
-      logger.info('[Bot] Commandes enregistrées globalement');
+    // Toujours enregistrer globalement (disponible sur tous les serveurs)
+    await rest.put(Routes.applicationCommands(config.DISCORD_CLIENT_ID), { body: commands });
+    logger.info('[Bot] Commandes enregistrées globalement');
+
+    // En dev, aussi enregistrer sur la guild de test pour mise à jour instantanée
+    if (config.NODE_ENV === 'development' && config.DISCORD_DEV_GUILD_ID) {
+      await rest.put(Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, config.DISCORD_DEV_GUILD_ID), {
+        body: commands,
+      });
+      logger.info(`[Bot] Commandes aussi enregistrées sur la guild dev ${config.DISCORD_DEV_GUILD_ID} (instantané)`);
     }
   } catch (error) {
     logger.error('[Bot] Erreur lors de l\'enregistrement des commandes', { err: error instanceof Error ? error.message : String(error) });
