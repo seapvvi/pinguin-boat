@@ -254,9 +254,7 @@ async function runRaceAnimation(
     gameState.currentRound = round + 1;
 
     for (const horse of gameState.horses) {
-      const baseSpeed = Math.random() * 15 + 5;
-      const oddsBonus = horse.odds * 10;
-      horse.speed = Math.floor(baseSpeed + oddsBonus);
+      horse.speed = Math.floor(Math.random() * 18 + 3);
       horse.position = Math.min(RACE_LENGTH, horse.position + horse.speed);
     }
 
@@ -271,10 +269,12 @@ async function runRaceAnimation(
     });
 
     const progressFields = gameState.horses.map((h: Horse) => {
-      const progressBar = '█'.repeat(Math.floor(h.position / 5)) + '░'.repeat(20 - Math.floor(h.position / 5));
+      const filled = Math.floor(h.position / 5);
+      const bar = '█'.repeat(Math.min(filled, 20)) + '░'.repeat(Math.max(0, 20 - filled));
+      const crown = h.id === selectedHorseId ? ' 👑' : '';
       return {
-        name: h.emoji + ' ' + h.name,
-        value: progressBar + ' (' + h.position + '/' + RACE_LENGTH + ')',
+        name: h.emoji + ' ' + h.name + crown,
+        value: '`' + bar + '` **' + h.position + '**/' + RACE_LENGTH,
         inline: false,
       };
     });
@@ -284,8 +284,8 @@ async function runRaceAnimation(
       .setDescription('La course continue !')
       .addFields(...progressFields)
       .addFields(
-        { name: 'Votre choix', value: selectedHorse.emoji + ' ' + selectedHorse.name, inline: true },
-        { name: 'Position actuelle', value: String(gameState.horses.find((h: Horse) => h.id === selectedHorseId)?.position || 0) + '/' + RACE_LENGTH, inline: true }
+        { name: 'Votre choix', value: selectedHorse.emoji + ' ' + selectedHorse.name + ' (x' + selectedHorse.multiplier + ')', inline: true },
+        { name: 'Position', value: String(gameState.horses.find((h: Horse) => h.id === selectedHorseId)?.position || 0) + '/' + RACE_LENGTH, inline: true }
       )
       .setTimestamp();
 
@@ -340,20 +340,24 @@ async function runRaceAnimation(
   await endGameSession(session.id, isWinner ? 'won' : 'lost', winnings - bet);
 
   // Final results embed
-  const finalFields = gameState.horses.map((h: Horse, index: number) => {
-    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '  ';
+  const sorted = [...gameState.horses].sort((a: Horse, b: Horse) => b.position - a.position);
+  const finalFields = sorted.slice(0, 3).map((h: Horse, index: number) => {
+    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
     return {
       name: medal + ' ' + h.emoji + ' ' + h.name,
-      value: 'Position: ' + h.position + '/' + RACE_LENGTH,
+      value: '`' + '█'.repeat(Math.min(Math.floor(h.position / 5), 20)) + '` **' + h.position + '**/' + RACE_LENGTH,
       inline: true,
     };
   });
+
+  const rest = sorted.slice(3).map((h: Horse) => h.emoji + ' ' + h.name + ' (' + h.position + ')').join(' • ');
 
   const finalEmbed = createEmbed('minigame')
     .setTitle('🏁 Résultats de la course')
     .setDescription(result)
     .addFields(...finalFields)
     .addFields(
+      { name: 'Classement complet', value: rest || 'Terminé', inline: false },
       { name: 'Vainqueur', value: winner.emoji + ' ' + winner.name, inline: true },
       { name: 'Gain', value: isWinner ? '+' + String(winnings) + ' ' + economySettings.currencySymbol : '-' + String(bet) + ' ' + economySettings.currencySymbol, inline: true }
     )

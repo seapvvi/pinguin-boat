@@ -7,7 +7,6 @@ import {
 } from '@discordjs/voice';
 import type { TrackInfo } from '@pinguin/shared';
 import { prisma } from '@pinguin/db';
-import { getConfig } from '@pinguin/config';
 import { getLogger } from '@pinguin/shared';
 import { errorEmbed } from './embed';
 import { spawn } from 'child_process';
@@ -66,13 +65,7 @@ export async function initMusicService(): Promise<void> {
     musicLogger.info('YouTube cookie will be used by yt-dlp via temp file', { cookieLength: rawCookie.length });
   }
 
-  const config = getConfig();
-  if (!config.SPOTIFY_CLIENT_ID || !config.SPOTIFY_CLIENT_SECRET) {
-    musicLogger.warn('Spotify non configuré — le support Spotify est désactivé. Ajoutez SPOTIFY_CLIENT_ID et SPOTIFY_CLIENT_SECRET dans .env pour l\'activer.');
-  }
-  if (!config.SOUNDCLOUD_CLIENT_ID) {
-    musicLogger.warn('SoundCloud non configuré — le support SoundCloud est désactivé.');
-  }
+  musicLogger.info('Lecture uniquement via YouTube (yt-dlp) — Spotify et SoundCloud désactivés.');
 }
 
 const YTDLP_COOKIE_PATH: string | null = (() => {

@@ -1563,6 +1563,7 @@ model MinigameSettings {
   connect4Reward       Int     @default(200) @map("connect4_reward")
   pokerReward          Int     @default(300) @map("poker_reward")
   horseRaceReward      Int     @default(250) @map("horse_race_reward")
+  slotMachineReward    Int     @default(500) @map("slot_machine_reward")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -1570,6 +1571,20 @@ model MinigameSettings {
   sessions  MinigameSession[]
 
   @@map("minigame_settings")
+}
+
+/// Historique des jackpots gagnés
+model JackpotWin {
+  id        String   @id @default(cuid()) @map("id")
+  guildId   String   @map("guild_id")
+  userId    String   @map("user_id")
+  bet       Int      @map("bet")
+  payout    Int      @map("payout")
+  symbols   String   @map("symbols")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([guildId, createdAt])
+  @@map("jackpot_wins")
 }
 
 /// Session de minijeu actif

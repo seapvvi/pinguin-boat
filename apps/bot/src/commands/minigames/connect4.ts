@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, Client, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, Client, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, ButtonInteraction } from 'discord.js';
 import { prisma } from '@pinguin/db';
 import { ensureUser } from '../../services/user';
 import { getEconomySettings, getOrCreateWallet } from '../../services/economy';
@@ -12,6 +12,8 @@ type Board = (Player | null)[][];
 
 const COLS = 7;
 const ROWS = 6;
+
+const PLAYER_EMOJIS: Record<Player, string> = { R: '🔴', Y: '🟡' };
 
 export const data = new SlashCommandBuilder()
   .setName('connect4')
@@ -31,31 +33,29 @@ export const data = new SlashCommandBuilder()
 export const module = 'minigames';
 
 function createEmptyBoard(): Board {
-  return Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+  return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 }
 
 function checkWinner(board: Board): Player | 'draw' | null {
-  // Check horizontal
+  const check = (cells: (Player | null)[]): Player | null => {
+    for (let i = 0; i <= cells.length - 4; i++) {
+      if (cells[i] && cells[i] === cells[i + 1] && cells[i] === cells[i + 2] && cells[i] === cells[i + 3]) {
+        return cells[i]!;
+      }
+    }
+    return null;
+  };
+
   for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLS - 3; col++) {
-      const cell = board[row][col];
-      if (cell && cell === board[row][col + 1] && cell === board[row][col + 2] && cell === board[row][col + 3]) {
-        return cell;
-      }
-    }
+    const result = check(board[row]);
+    if (result) return result;
   }
 
-  // Check vertical
-  for (let row = 0; row < ROWS - 3; row++) {
-    for (let col = 0; col < COLS; col++) {
-      const cell = board[row][col];
-      if (cell && cell === board[row + 1][col] && cell === board[row + 2][col] && cell === board[row + 3][col]) {
-        return cell;
-      }
-    }
+  for (let col = 0; col < COLS; col++) {
+    const result = check(Array.from({ length: ROWS }, (_, r) => board[r][col]));
+    if (result) return result;
   }
 
-  // Check diagonal (top-left to bottom-right)
   for (let row = 0; row < ROWS - 3; row++) {
     for (let col = 0; col < COLS - 3; col++) {
       const cell = board[row][col];
@@ -65,7 +65,6 @@ function checkWinner(board: Board): Player | 'draw' | null {
     }
   }
 
-  // Check diagonal (bottom-left to top-right)
   for (let row = 3; row < ROWS; row++) {
     for (let col = 0; col < COLS - 3; col++) {
       const cell = board[row][col];
@@ -75,58 +74,41 @@ function checkWinner(board: Board): Player | 'draw' | null {
     }
   }
 
-  // Check for draw (board full)
-  if (board.every(row => row.every(cell => cell !== null))) {
-    return 'draw';
-  }
-
+  if (board.every(row => row.every(cell => cell !== null))) return 'draw';
   return null;
 }
 
-function getColumnHeight(board: Board, col: number): number {
+function getAvailableRow(board: Board, col: number): number {
   for (let row = ROWS - 1; row >= 0; row--) {
-    if (board[row][col] === null) {
-      return row;
-    }
+    if (board[row][col] === null) return row;
   }
-  return -1; // Column is full
+  return -1;
 }
 
-function createBoardButtons(board: Board, disabled: boolean = false): ActionRowBuilder<ButtonBuilder>[] {
-  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
-  
-  const buttonRow = new ActionRowBuilder<ButtonBuilder>();
-  
+function buildBoardComponents(board: Board, disabled: boolean = false): ActionRowBuilder<ButtonBuilder>[] {
+  const row = new ActionRowBuilder<ButtonBuilder>();
   for (let col = 0; col < COLS; col++) {
-    const isFull = getColumnHeight(board, col) === -1;
-    
-    const button = new ButtonBuilder()
-      .setCustomId(`connect4_${col}`)
-      .setLabel(`${col + 1}`)
-      .setStyle(ButtonStyle.Primary)
-      .setDisabled(disabled || isFull);
-    
-    buttonRow.addComponents(button);
+    const isFull = getAvailableRow(board, col) === -1;
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`c4_${col}`)
+        .setLabel(`${col + 1}`)
+        .setStyle(isFull ? ButtonStyle.Secondary : ButtonStyle.Primary)
+        .setDisabled(disabled || isFull)
+    );
   }
-  
-  rows.push(buttonRow);
-  
-  return rows;
+  return [row];
 }
 
 function formatBoard(board: Board): string {
-  const emojis: Record<Player, string> = { R: '🔴', Y: '🟡' };
   let display = '';
-  
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < COLS; col++) {
-      const cell = board[row][col];
-      display += cell ? emojis[cell] : '⚪';
-      if (col < COLS - 1) display += ' ';
+      display += (board[row][col] ? PLAYER_EMOJIS[board[row][col]!] : '⚪') + ' ';
     }
     display += '\n';
   }
-  
+  display += '1 2 3 4 5 6 7';
   return display;
 }
 
@@ -153,7 +135,6 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     const opponent = interaction.options.getUser('adversaire', true);
     const bet = interaction.options.getInteger('mise') ?? 0;
 
-    // Validate opponent
     if (opponent.bot) {
       await interaction.editReply({ embeds: [errorEmbed('Adversaire invalide', 'Vous ne pouvez pas jouer contre un bot.')] });
       return;
@@ -164,7 +145,6 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       return;
     }
 
-    // Check for active sessions
     const activeSession1 = await getActiveSession(interaction.user.id, 'connect4');
     if (activeSession1) {
       await interaction.editReply({ embeds: [errorEmbed('Session active', 'Vous avez déjà une partie en cours.')] });
@@ -177,44 +157,40 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       return;
     }
 
-    // Check bet limits
     if (bet > 0) {
       if (bet < settings.betMin || bet > settings.betMax) {
-        await interaction.editReply({ 
-          embeds: [errorEmbed('Mise invalide', `La mise doit être entre ${settings.betMin} et ${settings.betMax} ${economySettings.currencySymbol}.`)] 
+        await interaction.editReply({
+          embeds: [errorEmbed('Mise invalide', `La mise doit être entre ${settings.betMin} et ${settings.betMax} ${economySettings.currencySymbol}.`)]
         });
         return;
       }
 
       await ensureUser(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
       await ensureUser(opponent.id, opponent.username, opponent.displayAvatarURL());
-      
+
       const wallet1 = await getOrCreateWallet(interaction.guild.id, interaction.user.id, economySettings.startupBalance);
       const wallet2 = await getOrCreateWallet(interaction.guild.id, opponent.id, economySettings.startupBalance);
-      
+
       if (wallet1.wallet < bet) {
-        await interaction.editReply({ 
-          embeds: [errorEmbed('Fonds insuffisants', `Vous n'avez que ${wallet1.wallet} ${economySettings.currencySymbol}.`)] 
-        });
+        await interaction.editReply({ embeds: [errorEmbed('Fonds insuffisants', `Vous n'avez que ${wallet1.wallet} ${economySettings.currencySymbol}.`)] });
         return;
       }
 
       if (wallet2.wallet < bet) {
-        await interaction.editReply({ 
-          embeds: [errorEmbed('Fonds insuffisants', `Votre adversaire n'a que ${wallet2.wallet} ${economySettings.currencySymbol}.`)] 
-        });
+        await interaction.editReply({ embeds: [errorEmbed('Fonds insuffisants', `Votre adversaire n'a que ${wallet2.wallet} ${economySettings.currencySymbol}.`)] });
         return;
       }
     }
 
-    // Create game session (avant débit pour rollback safe)
     const board: Board = createEmptyBoard();
-    const gameState = {
-      board,
-      currentPlayer: interaction.user.id,
-      playerR: interaction.user.id,
-      playerY: opponent.id,
-    };
+    const players = { playerR: interaction.user.id, playerY: opponent.id };
+    const state = { board, currentPlayer: players.playerR as string, ...players };
+    const totalPool = bet * 2;
+
+    const message = await interaction.editReply({
+      embeds: [buildGameEmbed(state, interaction.user, opponent, bet, economySettings.currencySymbol)],
+      components: buildBoardComponents(board),
+    });
 
     const session = await createGameSession(
       interaction.guild.id,
@@ -222,15 +198,12 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       'connect4',
       bet,
       interaction.channelId,
-      interaction.id,
+      message.id,
       opponent.id
     );
 
-    await updateGameSession(session.id, {
-      gameState: JSON.stringify(gameState),
-    });
+    await updateGameSession(session.id, { gameState: JSON.stringify(state) });
 
-    // Deduct bets (dans une transaction atomique)
     if (bet > 0) {
       await prisma.$transaction([
         prisma.economyWallet.update({
@@ -244,116 +217,87 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
       ]);
     }
 
-    // Send initial board
-    const embed = createEmbed('minigame')
-      .setTitle('🎮 Puissance 4')
-      .setDescription(`${interaction.user} (🔴) vs ${opponent} (🟡)\n${formatBoard(board)}`)
-      .addFields(
-        { name: 'Tour', value: `<@${interaction.user.id}> (🔴)`, inline: true },
-        { name: 'Mise', value: bet > 0 ? `${bet * 2} ${economySettings.currencySymbol}` : 'Gratuit', inline: true }
-      )
-      .setTimestamp();
+    const validPlayers = new Set([interaction.user.id, opponent.id]);
+    let gameOver = false;
+    let turnTimeoutId: NodeJS.Timeout | null = null;
 
-    const message = await interaction.editReply({ 
-      embeds: [embed],
-      components: createBoardButtons(board),
-    });
-
-    // Update session with message ID
-    await updateGameSession(session.id, {
-      gameState: JSON.stringify({ ...gameState, messageId: message.id }),
-    });
-
-    // Set up collector with 60s timeout per turn
-    let turnTimeout: NodeJS.Timeout | null = null;
-    let currentTurnStartTime = Date.now();
-    const TURN_TIMEOUT = 60000; // 60 seconds
-
-    const resetTurnTimeout = () => {
-      if (turnTimeout) clearTimeout(turnTimeout);
-      currentTurnStartTime = Date.now();
-      turnTimeout = setTimeout(() => {
-        collector.stop('turn_timeout');
-      }, TURN_TIMEOUT);
+    const clearTurnTimeout = () => {
+      if (turnTimeoutId) { clearTimeout(turnTimeoutId); turnTimeoutId = null; }
     };
 
-    resetTurnTimeout();
+    const resetTurnTimeout = () => {
+      clearTurnTimeout();
+      turnTimeoutId = setTimeout(() => {
+        collector.stop('turn_timeout');
+      }, 60000);
+    };
 
     const collector = message.createMessageComponentCollector({
       componentType: ComponentType.Button,
-      time: 600000, // 10 minutes total
+      filter: (i: ButtonInteraction) => validPlayers.has(i.user.id),
+      time: 600000,
     });
 
-    collector.on('collect', async (i) => {
-     try {
-      if (turnTimeout) clearTimeout(turnTimeout);
+    resetTurnTimeout();
 
-      if (i.user.id !== gameState.currentPlayer) {
-        await i.reply({ content: "Ce n'est pas votre tour !", ephemeral: true });
-        resetTurnTimeout();
+    collector.on('collect', async (i: ButtonInteraction) => {
+      if (gameOver) {
+        await i.reply({ content: 'Cette partie est terminée.', ephemeral: true });
         return;
       }
 
-      const col = parseInt(i.customId.split('_')[1]);
-      const row = getColumnHeight(board, col);
-      
+      if (i.user.id !== state.currentPlayer) {
+        await i.reply({ content: "Ce n'est pas votre tour !", ephemeral: true });
+        return;
+      }
+
+      clearTurnTimeout();
+
+      const col = parseInt(i.customId.split('_')[1], 10);
+      const row = getAvailableRow(state.board, col);
+
       if (row === -1) {
         await i.reply({ content: 'Cette colonne est pleine !', ephemeral: true });
         resetTurnTimeout();
         return;
       }
 
-      // Make move
-      const currentPlayerSymbol: Player = gameState.currentPlayer === gameState.playerR ? 'R' : 'Y';
-      board[row][col] = currentPlayerSymbol;
-      gameState.currentPlayer = gameState.currentPlayer === gameState.playerR ? gameState.playerY : gameState.playerR;
+      const symbol: Player = state.currentPlayer === state.playerR ? 'R' : 'Y';
+      state.board[row][col] = symbol;
+      state.currentPlayer = state.currentPlayer === state.playerR ? state.playerY : state.playerR;
 
-      // Check for winner
-      const winner = checkWinner(board);
-      
-      const updatedEmbed = createEmbed('minigame')
-        .setTitle('🎮 Puissance 4')
-        .setDescription(`${interaction.user} (🔴) vs ${opponent} (🟡)\n${formatBoard(board)}`)
-        .addFields(
-          { name: 'Tour', value: winner ? 'Terminé' : `<@${gameState.currentPlayer}> (${gameState.currentPlayer === gameState.playerR ? '🔴' : '🟡'})`, inline: true },
-          { name: 'Mise', value: bet > 0 ? `${bet * 2} ${economySettings.currencySymbol}` : 'Gratuit', inline: true }
-        );
+      const winner = checkWinner(state.board);
 
       if (winner) {
+        gameOver = true;
         collector.stop();
-        
+
         let winnings = 0;
         let winnerId: string | null = null;
 
         if (winner === 'draw') {
-          updatedEmbed.addFields({ name: 'Résultat', value: '🤝 Égalité !', inline: false });
-          
-          // Return bets on draw
           if (bet > 0) {
-            await prisma.economyWallet.update({
-              where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
-              data: { wallet: { increment: bet } },
-            });
-            await prisma.economyWallet.update({
-              where: { guildId_userId: { guildId: interaction.guild!.id, userId: opponent.id } },
-              data: { wallet: { increment: bet } },
-            });
+            await prisma.$transaction([
+              prisma.economyWallet.update({
+                where: { guildId_userId: { guildId: interaction.guild!.id, userId: state.playerR } },
+                data: { wallet: { increment: bet } },
+              }),
+              prisma.economyWallet.update({
+                where: { guildId_userId: { guildId: interaction.guild!.id, userId: state.playerY } },
+                data: { wallet: { increment: bet } },
+              }),
+            ]);
           }
+          await endGameSession(session.id, 'draw', 0);
         } else {
-          winnerId = winner === 'R' ? gameState.playerR : gameState.playerY;
-          const winnerUser = await client.users.fetch(winnerId);
-          updatedEmbed.addFields({ name: 'Résultat', value: `🎉 ${winnerUser} a gagné !`, inline: false });
-          
+          winnerId = winner === 'R' ? state.playerR : state.playerY;
+
           if (bet > 0) {
-            winnings = bet * 2;
+            winnings = totalPool;
             await prisma.economyWallet.update({
               where: { guildId_userId: { guildId: interaction.guild!.id, userId: winnerId } },
-              data: { 
-                wallet: { increment: winnings },
-                totalEarned: { increment: bet }
-              },
+              data: { wallet: { increment: winnings }, totalEarned: { increment: bet } },
             });
-
             await prisma.economyTransaction.create({
               data: {
                 guildId: interaction.guild!.id,
@@ -370,79 +314,57 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
               data: { wallet: { increment: winnings }, totalEarned: { increment: winnings } },
             });
           }
-          
-          updatedEmbed.addFields({ name: 'Gain', value: `+${winnings} ${economySettings.currencySymbol}`, inline: true });
+
+          const payoutForCreator = winnerId === state.playerR
+            ? (bet > 0 ? bet : winnings)
+            : (bet > 0 ? -bet : 0);
+          await endGameSession(session.id, 'completed', payoutForCreator);
         }
 
-        await updateGameSession(session.id, {
-          gameState: JSON.stringify(gameState),
-        });
-        
-        // Record the net result for the session creator (player R) for the leaderboard
-        let creatorPayout = 0;
-        if (winner !== 'draw' && winnerId) {
-          if (winnerId === interaction.user.id) {
-            creatorPayout = bet > 0 ? bet : winnings;
-          } else {
-            creatorPayout = bet > 0 ? -bet : 0;
-          }
-        }
-        await endGameSession(session.id, winner === 'draw' ? 'draw' : 'completed', creatorPayout);
-
-        await i.update({ 
-          embeds: [updatedEmbed],
-          components: createBoardButtons(board, true),
-        });
-      } else {
-        await updateGameSession(session.id, {
-          gameState: JSON.stringify(gameState),
-        });
-
-        await i.update({ 
-          embeds: [updatedEmbed],
-          components: createBoardButtons(board),
-        });
-        
-        resetTurnTimeout();
+        const embed = buildGameEmbed(state, interaction.user, opponent, bet, economySettings.currencySymbol, winner, winnerId);
+        await i.update({ embeds: [embed], components: buildBoardComponents(state.board, true) });
+        return;
       }
-     } catch (err) {
-        logger.error('Connect4 interaction error', { err: err instanceof Error ? err.message : String(err) });
-     }
+
+      await updateGameSession(session.id, { gameState: JSON.stringify(state) });
+      await i.update({
+        embeds: [buildGameEmbed(state, interaction.user, opponent, bet, economySettings.currencySymbol)],
+        components: buildBoardComponents(state.board),
+      });
+
+      resetTurnTimeout();
     });
 
-    collector.on('end', async (collected, reason) => {
-      if (turnTimeout) clearTimeout(turnTimeout);
-      
-      if (reason === 'time' || reason === 'turn_timeout') {
-        const timeoutEmbed = createEmbed('minigame')
-          .setTitle('🎮 Puissance 4')
-          .setDescription(reason === 'turn_timeout' 
-            ? `Temps écoulé ! <@${gameState.currentPlayer}> n'a pas joué à temps.`
-            : 'Temps écoulé ! La partie est annulée.')
-          .setTimestamp();
+    collector.on('end', async (_collected, reason) => {
+      clearTurnTimeout();
+      if (gameOver) return;
 
-        // Return bets on timeout
+      if (reason === 'time' || reason === 'turn_timeout') {
         if (bet > 0) {
-          await prisma.economyWallet.update({
-            where: { guildId_userId: { guildId: interaction.guild!.id, userId: interaction.user.id } },
-            data: { wallet: { increment: bet } },
-          });
-          await prisma.economyWallet.update({
-            where: { guildId_userId: { guildId: interaction.guild!.id, userId: opponent.id } },
-            data: { wallet: { increment: bet } },
-          });
+          await prisma.$transaction([
+            prisma.economyWallet.update({
+              where: { guildId_userId: { guildId: interaction.guild!.id, userId: state.playerR } },
+              data: { wallet: { increment: bet } },
+            }),
+            prisma.economyWallet.update({
+              where: { guildId_userId: { guildId: interaction.guild!.id, userId: state.playerY } },
+              data: { wallet: { increment: bet } },
+            }),
+          ]);
         }
 
         await endGameSession(session.id, 'timeout');
-        
+
+        const embed = createEmbed('minigame')
+          .setTitle('⏱️ Temps écoulé')
+          .setDescription(reason === 'turn_timeout'
+            ? `<@${state.currentPlayer}> n'a pas joué à temps. Partie annulée, mises remboursées.`
+            : 'Temps total écoulé. Partie annulée, mises remboursées.')
+          .setTimestamp();
+
         try {
-          await message.edit({ 
-            embeds: [timeoutEmbed],
-            components: createBoardButtons(board, true),
-          });
-        } catch (e) {
-          // Message might have been deleted
-        }
+          await message.edit({ embeds: [embed], components: buildBoardComponents(state.board, true) });
+        } catch { }
       }
     });
 
@@ -450,4 +372,48 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     logger.error('Connect4 game error', { err: error instanceof Error ? error.message : String(error) });
     await interaction.editReply({ embeds: [errorEmbed('Erreur', 'Une erreur est survenue lors de la partie.')] });
   }
+}
+
+function buildGameEmbed(
+  state: { board: Board; currentPlayer: string; playerR: string; playerY: string },
+  author: { toString(): string },
+  opponent: { toString(): string },
+  bet: number,
+  currencySymbol: string,
+  winner?: Player | 'draw' | null,
+  winnerId?: string | null
+) {
+  const isDraw = winner === 'draw';
+  const isOver = !!winner;
+
+  const embed = createEmbed('minigame')
+    .setTitle('🎮 Puissance 4')
+    .setDescription(`${author} (🔴) vs ${opponent} (🟡)\n\n${formatBoard(state.board)}`)
+    .addFields(
+      {
+        name: 'Tour',
+        value: isOver
+          ? 'Terminé'
+          : `<@${state.currentPlayer}> (${state.currentPlayer === state.playerR ? '🔴' : '🟡'})`,
+        inline: true,
+      },
+      {
+        name: 'Mise',
+        value: bet > 0 ? `${bet * 2} ${currencySymbol}` : 'Gratuit',
+        inline: true,
+      }
+    );
+
+  if (isDraw) {
+    embed.addFields({ name: 'Résultat', value: '🤝 Égalité !', inline: false });
+  } else if (winner && winnerId) {
+    embed.addFields({ name: 'Résultat', value: `🎉 <@${winnerId}> a gagné !`, inline: false });
+    if (bet > 0) {
+      embed.addFields({ name: 'Gain', value: `+${bet * 2} ${currencySymbol}`, inline: true });
+    } else {
+      embed.addFields({ name: 'Gain', value: 'Gratuit', inline: true });
+    }
+  }
+
+  return embed;
 }

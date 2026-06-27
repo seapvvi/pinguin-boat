@@ -45,11 +45,8 @@ const envSchema = z.object({
   BOT_ACTIVITY_TYPE: z.coerce.number().default(3),
   BOT_ACTIVITY_NAME: z.string().default('🏔️ Pinguin BOAT | /help'),
 
-  // Music
+  // Music (YouTube uniquement via yt-dlp)
   YOUTUBE_COOKIE: z.string().optional(),
-  SPOTIFY_CLIENT_ID: z.string().optional(),
-  SPOTIFY_CLIENT_SECRET: z.string().optional(),
-  SOUNDCLOUD_CLIENT_ID: z.string().optional(),
 
   // GitHub
   GITHUB_REPO: z.string().default(''),

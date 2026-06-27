@@ -63,7 +63,11 @@ function formatHand(hand: Hand, hideFirst: boolean = false): string {
 }
 
 function formatCard(card: Card): string {
-  return card.value + card.suit;
+  return card.suit + card.value;
+}
+
+function formatHandInline(hand: Hand): string {
+  return hand.map(c => '`' + formatCard(c) + '`').join(' ');
 }
 
 export const data = new SlashCommandBuilder()
@@ -207,13 +211,13 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
       const embed = createEmbed('minigame')
         .setTitle('🃏 Blackjack')
-        .setDescription(result === 'blackjack' ? '🎉 BLACKJACK !' : '🤝 Égalité !')
+        .setDescription(result === 'blackjack' ? '🎉 **BLACKJACK !**' : '🤝 **Égalité !**')
         .addFields(
-          { name: 'Votre main', value: formatHand(playerHand), inline: true },
-          { name: 'Main du croupier', value: formatHand(dealerHand), inline: true },
-          { name: 'Votre total', value: String(playerValue), inline: true },
-          { name: 'Total croupier', value: String(dealerValue), inline: true },
-          { name: 'Gain', value: '+' + String(winnings) + ' ' + economySettings.currencySymbol, inline: true }
+          { name: '👤 Votre main', value: formatHandInline(playerHand), inline: false },
+          { name: 'Total', value: '**' + String(playerValue) + '**', inline: true },
+          { name: '🏠 Croupier', value: formatHandInline(dealerHand), inline: false },
+          { name: 'Total', value: '**' + String(dealerValue) + '**', inline: true },
+          { name: 'Gain', value: '+' + String(winnings) + ' ' + economySettings.currencySymbol, inline: false }
         )
         .setColor(result === 'blackjack' ? 0x22c55e : 0xf59e0b)
         .setTimestamp();
@@ -226,10 +230,10 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
     const embed = createEmbed('minigame')
       .setTitle('🃏 Blackjack')
       .addFields(
-        { name: 'Votre main', value: formatHand(playerHand), inline: true },
-        { name: 'Main du croupier', value: formatHand(dealerHand, true), inline: true },
-        { name: 'Votre total', value: String(playerValue), inline: true },
-        { name: 'Mise', value: String(bet) + ' ' + economySettings.currencySymbol, inline: true }
+        { name: '👤 Votre main', value: formatHandInline(playerHand), inline: false },
+        { name: 'Total', value: '**' + String(playerValue) + '**', inline: true },
+        { name: 'Mise', value: String(bet) + ' ' + economySettings.currencySymbol, inline: true },
+        { name: '🏠 Croupier', value: '🂠 ' + formatHandInline(dealerHand.slice(1)), inline: false }
       )
       .setTimestamp();
 
@@ -285,10 +289,11 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
             .setTitle('💥 Perdu !')
             .setDescription('Vous avez dépassé 21 !')
             .addFields(
-              { name: 'Votre main', value: formatHand(gameState.playerHand), inline: true },
-              { name: 'Main du croupier', value: formatHand(gameState.dealerHand), inline: true },
-              { name: 'Votre total', value: String(gameState.playerValue), inline: true },
-              { name: 'Perte', value: '-' + String(bet) + ' ' + economySettings.currencySymbol, inline: true }
+              { name: '👤 Votre main', value: formatHandInline(gameState.playerHand), inline: false },
+              { name: 'Total', value: '**' + String(gameState.playerValue) + '**', inline: true },
+              { name: '🏠 Croupier', value: formatHandInline(gameState.dealerHand), inline: false },
+              { name: 'Total croupier', value: '**' + String(gameState.dealerValue) + '**', inline: true },
+              { name: 'Perte', value: '-' + String(bet) + ' ' + economySettings.currencySymbol, inline: false }
             )
             .setColor(0xef4444)
             .setTimestamp();
@@ -307,10 +312,10 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         const updateEmbed = createEmbed('minigame')
           .setTitle('🃏 Blackjack')
           .addFields(
-            { name: 'Votre main', value: formatHand(gameState.playerHand), inline: true },
-            { name: 'Main du croupier', value: formatHand(gameState.dealerHand, true), inline: true },
-            { name: 'Votre total', value: String(gameState.playerValue), inline: true },
-            { name: 'Mise', value: String(bet) + ' ' + economySettings.currencySymbol, inline: true }
+            { name: '👤 Votre main', value: formatHandInline(gameState.playerHand), inline: false },
+            { name: 'Total', value: '**' + String(gameState.playerValue) + '**', inline: true },
+            { name: 'Mise', value: String(bet) + ' ' + economySettings.currencySymbol, inline: true },
+            { name: '🏠 Croupier', value: '🂠 ' + formatHandInline(gameState.dealerHand.slice(1)), inline: false }
           )
           .setTimestamp();
 
@@ -382,13 +387,13 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
         const finalEmbed = createEmbed('minigame')
           .setTitle('🃏 Blackjack')
-          .setDescription(result)
+          .setDescription('**' + result + '**')
           .addFields(
-            { name: 'Votre main', value: formatHand(gameState.playerHand), inline: true },
-            { name: 'Main du croupier', value: formatHand(gameState.dealerHand), inline: true },
-            { name: 'Votre total', value: String(gameState.playerValue), inline: true },
-            { name: 'Total croupier', value: String(gameState.dealerValue), inline: true },
-            { name: 'Gain', value: winnings > 0 ? '+' + String(winnings) + ' ' + economySettings.currencySymbol : '-' + String(bet) + ' ' + economySettings.currencySymbol, inline: true }
+            { name: '👤 Votre main', value: formatHandInline(gameState.playerHand), inline: false },
+            { name: 'Total', value: '**' + String(gameState.playerValue) + '**', inline: true },
+            { name: '🏠 Croupier', value: formatHandInline(gameState.dealerHand), inline: false },
+            { name: 'Total croupier', value: '**' + String(gameState.dealerValue) + '**', inline: true },
+            { name: 'Gain', value: winnings > 0 ? '+' + String(winnings) + ' ' + economySettings.currencySymbol : '-' + String(bet) + ' ' + economySettings.currencySymbol, inline: false }
           )
           .setColor(resultColor)
           .setTimestamp();
