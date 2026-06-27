@@ -258,8 +258,10 @@ async function runRaceAnimation(
       horse.position = Math.min(RACE_LENGTH, horse.position + horse.speed);
     }
 
-    const finishedHorse = gameState.horses.find((h: Horse) => h.position >= RACE_LENGTH);
-    if (finishedHorse) {
+    const finished = gameState.horses.filter((h: Horse) => h.position >= RACE_LENGTH);
+    if (finished.length > 0) {
+      finished.sort((a: Horse, b: Horse) => b.position - a.position);
+      gameState.horses.sort((a: Horse, b: Horse) => b.position - a.position);
       gameState.gameOver = true;
       break;
     }
