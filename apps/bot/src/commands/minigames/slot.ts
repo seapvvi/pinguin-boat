@@ -41,7 +41,7 @@ function calculatePayout(reels: string[], bet: number): number {
 }
 
 export const data = new SlashCommandBuilder()
-  .setName('777')
+  .setName('slotmachine')
   .setDescription('Tentez votre chance à la machine à sous 777 !')
   .addIntegerOption((opt) =>
     opt.setName('mise')
@@ -91,7 +91,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       return;
     }
 
-    setCooldown(interaction.user.id, '777', 3);
+    setCooldown(interaction.user.id, 'slotmachine', 3);
 
     const reels = spinReels();
     const payout = calculatePayout(reels, bet);
