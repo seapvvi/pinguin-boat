@@ -50,7 +50,7 @@ function sleep(ms: number): Promise<void> {
 
 function buildSlotDisplay(reels: string[], highlight = false): string {
   const sym = (s: string) => (highlight ? `**${s}**` : s);
-  return `\`\`\`╔═══════════════╗\n║   ${sym(reels[0])} │ ${sym(reels[1])} │ ${sym(reels[2])}   ║\n╚═══════════════╝\`\`\``;
+  return `╔═══════════════╗\n║   ${sym(reels[0])} │ ${sym(reels[1])} │ ${sym(reels[2])}   ║\n╚═══════════════╝`;
 }
 
 function getMultiplierLabel(mult: number): string {
@@ -171,29 +171,44 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
 
     await interaction.editReply({ embeds: [spinEmbed] });
 
-    const timings = [350, 350, 400, 450, 500, 600];
+    const timings = [400, 400, 450, 500, 550, 650, 750, 850, 1000, 1300];
 
     for (let frame = 0; frame < timings.length; frame++) {
       await sleep(timings[frame]);
 
       const progress = frame + 1;
       let displayReels: string[];
+      let statusText: string;
 
-      if (progress <= 3) {
+      if (progress <= 5) {
         displayReels = [randomSymbol(), randomSymbol(), randomSymbol()];
-      } else if (progress === 4) {
+        statusText = '🎰 **Les rouleaux tournent...**';
+      } else if (progress === 6) {
         displayReels = [finalReels[0], randomSymbol(), randomSymbol()];
-      } else if (progress === 5) {
+        statusText = '🎰 **Premier rouleau ralentit...**';
+      } else if (progress === 7) {
         displayReels = [finalReels[0], finalReels[1], randomSymbol()];
+        statusText = '🎰 **Deuxième rouleau ralentit...**';
+      } else if (progress === 8) {
+        displayReels = [finalReels[0], finalReels[1], randomSymbol()];
+        statusText = '🎰 **Dernier rouleau hésite...**';
+      } else if (progress === 9) {
+        let thirdSymbol: string;
+        if (finalReels[0] === finalReels[1] && finalReels[0] !== finalReels[2]) {
+          thirdSymbol = finalReels[0];
+          statusText = '🎰 **Presque...!**';
+        } else if (finalReels[0] === finalReels[1]) {
+          thirdSymbol = finalReels[2];
+          statusText = '🎰 **La machine tremble...**';
+        } else {
+          thirdSymbol = Math.random() < 0.5 ? finalReels[0] : finalReels[1];
+          statusText = '🎰 **Encore un peu...**';
+        }
+        displayReels = [finalReels[0], finalReels[1], thirdSymbol];
       } else {
         displayReels = finalReels;
+        statusText = '🎰 **Résultat !**';
       }
-
-      const statusText =
-        progress <= 3 ? '🎰 **Les rouleaux tournent...**' :
-        progress === 4 ? '🎰 **Premier rouleau s\'arrête...**' :
-        progress === 5 ? '🎰 **Deuxième rouleau s\'arrête...**' :
-        '🎰 **Résultat !**';
 
       const animEmbed = createEmbed('minigame')
         .setTitle('🎰 Machine à sous')
