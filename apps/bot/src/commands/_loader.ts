@@ -3,7 +3,7 @@ import { join } from 'path';
 import { Client } from 'discord.js';
 import { logger } from '@pinguin/shared';
 
-export function loadCommands(client: Client): void {
+export async function loadCommands(client: Client): Promise<void> {
   const commandsPath = join(__dirname);
 
   const categories = readdirSync(commandsPath).filter((item) => {
@@ -19,7 +19,7 @@ export function loadCommands(client: Client): void {
 
     for (const file of commandFiles) {
       try {
-        const commandModule = require(join(categoryPath, file));
+        const commandModule = await import(join(categoryPath, file));
         const command = commandModule.default || commandModule;
 
         if (!command.data || !command.execute) {
@@ -34,7 +34,7 @@ export function loadCommands(client: Client): void {
         client.commands.set(command.data.name, command);
         logger.info(`Commande chargée: ${command.data.name}`);
       } catch (error) {
-        logger.warn(`Erreur chargement commande ${category}/${file}: ${error}`);
+        logger.error(`Erreur chargement commande ${category}/${file}: ${error}`);
         throw error;
       }
     }

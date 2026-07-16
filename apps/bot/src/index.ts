@@ -5,6 +5,7 @@ import { registerCommands } from './utils/register';
 import { loadEvents } from './events/_loader';
 import { loadCommands } from './commands/_loader';
 import { startInternalBotApi } from './internal/bot-api';
+import { startPublicApi } from './internal/public-api';
 import { initMusicService, cleanupCookieFile } from './services/music';
 import { logger } from '@pinguin/shared';
 import './interactions';
@@ -33,7 +34,7 @@ async function start() {
     await prisma.$connect();
     logger.info('Connecté à PostgreSQL', { app: 'bot' });
 
-    loadCommands(client);
+    await loadCommands(client);
     loadEvents(client);
 
     await registerCommands(client);
@@ -47,6 +48,9 @@ async function start() {
 
     startInternalBotApi(client);
     logger.info('API interne démarrée', { app: 'bot' });
+
+    startPublicApi(client, config.BOT_STATS_PORT);
+    logger.info('API publique démarrée', { app: 'bot' });
   } catch (error: unknown) {
     logger.error('Erreur de démarrage', { error, app: 'bot' });
     process.exit(1);
@@ -65,19 +69,14 @@ process.on('uncaughtException', (err: unknown) => {
   process.exit(1);
 });
 
-process.on('SIGTERM', async () => {
+async function shutdown(): Promise<void> {
   logger.info('Arrêt...', { app: 'bot' });
   cleanupCookieFile();
   client.destroy();
   await prisma.$disconnect();
   process.exit(0);
-});
+}
 
-process.on('SIGINT', async () => {
-  logger.info('Arrêt...', { app: 'bot' });
-  cleanupCookieFile();
-  client.destroy();
-  await prisma.$disconnect();
-  process.exit(0);
-});
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 

@@ -22,8 +22,8 @@ export async function execute(interaction: ChatInputCommandInteraction, client: 
     return;
   }
 
-  const botMember = interaction.guild.members.me!;
-  if (!voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
+  const botMember = await interaction.guild.members.fetchMe().catch(() => null);
+  if (!botMember || !voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
     await interaction.reply({ embeds: [errorEmbed('Permission refusée', 'Je n\'ai pas la permission de rejoindre ce salon vocal.')], ephemeral: true });
     return;
   }

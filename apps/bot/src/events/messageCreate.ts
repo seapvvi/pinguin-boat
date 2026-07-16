@@ -30,8 +30,6 @@ export async function execute(message: Message, client: Client): Promise<void> {
   const levelsEnabled = await isModuleEnabled(message.guild.id, 'levels');
   if (!levelsEnabled) return;
 
-  const settings = await prisma.xPSettings.findUnique({ where: { guildId: message.guild.id } });
-
   const result = await addMessageXp(message.guild.id, message.author.id, {
     channelId: message.channel.id,
     roleIds: message.member ? [...message.member.roles.cache.keys()] : [],
@@ -40,6 +38,7 @@ export async function execute(message: Message, client: Client): Promise<void> {
   });
 
   if (result.leveledUp) {
+    const settings = await prisma.xPSettings.findUnique({ where: { guildId: message.guild.id } });
     const rewards = await prisma.xPRoleReward.findMany({
       where: { guildId: message.guild.id, levelRequired: { lte: result.level } },
     });

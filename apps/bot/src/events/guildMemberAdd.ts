@@ -148,7 +148,7 @@ export async function execute(member: GuildMember, client: Client): Promise<void
             const msg = welcome.welcomeMessage
               ? replacements(welcome.welcomeMessage)
               : `Bienvenue ${member.displayName} sur **${member.guild.name}** !`;
-            await channel.send(mention + msg).catch((err) => logger.warn(`[guildMemberAdd] Échec envoi message bienvenue dans ${channel.id} pour ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
+            await channel.send({ content: `${member} ${msg}` }).catch((err) => logger.warn(`[guildMemberAdd] Échec envoi message bienvenue dans ${channel.id} pour ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
           }
         }
       }
@@ -175,7 +175,8 @@ export async function execute(member: GuildMember, client: Client): Promise<void
         if (member.roles.cache.has(entry.roleId)) continue;
         const role = member.guild.roles.cache.get(entry.roleId);
         if (!role) continue;
-        if (role.position >= member.guild.members.me!.roles.highest.position) continue;
+        const botMember = member.guild.members.me;
+        if (!botMember || role.position >= botMember.roles.highest.position) continue;
         await member.roles.add(entry.roleId, 'Auto-rôle à l\'arrivée').catch((err) => logger.warn(`[guildMemberAdd] Échec ajout rôle ${entry.roleId} à ${member.id}`, { err: err instanceof Error ? err.message : String(err) }));
       }
     }

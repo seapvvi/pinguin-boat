@@ -162,7 +162,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
         });
 
         // Set cooldown only after bet is deducted (game actually starts)
-        setCooldown(interaction.user.id, 'race', 5);
+        await setCooldown(interaction.user.id, 'race', 5);
 
         // Initialize race state
         const raceHorses = HORSES.map((h) => ({ ...h, position: 0, speed: 0 }));

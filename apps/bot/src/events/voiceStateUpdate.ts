@@ -7,6 +7,10 @@ export const name = 'voiceStateUpdate';
 
 const voiceTimers = new Map<string, { startTime: number; channelId: string }>();
 
+export function cleanupVoiceTimers(): void {
+  voiceTimers.clear();
+}
+
 export async function execute(oldState: VoiceState, newState: VoiceState, client: Client): Promise<void> {
   if (!newState.guild) return;
 
@@ -21,8 +25,9 @@ export async function execute(oldState: VoiceState, newState: VoiceState, client
   const left = oldState.channelId && !newState.channelId;
   const moved = oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId;
 
+  const settings = await prisma.xPSettings.findUnique({ where: { guildId } });
+
   if (joined || moved) {
-    const settings = await prisma.xPSettings.findUnique({ where: { guildId } });
     const ignoredChannels: string[] = settings ? JSON.parse(settings.ignoredChannels) : [];
     if (newState.channelId && ignoredChannels.includes(newState.channelId)) {
       return;
@@ -36,8 +41,7 @@ export async function execute(oldState: VoiceState, newState: VoiceState, client
   if (left || moved) {
     const timer = voiceTimers.get(key);
     if (timer) {
-      const oldSettings = await prisma.xPSettings.findUnique({ where: { guildId } });
-      const oldIgnoredChannels: string[] = oldSettings ? JSON.parse(oldSettings.ignoredChannels) : [];
+      const oldIgnoredChannels: string[] = settings ? JSON.parse(settings.ignoredChannels) : [];
       if (oldState.channelId && oldIgnoredChannels.includes(oldState.channelId)) {
         voiceTimers.delete(key);
         return;
@@ -48,13 +52,13 @@ export async function execute(oldState: VoiceState, newState: VoiceState, client
         const member = newState.member;
         if (!member) return;
         const result = await addVoiceXp(guildId, userId, minutes, [...member.roles.cache.keys()]);
-        if (result.leveledUp && newState.member) {
+        if (result.leveledUp) {
           const rewards = await prisma.xPRoleReward.findMany({
             where: { guildId, levelRequired: { lte: result.level } },
           });
           for (const reward of rewards) {
-            if (!newState.member.roles.cache.has(reward.roleId)) {
-              try { await newState.member.roles.add(reward.roleId); } catch {}
+            if (!member.roles.cache.has(reward.roleId)) {
+              try { await member.roles.add(reward.roleId); } catch {}
             }
           }
 
@@ -62,7 +66,7 @@ export async function execute(oldState: VoiceState, newState: VoiceState, client
             where: { guildId_userId: { guildId, userId } },
           });
 
-          const notifSettings = await prisma.xPSettings.findUnique({ where: { guildId } });
+          const notifSettings = settings;
           const notificationType = profile?.levelUpNotification ?? 'CHANNEL';
           const msg = notifSettings?.announcementMessage
             ? notifSettings.announcementMessage
@@ -72,7 +76,7 @@ export async function execute(oldState: VoiceState, newState: VoiceState, client
 
           if (notificationType === 'DM') {
             try {
-              await newState.member.send(msg);
+              await member.send(msg);
             } catch {}
           } else if (notificationType === 'CHANNEL' && notifSettings?.announcementChannelId) {
             const channel = newState.guild.channels.cache.get(notifSettings.announcementChannelId);

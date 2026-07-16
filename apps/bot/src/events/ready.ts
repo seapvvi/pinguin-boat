@@ -7,6 +7,8 @@ import { initializeInactivityAlertCrons } from '../services/ticket-inactivity-al
 import { startStreamNotificationCron } from '../services/stream-notifications';
 import { startPollCron } from '../services/poll-cron';
 import { initializeInviteCache } from '../services/invite-cache';
+import { loadQueueFromDb } from '../services/music';
+import { cleanupVoiceTimers } from './voiceStateUpdate';
 import { logger } from '@pinguin/shared';
 
 export const name = 'ready';
@@ -78,8 +80,19 @@ export async function execute(client: Client): Promise<void> {
     await initializeInviteCache(guild);
   }
 
-  // Initialisation des crons d'intérêts bancaires
   const guildIds = Array.from(client.guilds.cache.keys());
+
+  // Nettoyage des timers vocaux orphelins (survit aux crashes)
+  cleanupVoiceTimers();
+
+  // Restauration des files d'attente musicales
+  for (const guildId of guildIds) {
+    await loadQueueFromDb(guildId).catch((err: unknown) => {
+      logger.warn('Impossible de restaurer la file musicale', { guildId, err: err instanceof Error ? err.message : String(err) });
+    });
+  }
+
+  // Initialisation des crons d'intérêts bancaires
   await initializeInterestCrons(guildIds);
 
   // Initialisation des crons de notifications économiques

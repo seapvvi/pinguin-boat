@@ -113,7 +113,7 @@ export async function execute(interaction: ChatInputCommandInteraction, _client:
       return;
     }
 
-    setCooldown(interaction.user.id, 'slotmachine', 3);
+    await setCooldown(interaction.user.id, 'slotmachine', 3);
 
     const finalReels = spinReels();
     const payout = calculatePayout(finalReels, bet);

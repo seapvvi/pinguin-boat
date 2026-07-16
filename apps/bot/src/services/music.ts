@@ -25,14 +25,13 @@ const musicLogger = getLogger({ component: 'music' });
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const ffmpegPath = require('ffmpeg-static');
-    if (ffmpegPath && !process.env.FFMPEG_PATH) {
+  if (ffmpegPath && !process.env.FFMPEG_PATH) {
     process.env.FFMPEG_PATH = ffmpegPath as string;
     musicLogger.info(`Using bundled FFmpeg at ${ffmpegPath}`, { app: 'music' });
   }
-
-  } catch {
-    musicLogger.warn('ffmpeg-static not available; relying on system FFmpeg.', { app: 'music' });
-  }
+} catch {
+  musicLogger.warn('ffmpeg-static not available; relying on system FFmpeg.', { app: 'music' });
+}
 
 
 export async function initMusicService(): Promise<void> {
@@ -143,13 +142,13 @@ function createYtDlpStream(url: string, startTime?: number): Readable {
 
   proc.on('error', (err: NodeJS.ErrnoException) => {
     clearTimeout(watchdog);
-    if (err.code === 'ENOENT') {
-      throw new Error(
+    const streamError = err.code === 'ENOENT'
+      ? new Error(
         'yt-dlp n\'est pas installé. Installez-le via "pip install yt-dlp" ' +
         'ou téléchargez-le depuis https://github.com/yt-dlp/yt-dlp/releases'
-      );
-    }
-    throw err;
+      )
+      : err;
+    proc.stdout.destroy(streamError);
   });
 
   proc.stderr.on('data', (d: Buffer) => {
@@ -187,10 +186,14 @@ interface GuildMusicState {
   player: AudioPlayer | null;
   connection: VoiceConnection | null;
   destroyed: boolean;
+  skipOnce: boolean;
 }
 
 const playLocks = new Set<string>();
+const playNextLocks = new Set<string>();
 const states = new Map<string, GuildMusicState>();
+const saveDebounces = new Map<string, NodeJS.Timeout>();
+const SAVE_DEBOUNCE_MS = 500;
 
 export function getState(guildId: string): GuildMusicState {
   let state = states.get(guildId);
@@ -200,6 +203,7 @@ export function getState(guildId: string): GuildMusicState {
       loopMode: LoopMode.NONE, autoplay: false, volume: 50,
       voiceChannelId: null, textChannelId: null,
       player: null, connection: null, destroyed: false,
+      skipOnce: false,
     };
     states.set(guildId, state);
   }
@@ -207,6 +211,11 @@ export function getState(guildId: string): GuildMusicState {
 }
 
 export function destroyState(guildId: string): void {
+  const existing = saveDebounces.get(guildId);
+  if (existing) {
+    clearTimeout(existing);
+    saveDebounces.delete(guildId);
+  }
   const state = states.get(guildId);
   if (state) {
     state.destroyed = true;
@@ -237,60 +246,69 @@ export function getPlayer(guildId: string): AudioPlayer {
 }
 
 async function playNext(guildId: string): Promise<void> {
-  const state = getState(guildId);
-  if (state.destroyed) return;
+  if (playNextLocks.has(guildId)) return;
+  playNextLocks.add(guildId);
+  try {
+    const state = getState(guildId);
+    if (state.destroyed) return;
 
-  if (state.loopMode === LoopMode.TRACK && state.currentTrack) {
-    state.queue.unshift(state.currentTrack);
-  }
-
-  if (state.queue.length === 0) {
-    if (state.autoplay && state.currentTrack) {
-      try {
-        const raw = await ytDlp(`ytsearch1:${state.currentTrack.title} mix`, {
-          dumpSingleJson: true,
-          noWarnings: true,
-          preferFreeFormats: true,
-          skipDownload: true,
-          noPlaylist: true,
-          cookies: YTDLP_COOKIE_PATH ?? undefined,
-        });
-        const data = Array.isArray(raw) ? raw[0] : raw;
-        if (data && data.webpage_url) {
-          state.queue.push({
-            title: data.title ?? 'Inconnu',
-            url: data.webpage_url,
-            duration: data.duration ?? 0,
-            thumbnail: data.thumbnail ?? '',
-            author: data.channel ?? data.uploader ?? 'Inconnu',
-            source: 'YOUTUBE',
-          });
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        musicLogger.error('Autoplay search failed', { guildId, err: message });
-      }
+    if (state.skipOnce) {
+      state.skipOnce = false;
+      state.loopMode = LoopMode.TRACK;
+    } else if (state.loopMode === LoopMode.TRACK && state.currentTrack) {
+      state.queue.unshift(state.currentTrack);
     }
 
     if (state.queue.length === 0) {
-      state.currentTrack = null;
-      state.player?.stop();
-      saveQueueToDb(guildId);
-      return;
+      if (state.autoplay && state.currentTrack) {
+        try {
+          const raw = await ytDlp(`ytsearch1:${state.currentTrack.title} mix`, {
+            dumpSingleJson: true,
+            noWarnings: true,
+            preferFreeFormats: true,
+            skipDownload: true,
+            noPlaylist: true,
+            cookies: YTDLP_COOKIE_PATH ?? undefined,
+          });
+          const data = Array.isArray(raw) ? raw[0] : raw;
+          if (data && data.webpage_url) {
+            state.queue.push({
+              title: data.title ?? 'Inconnu',
+              url: data.webpage_url,
+              duration: data.duration ?? 0,
+              thumbnail: data.thumbnail ?? '',
+              author: data.channel ?? data.uploader ?? 'Inconnu',
+              source: 'YOUTUBE',
+            });
+          }
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          musicLogger.error('Autoplay search failed', { guildId, err: message });
+        }
+      }
+
+      if (state.queue.length === 0) {
+        state.currentTrack = null;
+        state.player?.stop();
+        debouncedSaveQueue(guildId);
+        return;
+      }
     }
-  }
 
-  if (state.loopMode === LoopMode.QUEUE && state.currentTrack) {
-    state.queue.push(state.currentTrack);
-  }
+    if (state.loopMode === LoopMode.QUEUE && state.currentTrack) {
+      state.queue.push(state.currentTrack);
+    }
 
-  if (state.currentTrack) {
-    state.history.push(state.currentTrack);
+    if (state.currentTrack) {
+      state.history.push(state.currentTrack);
+    }
+    state.currentTrack = state.queue.shift()!;
+    state.position = 0;
+    debouncedSaveQueue(guildId);
+    await playTrack(guildId, state.currentTrack);
+  } finally {
+    playNextLocks.delete(guildId);
   }
-  state.currentTrack = state.queue.shift()!;
-  state.position = 0;
-  saveQueueToDb(guildId);
-  await playTrack(guildId, state.currentTrack);
 }
 
 async function playTrack(guildId: string, track: TrackInfo, startTime?: number): Promise<void> {
@@ -319,8 +337,7 @@ async function playTrack(guildId: string, track: TrackInfo, startTime?: number):
     
     // Ensure connection is still valid before subscribing
     if (state.connection.state.status !== VoiceConnectionStatus.Ready) {
-    musicLogger.warn('Connection not ready, skipping play', { guildId, title: track.title });
-
+      musicLogger.warn('Connection not ready, skipping play', { guildId, title: track.title });
       playNext(guildId).catch(() => {});
       return;
     }
@@ -357,6 +374,9 @@ export async function play(guildId: string, query: string, requester: GuildMembe
     const state = getState(guildId);
     const voiceChannel = requester.voice.channel as VoiceChannel;
     if (!voiceChannel) throw new Error('Tu dois être dans un salon vocal.');
+
+    const botMember = await voiceChannel.guild.members.fetchMe().catch(() => null);
+    if (!botMember) throw new Error('Impossible de vérifier mes permissions sur ce serveur.');
 
     let trackUrl: string;
     let track: TrackInfo;
@@ -414,9 +434,12 @@ export async function play(guildId: string, query: string, requester: GuildMembe
 
     musicLogger.info('Resolved track', { title: track.title, url: track.url });
 
-    const botMember = voiceChannel.guild.members.me!;
     if (!voiceChannel.permissionsFor(botMember)?.has(['Connect', 'Speak'])) {
       throw new Error('Je n\'ai pas la permission de rejoindre ce salon vocal.');
+    }
+
+    if (state.currentTrack && state.queue.length >= 200) {
+      throw new Error('La file d\'attente est limitée à **200** musiques maximum.');
     }
 
     const needsJoin =
@@ -482,12 +505,12 @@ export async function play(guildId: string, query: string, requester: GuildMembe
 
     if (state.currentTrack) {
       state.queue.push(track);
-      saveQueueToDb(guildId);
+      debouncedSaveQueue(guildId);
       return track;
     }
 
     state.currentTrack = track;
-    saveQueueToDb(guildId);
+    debouncedSaveQueue(guildId);
     await playTrack(guildId, track);
     return track;
   } finally {
@@ -497,12 +520,11 @@ export async function play(guildId: string, query: string, requester: GuildMembe
 
 export async function skip(guildId: string): Promise<TrackInfo | null> {
   const state = getState(guildId);
-  const savedLoop = state.loopMode;
-  if (savedLoop === LoopMode.TRACK) {
+  if (state.loopMode === LoopMode.TRACK) {
+    state.skipOnce = true;
     state.loopMode = LoopMode.NONE;
   }
   state.player?.stop();
-  state.loopMode = savedLoop;
   return state.currentTrack;
 }
 
@@ -583,7 +605,15 @@ export async function saveQueueToDb(guildId: string): Promise<void> {
   } catch (error) {
     musicLogger.error('Erreur sauvegarde queue', { error });
   }
+}
 
+function debouncedSaveQueue(guildId: string): void {
+  const existing = saveDebounces.get(guildId);
+  if (existing) clearTimeout(existing);
+  saveDebounces.set(guildId, setTimeout(() => {
+    saveDebounces.delete(guildId);
+    saveQueueToDb(guildId);
+  }, SAVE_DEBOUNCE_MS));
 }
 
 export async function loadQueueFromDb(guildId: string): Promise<void> {

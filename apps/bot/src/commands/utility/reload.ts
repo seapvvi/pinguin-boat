@@ -91,7 +91,7 @@ export async function execute(
 
   // Capture the command set before reload to detect what was added
   const beforeReload = new Set(client.commands.keys());
-  loadCommands(client);
+  await loadCommands(client);
 
   // 4) Détecter les commandes rechargées
   const reloaded: string[] = [];

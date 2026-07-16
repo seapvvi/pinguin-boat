@@ -6,6 +6,7 @@ import { requireModule } from '../guards/module';
 import { errorEmbed } from '../services/embed';
 import { logger } from '@pinguin/shared';
 import { registry } from '../interactions';
+import { incrementCommandsExecuted } from '../services/stats';
 
 export const name = 'interactionCreate';
 
@@ -82,23 +83,23 @@ export async function execute(interaction: Interaction, client: Client): Promise
     return;
   }
 
-  if (command.guards?.cooldown !== false) {
-    const cooldownSeconds = command.cooldown ?? 3;
-    const cooldownCheck = checkCooldown(interaction, command.data.name, cooldownSeconds);
-    if (!cooldownCheck.allowed) {
+  if (command.module) {
+    const moduleCheck = await requireModule(interaction.guildId, command.module);
+    if (!moduleCheck.enabled) {
       await interaction.reply({
-        embeds: [errorEmbed('Trop rapide', cooldownCheck.message!)],
+        embeds: [errorEmbed('Module désactivé', moduleCheck.message!)],
         ephemeral: true,
       });
       return;
     }
   }
 
-  if (command.module) {
-    const moduleCheck = await requireModule(interaction.guildId, command.module);
-    if (!moduleCheck.enabled) {
+  if (command.guards?.cooldown !== false) {
+    const cooldownSeconds = command.cooldown ?? 3;
+    const cooldownCheck = await checkCooldown(interaction, command.data.name, cooldownSeconds);
+    if (!cooldownCheck.allowed) {
       await interaction.reply({
-        embeds: [errorEmbed('Module désactivé', moduleCheck.message!)],
+        embeds: [errorEmbed('Trop rapide', cooldownCheck.message!)],
         ephemeral: true,
       });
       return;
@@ -125,6 +126,7 @@ export async function execute(interaction: Interaction, client: Client): Promise
 
   try {
     await command.execute(interaction, client);
+    void incrementCommandsExecuted();
   } catch (error) {
       logger.error(`Erreur commande ${command.data.name}`, { err: error instanceof Error ? error.message : String(error) });
 
