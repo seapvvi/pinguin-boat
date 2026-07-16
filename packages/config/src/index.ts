@@ -34,7 +34,7 @@ const envSchema = z.object({
   BOT_INTERNAL_PORT: z.coerce.number().default(3003),
   BOT_INTERNAL_SECRET: z.string().min(32),
   BOT_INTERNAL_URL: z.string().url().default('http://127.0.0.1:3003'),
-  BOT_STATS_PORT: z.coerce.number().default(3000),
+  BOT_STATS_PORT: z.coerce.number().default(3010),
 
   // Web
   NEXT_PUBLIC_API_URL: z.string().url(),

@@ -390,6 +390,14 @@ export function startInternalBotApi(client: Client): void {
     }
   });
 
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.warn(`Le port interne ${port} est déjà utilisé — API interne non démarrée`);
+    } else {
+      logger.error('Erreur API interne', { err: err.message });
+    }
+  });
+
   server.listen(port, '127.0.0.1', () => {
     logger.info(`Internal API listening on 127.0.0.1:${port}`);
   });

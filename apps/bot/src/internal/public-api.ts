@@ -77,6 +77,14 @@ export function startPublicApi(client: Client, port: number): void {
     }
   });
 
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.warn(`Le port ${port} est déjà utilisé — API publique non démarrée`);
+    } else {
+      logger.error('Erreur API publique', { err: err.message });
+    }
+  });
+
   server.listen(port, '0.0.0.0', () => {
     logger.info(`API publique démarrée sur 0.0.0.0:${port}`);
   });
