@@ -61,9 +61,9 @@ const envSchema = z.object({
   DEPLOY_BACKUPS_PATH: z.string().default('/opt/pinguinboat/backups'),
   DEPLOY_CURRENT_LINK: z.string().default('/opt/pinguinboat/current'),
   DEPLOY_ENV: z.enum(['development', 'staging', 'production']).default('development'),
-  DEPLOY_ALLOWED_BRANCHES: z.string().default('main'),
+  DEPLOY_ALLOWED_BRANCHES: z.string().default('master'),
   // ^ Guard: branches autorisées pour le déploiement (séparées par virgule).
-  //   Production typiquement "main" seulement. Staging peut autoriser "develop,main".
+  //   Production typiquement "master" seulement. Staging peut autoriser "develop,master".
   //   Un déploiement depuis une branche non listée sera refusé.
   DEPLOY_TIMEOUT: z.coerce.number().default(600000),
   // ^ Guard: timeout total du déploiement en ms (défaut 10 min).
@@ -113,6 +113,14 @@ export function getAllowedRedirectUris(): string[] {
   return _allowedRedirectUris;
 }
 
+// Préfixes typiques des valeurs d'exemple à ne jamais utiliser en production.
+const PLACEHOLDER_PREFIXES = ['changeme', 'change_me', 'your_', 'your-', 'example', 'password', 'secret', 'dev-secret'];
+
+export function isPlaceholderSecret(value: string): boolean {
+  const v = value.trim().toLowerCase();
+  return PLACEHOLDER_PREFIXES.some((p) => v.startsWith(p));
+}
+
 function validateSecrets(env: EnvConfig): void {
   const isProd = env.NODE_ENV === 'production';
 
@@ -129,8 +137,8 @@ function validateSecrets(env: EnvConfig): void {
       console.warn(`\x1b[33m⚠️  ${msg}\x1b[0m`);
       continue;
     }
-    if (forbidden?.includes(value)) {
-      const msg = `${label} est défini sur une valeur par défaut dangereuse (\u00AB ${value} \u00BB). Générez une chaîne aléatoire unique.`;
+    if (forbidden?.includes(value) || isPlaceholderSecret(value)) {
+      const msg = `${label} est défini sur une valeur d'exemple dangereuse. Générez une chaîne aléatoire unique (openssl rand -hex 32).`;
       if (isProd) throw new Error(msg);
       console.warn(`\x1b[33m⚠️  ${msg}\x1b[0m`);
     }
