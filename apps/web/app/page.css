@@ -1,5 +1,12 @@
 /* Landing page styles - performance friendly */
 
+/* Défilement doux vers les ancres (désactivé si l'utilisateur préfère réduire les animations) */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 .cursor-blink {
   display: inline-block;
   animation: cursor-blink 0.9s steps(2, end) infinite;
@@ -87,32 +94,48 @@
   background: var(--accent);
 }
 
-/* Grid background */
-.grid-bg {
+/* Fond ambiant — deux halos d'accent en dérive lente.
+   Uniquement transform/opacity (pas de repaint coûteux), s'adapte à chaque thème. */
+.ambient-bg {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-image:
-    linear-gradient(var(--border-color) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.4;
+  overflow: hidden;
 }
 
-/* Scanline overlay */
-.scanline {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    color-mix(in srgb, var(--bg-primary) 4%, transparent) 2px,
-    color-mix(in srgb, var(--bg-primary) 4%, transparent) 4px
-  );
+.ambient-bg::before,
+.ambient-bg::after {
+  content: '';
+  position: absolute;
+  width: 55vw;
+  height: 55vw;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.07;
+  background: var(--accent);
+  animation: ambient-drift 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.ambient-bg::before {
+  top: -18vw;
+  left: -12vw;
+}
+
+.ambient-bg::after {
+  bottom: -18vw;
+  right: -12vw;
+  animation-delay: -13s;
+}
+
+@keyframes ambient-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(6vw, 4vw, 0) scale(1.15);
+  }
 }
 
 /* Badge animé hero */
@@ -299,7 +322,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .feature-card:not(.module-card) {
@@ -308,6 +331,7 @@
 
 .feature-card:not(.module-card):hover {
   border-left-color: var(--feature-color);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--feature-color) 8%, transparent);
 }
 
 .feature-card:not(.module-card):hover .feature-icon {
@@ -322,21 +346,23 @@
 
 .module-card {
   border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border-color));
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .module-card:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border-color));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
 .step-card {
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .step-card:hover {
   border-color: var(--accent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 5%, transparent);
 }
 
 .stat-block {
