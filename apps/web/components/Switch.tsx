@@ -5,17 +5,20 @@ interface SwitchProps {
   checked: boolean;
   onChange: () => void;
   disabled?: boolean;
+  /** Libellé accessible lu par les lecteurs d'écran. */
+  label?: string;
 }
 
-export function Switch({ checked, onChange, disabled = false }: SwitchProps) {
+export function Switch({ checked, onChange, disabled = false, label }: SwitchProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       disabled={disabled}
       onClick={onChange}
-      className="relative inline-flex shrink-0 items-center"
+      className="relative inline-flex shrink-0 items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
       style={{
         width: 40,
         height: 22,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@pinguin/ui';
 import { getUser } from '@/lib/auth';
 import { useConfetti } from '@/hooks/useConfetti';
@@ -14,6 +14,7 @@ export function EarlyAlphaPopup() {
   const [countdown, setCountdown] = useState(WAIT_SECONDS);
   const [ready, setReady] = useState(false);
   const { fire } = useConfetti();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +33,7 @@ export function EarlyAlphaPopup() {
     if (!open) return;
     setCountdown(WAIT_SECONDS);
     setReady(false);
+    dialogRef.current?.focus();
     const interval = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
@@ -52,6 +54,16 @@ export function EarlyAlphaPopup() {
     setOpen(false);
   };
 
+  useEffect(() => {
+    if (!open || !ready) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') void close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, ready]);
+
   if (!open) return null;
 
   return (
@@ -60,10 +72,15 @@ export function EarlyAlphaPopup() {
       style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
     >
       <div
-        className="max-w-md w-full rounded-[var(--radius)] border border-[var(--border-color)] p-6 shadow-xl"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="early-alpha-title"
+        tabIndex={-1}
+        className="max-w-md w-full rounded-[var(--radius)] border border-[var(--border-color)] p-6 shadow-xl focus:outline-none"
         style={{ backgroundColor: 'var(--bg-surface)' }}
       >
-        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+        <h2 id="early-alpha-title" className="text-lg font-semibold text-[var(--text-primary)] mb-2">
           🚧 Projet en Early Alpha
         </h2>
         <p className="text-sm text-[var(--text-secondary)] mb-4">
