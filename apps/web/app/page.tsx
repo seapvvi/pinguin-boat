@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 
-import { motion, useScroll, useTransform, useInView, useSpring, AnimatePresence } from 'motion/react';
+import { motion, useScroll, useTransform, useInView, useSpring, useMotionValue, AnimatePresence } from 'motion/react';
 import {
   Shield, BarChart3,
   ArrowRight, Users,
@@ -18,6 +18,12 @@ import {
 } from 'lucide-react';
 import { getUser, type User } from '@/lib/auth';
 import './page.css';
+
+/* ─── Constantes ─── */
+const BOT_VERSION = '0.1';
+const DISCORD_INVITE_URL = 'https://discord.gg/EJHhcYkXMQ';
+const GITHUB_URL = 'https://github.com/seapvvi/pinguin-boat';
+const SPRING_CONFIG = { stiffness: 80, damping: 20 };
 
 /* ─── Types ─── */
 interface StatsData {
@@ -48,6 +54,24 @@ interface ChangelogItem {
   title: string;
   createdAt: string;
   pinned?: boolean;
+}
+
+/* ─── Icône Discord (évite 3 copies du SVG) ─── */
+function DiscordIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 127.14 96.36" fill="currentColor" aria-hidden="true">
+      <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
+    </svg>
+  );
+}
+
+/* ─── Lien de navigation (hover géré en CSS) ─── */
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a href={href} className="nav-link">
+      {children}
+    </a>
+  );
 }
 
 /* ─── Pinguin Logo ─── */
@@ -116,7 +140,7 @@ const TERMINAL_LINES = [
   { text: '✓ Synchronisation des commandes...', delay: 2400 },
   { text: '', delay: 2800 },
   { text: '╔══════════════════════════════════╗', delay: 3000 },
-  { text: '║  PINGUIN BOAT v0.0 — EN LIGNE   ║', delay: 3200 },
+  { text: '║  PINGUIN BOAT v0.1 — EN LIGNE   ║', delay: 3200 },
   { text: '║  Prêt sur 0+ serveurs                 ║', delay: 3400 },
   { text: '╚══════════════════════════════════╝', delay: 3600 },
   { text: '', delay: 3800 },
@@ -137,9 +161,10 @@ const STATIC_CHANGELOGS: ChangelogItem[] = [
   { id: '3', version: '0.0', title: 'Ajout des giveaways automatiques et tickets avancés', pinned: false, createdAt: '2026-04-28' },
 ];
 
-/* ─── Mouse Parallax Hook (zéro re-render React) ─── */
-function useMouseParallax(strength = 20) {
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+/* ─── Mouse Parallax Hook — motion values, zéro re-render React ─── */
+function useMouseParallax(strength = 12) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
 
   useEffect(() => {
     let ticking = false;
@@ -147,21 +172,18 @@ function useMouseParallax(strength = 20) {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
-        setPos({
-          x: (e.clientX / window.innerWidth - 0.5) * strength,
-          y: (e.clientY / window.innerHeight - 0.5) * strength,
-        });
+        x.set((e.clientX / window.innerWidth - 0.5) * strength);
+        y.set((e.clientY / window.innerHeight - 0.5) * strength);
         ticking = false;
       });
     };
 
     window.addEventListener('mousemove', handler, { passive: true });
     return () => window.removeEventListener('mousemove', handler);
-  }, [strength]);
+  }, [strength, x, y]);
 
-  return pos;
+  return { x, y };
 }
-
 
 /* ─── Animated Counter ─── */
 function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: string }) {
@@ -172,32 +194,24 @@ function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: strin
   useEffect(() => {
     if (!inView) return;
 
-    // Animation plus “cheap” : on calcule à intervalle de ~16ms via rAF,
-    // mais on évite les micro-updates excessives (throttle).
     const duration = 2000;
     const startTs = performance.now();
     let lastCommit = 0;
 
-    const commit = (v: number) => {
-      setDisplay(v);
-    };
-
     const tick = (now: number) => {
       const t = Math.min(1, (now - startTs) / duration);
-      // easing simple (easeOutQuad)
       const eased = 1 - (1 - t) * (1 - t);
       const next = Math.min(value, Math.round(value * eased));
 
-      // throttle ~ every 50ms
       if (now - lastCommit >= 50 || next >= value) {
         lastCommit = now;
-        commit(next);
+        setDisplay(next);
       }
 
       if (t < 1) {
         window.requestAnimationFrame(tick);
       } else {
-        commit(value);
+        setDisplay(value);
       }
     };
 
@@ -212,7 +226,6 @@ function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: strin
   );
 }
 
-
 /* ─── Terminal Demo ─── */
 function TerminalDemo({ guildsCount = 0 }: { guildsCount?: number }) {
   const [visibleLines, setVisibleLines] = useState(0);
@@ -224,19 +237,20 @@ function TerminalDemo({ guildsCount = 0 }: { guildsCount?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-100px' });
 
+  // Ref pour que l'effet lise toujours les lignes à jour (stats chargées en async)
+  const liveLinesRef = useRef(liveTerminalLines);
+  liveLinesRef.current = liveTerminalLines;
+
   useEffect(() => {
     if (!inView) return;
 
     let isCancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    liveTerminalLines.forEach((line) => {
-      const t = setTimeout(() => {
+    const timers = liveLinesRef.current.map((line) =>
+      setTimeout(() => {
         if (isCancelled) return;
         setVisibleLines((prev) => prev + 1);
-      }, line.delay);
-      timers.push(t);
-    });
+      }, line.delay)
+    );
 
     return () => {
       isCancelled = true;
@@ -308,7 +322,6 @@ function TerminalDemo({ guildsCount = 0 }: { guildsCount?: number }) {
   );
 }
 
-
 /* ─── Scroll Progress ─── */
 function ScrollProgress() {
   const { scrollYProgress } = useScroll();
@@ -366,33 +379,21 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const guildsDisplay = stats?.totalGuilds || 0;
-  const usersDisplay = stats?.totalUsers || 50000;
-  const commandsDisplay = stats?.totalCommands || 120;
-  const uptimeDisplay = stats?.uptime || 99.9;
+  // ?? au lieu de || : un 0 renvoyé par l'API reste 0 (pas de valeur fictive)
+  const guildsDisplay = stats?.totalGuilds ?? 0;
+  const usersDisplay = stats?.totalUsers ?? 0;
+  const commandsDisplay = stats?.totalCommands ?? 120;
+  const uptimeDisplay = stats?.uptime ?? 99.9;
 
+  // Parallaxe souris : motion values + springs, sans aucun re-render React
   const mouse = useMouseParallax(12);
-  const springX = useSpring(0, { stiffness: 80, damping: 20 });
-  const springY = useSpring(0, { stiffness: 80, damping: 20 });
-
-  // Springs pour les floating cards — déclarés ici dans le corps du composant (Rules of Hooks)
-  const floatCardLeftX = useSpring(0, { stiffness: 80, damping: 20 });
-  const floatCardLeftY = useSpring(0, { stiffness: 80, damping: 20 });
-  const floatCardRightX = useSpring(0, { stiffness: 80, damping: 20 });
-  const floatCardRightY = useSpring(0, { stiffness: 80, damping: 20 });
-  const floatCardBottomX = useSpring(0, { stiffness: 80, damping: 20 });
-
-  // Mise à jour des springs flottantes quand la souris bouge (sans re-render React)
-  useEffect(() => {
-    springX.set(mouse.x);
-    springY.set(mouse.y);
-
-    floatCardLeftX.set(-mouse.x * 0.5);
-    floatCardLeftY.set(-mouse.y * 0.5);
-    floatCardRightX.set(-mouse.x * 0.5);
-    floatCardRightY.set(-mouse.y * 0.5);
-    floatCardBottomX.set(-mouse.y * 0.3);
-  }, [mouse.x, mouse.y]);
+  const springX = useSpring(mouse.x, SPRING_CONFIG);
+  const springY = useSpring(mouse.y, SPRING_CONFIG);
+  const floatCardLeftX = useSpring(useTransform(mouse.x, (v) => -v * 0.5), SPRING_CONFIG);
+  const floatCardLeftY = useSpring(useTransform(mouse.y, (v) => -v * 0.5), SPRING_CONFIG);
+  const floatCardRightX = useSpring(useTransform(mouse.x, (v) => -v * 0.5), SPRING_CONFIG);
+  const floatCardRightY = useSpring(useTransform(mouse.y, (v) => -v * 0.5), SPRING_CONFIG);
+  const floatCardBottomX = useSpring(useTransform(mouse.y, (v) => -v * 0.3), SPRING_CONFIG);
 
   const tags = ['all', 'core', 'fun', 'utility', 'social'] as const;
   const filteredModules = activeTag === 'all'
@@ -400,13 +401,6 @@ export default function LandingPage() {
     : MODULES.filter((m) => m.tag === activeTag);
 
   const displayChangelogs = changelogs.length > 0 ? changelogs : STATIC_CHANGELOGS;
-
-  const navLinkStyle: React.CSSProperties = {
-    color: 'var(--text-secondary)',
-    textDecoration: 'none',
-    fontSize: 13,
-    transition: 'color 0.15s',
-  };
 
   return (
     <div style={{ backgroundColor: 'var(--bg-primary)', position: 'relative' }}>
@@ -437,23 +431,11 @@ export default function LandingPage() {
         </motion.div>
 
         {/* Desktop nav links */}
-        <nav className="hide-mobile" style={{ display: 'flex', gap: 24, fontSize: 13, color: 'var(--text-secondary)' }}>
-          <a href="#features" style={navLinkStyle}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-          >Fonctionnalités</a>
-          <a href="#modules" style={navLinkStyle}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-          >Modules</a>
-          <a href="#terminal" style={navLinkStyle}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-          >Démo</a>
-          <a href="#stats" style={navLinkStyle}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-          >Stats</a>
+        <nav className="hide-mobile" style={{ display: 'flex', gap: 24 }}>
+          <NavLink href="#features">Fonctionnalités</NavLink>
+          <NavLink href="#modules">Modules</NavLink>
+          <NavLink href="#terminal">Démo</NavLink>
+          <NavLink href="#stats">Stats</NavLink>
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -465,9 +447,7 @@ export default function LandingPage() {
             </Link>
           ) : (
             <a href="/auth/login" className="cta-discord">
-              <svg width="16" height="16" viewBox="0 0 127.14 96.36" fill="currentColor">
-                <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
-              </svg>
+              <DiscordIcon size={16} />
               Se connecter
             </a>
           )}
@@ -514,7 +494,7 @@ export default function LandingPage() {
           <div className="badge-animated">
             <div className="badge-animated-inner">
               <Zap size={12} style={{ color: 'var(--accent)' }} />
-              v3.0 — Forgé pour la communauté
+              v{BOT_VERSION} — Forgé pour la communauté
             </div>
           </div>
         </motion.div>
@@ -632,22 +612,20 @@ export default function LandingPage() {
           <br className="hide-mobile" /> une seule intégration. Tout depuis le dashboard.
         </motion.p>
 
-        {/* CTA Buttons — pas de style inline, classes uniformes */}
+        {/* CTA Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 32, flexWrap: 'wrap', justifyContent: 'center', position: 'relative', zIndex: 1 }}
         >
-            <a
-              href={user ? '/dashboard' : '/auth/login'}
-              className="cta-discord"
-            >
-              <svg width="20" height="20" viewBox="0 0 127.14 96.36" fill="currentColor">
-                <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
-              </svg>
-              {user ? 'Accéder au dashboard' : 'Ajouter à Discord'}
-            </a>
+          <a
+            href={user ? '/dashboard' : '/auth/login'}
+            className="cta-discord"
+          >
+            <DiscordIcon size={20} />
+            {user ? 'Accéder au dashboard' : 'Ajouter à Discord'}
+          </a>
           <a href="#features" className="cta-outline">
             Découvrir <ChevronRight size={14} />
           </a>
@@ -697,7 +675,7 @@ export default function LandingPage() {
             gridTemplateColumns: '1fr 1fr',
             gap: 48,
             alignItems: 'center',
-          }} className="terminal-grid flex-col md:flex-row">
+          }} className="terminal-grid">
             {/* Left: Terminal */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -1018,7 +996,7 @@ export default function LandingPage() {
           </div>
 
           {/* Corps du dashboard simulé */}
-          <div style={{ display: 'flex', height: 360, backgroundColor: 'var(--bg-primary)' }} className="dashboard-body flex-col md:flex-row">
+          <div style={{ display: 'flex', height: 360, backgroundColor: 'var(--bg-primary)' }} className="dashboard-body">
             {/* Sidebar simulée avec icônes */}
             <div style={{
               width: 180, borderRight: '1px solid var(--border-color)',
@@ -1152,7 +1130,7 @@ export default function LandingPage() {
           Comment ça marche
         </motion.h2>
 
-        <div style={{ display: 'flex', gap: 0, position: 'relative' }} className="flex-col md:flex-row">
+        <div style={{ display: 'flex', gap: 0, position: 'relative' }} className="steps-row">
           {STEPS.map((step, i) => (
             <motion.div
               key={step.num}
@@ -1175,11 +1153,7 @@ export default function LandingPage() {
                 width: 40, height: 40, border: '1px solid var(--accent)',
                 color: 'var(--accent)', fontSize: 16, fontWeight: 700, marginBottom: 16,
               }}>
-                {step.icon ? (
-                  <span style={{ color: 'var(--accent)' }}>{step.icon}</span>
-                ) : (
-                  step.num
-                )}
+                <span style={{ color: 'var(--accent)' }}>{step.icon}</span>
               </div>
               <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>
                 {step.title}
@@ -1205,7 +1179,6 @@ export default function LandingPage() {
           <h2 style={{ fontSize: '2rem', fontWeight: 600, marginBottom: 32, color: 'var(--text-primary)' }}>
             Toujours en évolution
           </h2>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
             {displayChangelogs.map((cl, i) => (
               <motion.div
@@ -1296,12 +1269,10 @@ export default function LandingPage() {
               href={user ? '/dashboard' : '/auth/login'}
               className="cta-discord"
             >
-              <svg width="22" height="22" viewBox="0 0 127.14 96.36" fill="currentColor">
-                <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
-              </svg>
+              <DiscordIcon size={22} />
               {user ? 'Accéder au dashboard' : 'Ajouter maintenant'}
             </a>
-            <a href="https://discord.gg/pinguin" target="_blank" rel="noopener noreferrer" className="cta-outline">
+            <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer" className="cta-outline">
               <ExternalLink size={14} />
               Communauté
             </a>
@@ -1316,13 +1287,12 @@ export default function LandingPage() {
         padding: '48px 24px 24px',
       }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          {/* Grille 4 colonnes */}
+          {/* Grille 3 colonnes */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '2fr 1fr 1fr 1fr',
+            gridTemplateColumns: '2fr 1fr 1fr',
             gap: 32, marginBottom: 40,
           }} className="footer-grid">
-
             {/* Colonne 1 : Brand */}
             <div>
               <PinguinLogo size={20} />
@@ -1336,22 +1306,19 @@ export default function LandingPage() {
               {/* Liens réseaux sociaux */}
               <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                 {/* GitHub */}
-                <a href="https://github.com/seapvvi/pinguin-boat"
+                <a href={GITHUB_URL}
                   target="_blank" rel="noopener noreferrer"
                   className="footer-social-link" aria-label="GitHub">
                   <svg width="16" height="16" viewBox="0 0 24 24"
-                    fill="currentColor">
+                    fill="currentColor" aria-hidden="true">
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
                   </svg>
                 </a>
                 {/* Discord */}
-                <a href="https://discord.gg/EJHhcYkXMQ"
+                <a href={DISCORD_INVITE_URL}
                   target="_blank" rel="noopener noreferrer"
                   className="footer-social-link" aria-label="Discord">
-                  <svg width="16" height="16" viewBox="0 0 127.14 96.36"
-                    fill="currentColor">
-                    <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,56.6,124.08,32.64,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
-                  </svg>
+                  <DiscordIcon size={16} />
                 </a>
               </div>
             </div>
@@ -1386,8 +1353,8 @@ export default function LandingPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
                   { label: 'Documentation', href: 'https://docs.pinguin.ovh', external: true },
-                  { label: 'Serveur Support', href: 'https://discord.gg/EJHhcYkXMQ', external: true },
-                  { label: 'GitHub', href: 'https://github.com/seapvvi/pinguin-boat', external: true },
+                  { label: 'Serveur Support', href: DISCORD_INVITE_URL, external: true },
+                  { label: 'GitHub', href: GITHUB_URL, external: true },
                   { label: 'Soutenir le projet', href: '/soutien' },
                 ].map((link) => (
                   <a key={link.label} href={link.href}
@@ -1401,25 +1368,6 @@ export default function LandingPage() {
                         display: 'inline', verticalAlign: 'middle',
                       }} />}
                   </a>
-                ))}
-              </div>
-            </div>
-
-            {/* Colonne 4 : Légal */}
-            <div>
-              <h4 style={{
-                fontSize: 12, fontWeight: 600, textTransform: 'uppercase',
-                letterSpacing: '0.08em', color: 'var(--text-primary)',
-                marginBottom: 14,
-              }}>Légal</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { label: 'Mentions légales', href: '/legal' },
-                  { label: 'Politique de confidentialité', href: '/privacy' },
-                  { label: 'CGU', href: '/terms' },
-                ].map((link) => (
-                  <a key={link.label} href={link.href}
-                    className="footer-link">{link.label}</a>
                 ))}
               </div>
 
@@ -1438,7 +1386,7 @@ export default function LandingPage() {
                     background: 'var(--success)',
                     boxShadow: '0 0 6px var(--success)',
                   }} />
-                  v0.1 — En ligne
+                  v{BOT_VERSION} — En ligne
                 </span>
               </div>
             </div>
