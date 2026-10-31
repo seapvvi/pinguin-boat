@@ -9,8 +9,8 @@ import {
   ArrowRight, Users,
   Music, Gamepad2, MessageSquare,
   Gift, Ticket, Hash,
-  Star, ChevronRight,
-  Terminal, Cpu, Zap,
+  ChevronRight,
+  Terminal, Zap,
   Activity, Server,
   Lock, Bell, Sliders,
   Volume2,
@@ -56,7 +56,7 @@ interface ChangelogItem {
   pinned?: boolean;
 }
 
-/* ─── Icône Discord (évite 3 copies du SVG) ─── */
+/* ─── Icône Discord ─── */
 function DiscordIcon({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 127.14 96.36" fill="currentColor" aria-hidden="true">
@@ -65,7 +65,7 @@ function DiscordIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-/* ─── Lien de navigation (hover géré en CSS) ─── */
+/* ─── Lien de navigation ─── */
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <a href={href} className="nav-link">
@@ -237,7 +237,6 @@ function TerminalDemo({ guildsCount = 0 }: { guildsCount?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-100px' });
 
-  // Ref pour que l'effet lise toujours les lignes à jour (stats chargées en async)
   const liveLinesRef = useRef(liveTerminalLines);
   liveLinesRef.current = liveTerminalLines;
 
@@ -272,7 +271,6 @@ function TerminalDemo({ guildsCount = 0 }: { guildsCount?: number }) {
         overflow: 'hidden',
       }}
     >
-      {/* Terminal header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '10px 14px',
@@ -286,7 +284,6 @@ function TerminalDemo({ guildsCount = 0 }: { guildsCount?: number }) {
           pinguin@bot:~/deploy — bash
         </span>
       </div>
-      {/* Terminal body */}
       <div style={{ padding: '14px 16px', minHeight: 320 }}>
         {liveTerminalLines.slice(0, visibleLines).map((line, i) => (
           <motion.div
@@ -379,7 +376,6 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // ?? au lieu de || : un 0 renvoyé par l'API reste 0 (pas de valeur fictive)
   const guildsDisplay = stats?.totalGuilds ?? 0;
   const usersDisplay = stats?.totalUsers ?? 0;
   const commandsDisplay = stats?.totalCommands ?? 120;
@@ -425,8 +421,15 @@ export default function LandingPage() {
           transition: 'background-color 0.3s, border-color 0.3s',
         }}
       >
-        <motion.div whileHover={{ scale: 1.02 }} transition={{ duration: 0.15 }}>
+        <motion.div whileHover={{ scale: 1.02 }} transition={{ duration: 0.15 }} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <PinguinLogo size={20} />
+          <span style={{
+            fontSize: 10, fontFamily: 'var(--font-jetbrains), monospace',
+            color: 'var(--text-secondary)', border: '1px solid var(--border-color)',
+            padding: '2px 6px', letterSpacing: '0.05em',
+          }}>
+            v{BOT_VERSION}
+          </span>
         </motion.div>
 
         {/* Desktop nav links */}
@@ -483,6 +486,16 @@ export default function LandingPage() {
           ))}
         </div>
 
+        {/* Ligne de commande typée */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+          style={{ marginBottom: 18, position: 'relative', zIndex: 1 }}
+        >
+          <span className="typed-line">$ pinguin deploy --production</span>
+        </motion.div>
+
         {/* Badge */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -493,7 +506,7 @@ export default function LandingPage() {
           <div className="badge-animated">
             <div className="badge-animated-inner">
               <Zap size={12} style={{ color: 'var(--accent)' }} />
-              v{BOT_VERSION} — Forgé pour la communauté
+              Forgé pour la communauté
             </div>
           </div>
         </motion.div>
@@ -664,6 +677,18 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
+      {/* ─── MARQUEE MODULES ─── */}
+      <div className="marquee" aria-hidden="true">
+        <div className="marquee-track">
+          {[...MODULES, ...MODULES].map((mod, i) => (
+            <span key={i} className="marquee-item">
+              {mod.icon}
+              {mod.name}
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* ─── TERMINAL DEMO ─── */}
       <section id="terminal" style={{
         padding: '60px 24px 100px', position: 'relative',
@@ -675,7 +700,6 @@ export default function LandingPage() {
             gap: 48,
             alignItems: 'center',
           }} className="terminal-grid">
-            {/* Left: Terminal */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -685,14 +709,13 @@ export default function LandingPage() {
               <TerminalDemo guildsCount={guildsDisplay} />
             </motion.div>
 
-            {/* Right: Info */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <div className="section-badge"><Cpu size={12} /> Démo live</div>
+              <div className="section-kicker"><span className="section-kicker-num">01</span>Démo live</div>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
                 Déploiement instantané
               </h2>
@@ -729,7 +752,7 @@ export default function LandingPage() {
           transition={{ duration: 0.4 }}
           style={{ textAlign: 'center', marginBottom: 48 }}
         >
-          <div className="section-badge"><Star size={12} /> Fonctionnalités</div>
+          <div className="section-kicker"><span className="section-kicker-num">02</span>Fonctionnalités</div>
           <h2 style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
             Tout ce qu'il faut pour votre serveur
           </h2>
@@ -754,6 +777,9 @@ export default function LandingPage() {
                 transformStyle: 'preserve-3d', perspective: 800,
                 gridColumn: i === 0 ? 'span 2' : 'span 1',
                 position: 'relative', overflow: 'hidden',
+                background: i === 0
+                  ? `linear-gradient(135deg, color-mix(in srgb, ${feature.color} 8%, transparent), transparent 55%)`
+                  : undefined,
                 '--feature-color': feature.color,
               } as React.CSSProperties}
               className="feature-card"
@@ -781,7 +807,6 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-              {/* Active dot */}
               <div style={{
                 position: 'absolute', top: 12, right: 12,
                 width: 6, height: 6, borderRadius: '50%',
@@ -842,7 +867,6 @@ export default function LandingPage() {
               <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 {stat.label}
               </div>
-              {/* Uptime progress bar */}
               {i === 3 && (
                 <div style={{ marginTop: 8, height: 2, width: 80, margin: '8px auto 0', background: 'var(--bg-surface-alt)', borderRadius: 2 }}>
                   <motion.div
@@ -870,7 +894,7 @@ export default function LandingPage() {
           transition={{ duration: 0.4 }}
           style={{ textAlign: 'center', marginBottom: 32 }}
         >
-          <div className="section-badge"><Sliders size={12} /> Modules</div>
+          <div className="section-kicker"><span className="section-kicker-num">03</span>Modules</div>
           <h2 style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
             Tous les modules disponibles
           </h2>
@@ -879,7 +903,6 @@ export default function LandingPage() {
           </p>
         </motion.div>
 
-        {/* Filter buttons */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24, justifyContent: 'center' }}>
           {tags.map((tag) => (
             <button
@@ -901,7 +924,6 @@ export default function LandingPage() {
           ))}
         </div>
 
-        {/* Module grid with AnimatePresence */}
         <AnimatePresence mode="popLayout">
           <div style={{
             display: 'grid',
@@ -917,7 +939,7 @@ export default function LandingPage() {
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.2, delay: i * 0.02 }}
                 className="feature-card module-card"
-                style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 12 }}
+                style={{ position: 'relative', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 12 }}
               >
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -950,10 +972,9 @@ export default function LandingPage() {
         borderTop: '1px solid var(--border-color)',
         overflow: 'hidden', position: 'relative',
       }}>
-        {/* Title */}
         <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: 48 }}>
-          <div className="section-badge"><Sliders size={12} /> Dashboard</div>
+          <div className="section-kicker"><span className="section-kicker-num">04</span>Dashboard</div>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
             Tout configurez depuis le web
           </h2>
@@ -962,7 +983,6 @@ export default function LandingPage() {
           </p>
         </motion.div>
 
-        {/* Mock dashboard UI */}
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -977,7 +997,6 @@ export default function LandingPage() {
             position: 'relative',
           }}
         >
-          {/* Barre du haut (faux browser) */}
           <div style={{
             height: 40, backgroundColor: 'var(--bg-surface)',
             borderBottom: '1px solid var(--border-color)',
@@ -994,9 +1013,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Corps du dashboard simulé */}
           <div style={{ display: 'flex', height: 360, backgroundColor: 'var(--bg-primary)' }} className="dashboard-body">
-            {/* Sidebar simulée avec icônes */}
             <div style={{
               width: 180, borderRight: '1px solid var(--border-color)',
               padding: 12, display: 'flex', flexDirection: 'column', gap: 6,
@@ -1024,9 +1041,7 @@ export default function LandingPage() {
               ))}
             </div>
 
-            {/* Contenu principal simulé */}
             <div style={{ flex: 1, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* KPI row avec hover animation */}
               <div className="dashboard-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
                 {[
                   { label: 'Membres', value: usersDisplay.toLocaleString('fr-FR'), icon: <Users size={12} /> },
@@ -1060,7 +1075,6 @@ export default function LandingPage() {
                 ))}
               </div>
 
-              {/* Fake chart bars */}
               <div style={{
                 flex: 1, background: 'var(--bg-surface)',
                 border: '1px solid var(--border-color)',
@@ -1086,7 +1100,6 @@ export default function LandingPage() {
                     />
                   ))}
                 </div>
-                {/* Module status row */}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
                   {['Modération', 'Musique', 'Niveaux', 'Tickets'].map((mod) => (
                     <span key={mod} style={{
@@ -1106,7 +1119,6 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
-        {/* Overlay gradient bas pour effet "fade out" */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, height: 120,
           background: 'linear-gradient(to top, var(--bg-primary), transparent)',
@@ -1168,13 +1180,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── CHANGELOGS / SOCIAL PROOF ─── */}
+      {/* ─── CHANGELOGS ─── */}
       <section style={{
         padding: '60px 24px',
         borderTop: '1px solid var(--border-color)',
       }}>
         <div style={{ maxWidth: 700, margin: '0 auto', textAlign: 'center' }}>
-          <div className="section-badge"><Star size={12} /> Mises à jour</div>
+          <div className="section-kicker"><span className="section-kicker-num">05</span>Mises à jour</div>
           <h2 style={{ fontSize: '2rem', fontWeight: 600, marginBottom: 32, color: 'var(--text-primary)' }}>
             Toujours en évolution
           </h2>
@@ -1250,31 +1262,41 @@ export default function LandingPage() {
           pointerEvents: 'none',
         }} />
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           style={{ position: 'relative' }}
         >
-          <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>
-            Prêt à améliorer ton serveur&nbsp;?
-          </h2>
-          <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: '0 auto 36px', maxWidth: 420, lineHeight: 1.7 }}>
-            Rejoins des centaines de serveurs qui font confiance à Pinguin.
-            Configuration en 2 minutes, résultats immédiats.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <a
-              href={user ? '/dashboard' : '/auth/login'}
-              className="cta-discord"
-            >
-              <DiscordIcon size={22} />
-              {user ? 'Accéder au dashboard' : 'Ajouter maintenant'}
-            </a>
-            <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer" className="cta-outline">
-              <ExternalLink size={14} />
-              Communauté
-            </a>
+          <div className="cta-panel">
+            <div className="cta-panel-header">
+              <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#ef4444' }} />
+              <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+              <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#22c55e' }} />
+              <span style={{ marginLeft: 8 }}>pinguin@bot:~/invite</span>
+            </div>
+            <div className="cta-panel-body">
+              <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>
+                Prêt à améliorer ton serveur&nbsp;?
+              </h2>
+              <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: '0 auto 36px', maxWidth: 420, lineHeight: 1.7 }}>
+                Rejoins des centaines de serveurs qui font confiance à Pinguin.
+                Configuration en 2 minutes, résultats immédiats.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <a
+                  href={user ? '/dashboard' : '/auth/login'}
+                  className="cta-discord"
+                >
+                  <DiscordIcon size={22} />
+                  {user ? 'Accéder au dashboard' : 'Ajouter maintenant'}
+                </a>
+                <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer" className="cta-outline">
+                  <ExternalLink size={14} />
+                  Communauté
+                </a>
+              </div>
+            </div>
           </div>
         </motion.div>
       </section>
@@ -1286,13 +1308,11 @@ export default function LandingPage() {
         padding: '48px 24px 24px',
       }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          {/* Grille 3 colonnes */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '2fr 1fr 1fr',
             gap: 32, marginBottom: 40,
           }} className="footer-grid">
-            {/* Colonne 1 : Brand */}
             <div>
               <PinguinLogo size={20} />
               <p style={{
@@ -1302,9 +1322,7 @@ export default function LandingPage() {
                 Le bot Discord open source qui gère modération, musique,
                 économie et bien plus. Gratuit pour toujours.
               </p>
-              {/* Liens réseaux sociaux */}
               <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                {/* GitHub */}
                 <a href={GITHUB_URL}
                   target="_blank" rel="noopener noreferrer"
                   className="footer-social-link" aria-label="GitHub">
@@ -1313,7 +1331,6 @@ export default function LandingPage() {
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
                   </svg>
                 </a>
-                {/* Discord */}
                 <a href={DISCORD_INVITE_URL}
                   target="_blank" rel="noopener noreferrer"
                   className="footer-social-link" aria-label="Discord">
@@ -1322,7 +1339,6 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Colonne 2 : Bot */}
             <div>
               <h4 style={{
                 fontSize: 12, fontWeight: 600, textTransform: 'uppercase',
@@ -1342,7 +1358,6 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Colonne 3 : Ressources */}
             <div>
               <h4 style={{
                 fontSize: 12, fontWeight: 600, textTransform: 'uppercase',
@@ -1370,7 +1385,6 @@ export default function LandingPage() {
                 ))}
               </div>
 
-              {/* Version badge */}
               <div style={{ marginTop: 20 }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -1391,10 +1405,8 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Séparateur */}
           <div style={{ height: 1, background: 'var(--border-color)', margin: '0 0 20px' }} />
 
-          {/* Bottom bar */}
           <div style={{
             display: 'flex', alignItems: 'center',
             justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,

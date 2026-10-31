@@ -496,7 +496,7 @@
 
 .cta-panel-header {
   display: flex;
-  align-items: 'center';
+  align-items: center;
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-color);
