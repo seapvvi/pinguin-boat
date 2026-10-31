@@ -406,8 +406,7 @@ export default function LandingPage() {
     <div style={{ backgroundColor: 'var(--bg-primary)', position: 'relative' }}>
       {/* ─── GLOBAL EFFECTS ─── */}
       <ScrollProgress />
-      <div className="grid-bg" />
-      <div className="scanline" />
+      <div className="ambient-bg" aria-hidden="true" />
 
       {/* ─── NAVBAR ─── */}
       <motion.header
