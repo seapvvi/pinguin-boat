@@ -55,6 +55,18 @@
   }
 }
 
+/* Point vert « actif » sur les cartes features */
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+}
+
 .scroll-progress {
   position: fixed;
   top: 0;
@@ -148,9 +160,71 @@
   .hide-mobile { display: none !important; }
 }
 
-/* Landing page section styling */
+/* Badge de section — icône + label alignés */
 .section-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 16px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+
+.section-badge svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Petit tag sur les cartes (features / modules) */
+.module-tag {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface-alt);
+  border-radius: var(--radius-sm);
+}
+
+/* Rangée de stats du hero — responsive */
+.stat-digit {
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-cell {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .stat-cell > div {
+    flex: 1 1 40%;
+    justify-content: center;
+    border-right: none !important;
+  }
+}
+
+/* Grilles responsive — override des styles inline */
+@media (max-width: 768px) {
+  .features-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .features-grid > * {
+    grid-column: span 1 !important;
+  }
+
+  .terminal-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 .feature-card {
@@ -211,5 +285,3 @@
 .changelog-item.pinned {
   border-left-color: var(--accent);
 }
-
-
