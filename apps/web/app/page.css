@@ -1,6 +1,5 @@
-/* Landing page styles - performance friendly */
+/* Landing page v2 - performance friendly, animations transform/opacity uniquement */
 
-/* Défilement doux vers les ancres (désactivé si l'utilisateur préfère réduire les animations) */
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
@@ -12,7 +11,69 @@
   animation: cursor-blink 0.9s steps(2, end) infinite;
 }
 
-/* CTA buttons used on the landing page */
+/* Ligne de commande typée du hero — CSS pur, zéro JS */
+.typed-line {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  border-right: 8px solid var(--accent);
+  width: 0;
+  max-width: max-content;
+  animation:
+    typed-line-in 1.6s steps(29, end) 0.3s forwards,
+    typed-caret 0.9s step-end infinite;
+}
+
+@keyframes typed-line-in {
+  to { width: 29ch; }
+}
+
+@keyframes typed-caret {
+  50% { border-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typed-line {
+    width: 29ch;
+    animation: none;
+    border-right: none;
+  }
+
+  .marquee-track {
+    animation: none;
+  }
+}
+
+/* Kicker de section numéroté */
+.section-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.section-kicker::after {
+  content: '';
+  width: 32px;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.section-kicker-num {
+  color: var(--accent);
+  font-family: var(--font-jetbrains), monospace;
+}
+
+/* Boutons CTA */
 .cta-discord,
 .cta-outline {
   display: inline-flex;
@@ -55,7 +116,6 @@
   transform: translateY(-1px);
 }
 
-/* Lien de navigation — hover en CSS pur (pas de handlers JS) */
 .nav-link {
   color: var(--text-secondary);
   text-decoration: none;
@@ -73,7 +133,6 @@
   }
 }
 
-/* Point vert « actif » sur les cartes features */
 @keyframes pulse-dot {
   0%, 100% {
     opacity: 1;
@@ -94,8 +153,7 @@
   background: var(--accent);
 }
 
-/* Fond ambiant — deux halos d'accent en dérive lente.
-   Uniquement transform/opacity (pas de repaint coûteux), s'adapte à chaque thème. */
+/* Fond ambiant */
 .ambient-bg {
   position: fixed;
   inset: 0;
@@ -189,33 +247,53 @@
   .floating-card { display: none; }
 }
 
-/* Hide on mobile helper */
 @media (max-width: 640px) {
   .hide-mobile { display: none !important; }
 }
 
-/* Badge de section — icône + label alignés */
-.section-badge {
+/* Marquee des modules — défilement infini, piste dupliquée dans le JSX */
+.marquee {
+  overflow: hidden;
+  position: relative;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 14px 0;
+}
+
+.marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  width: max-content;
+  animation: marquee-scroll 32s linear infinite;
+  will-change: transform;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.marquee-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 16px;
-  padding: 6px 12px;
-  font-size: 11px;
+  gap: 8px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
+  white-space: nowrap;
 }
 
-.section-badge svg {
+.marquee-item svg {
   color: var(--accent);
-  flex-shrink: 0;
 }
 
-/* Petit tag sur les cartes (features / modules) */
+@keyframes marquee-scroll {
+  to { transform: translateX(-50%); }
+}
+
+/* Tags */
 .module-tag {
   flex-shrink: 0;
   padding: 2px 8px;
@@ -229,7 +307,7 @@
   border-radius: var(--radius-sm);
 }
 
-/* Rangée de stats du hero — responsive */
+/* Stats du hero */
 .stat-digit {
   font-variant-numeric: tabular-nums;
 }
@@ -246,7 +324,7 @@
   }
 }
 
-/* Grilles responsive — override des styles inline */
+/* Grilles responsive */
 @media (max-width: 768px) {
   .features-grid {
     grid-template-columns: 1fr !important;
@@ -259,18 +337,12 @@
   .terminal-grid {
     grid-template-columns: 1fr !important;
   }
-}
 
-/* Étapes « Comment ça marche » — empilées sur mobile */
-@media (max-width: 768px) {
   .steps-row {
     flex-direction: column;
     gap: 16px;
   }
-}
 
-/* Dashboard preview — adapté mobile */
-@media (max-width: 768px) {
   .dashboard-body {
     height: auto !important;
   }
@@ -284,7 +356,7 @@
   }
 }
 
-/* Liens du footer */
+/* Footer */
 .footer-link {
   font-size: 12px;
   color: var(--text-secondary);
@@ -318,11 +390,43 @@
   }
 }
 
+/* Cartes + crochets d'angle au survol */
 .feature-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card::before,
+.feature-card::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.feature-card::before {
+  top: 0;
+  left: 0;
+  border-top: 2px solid var(--feature-color, var(--accent));
+  border-left: 2px solid var(--feature-color, var(--accent));
+}
+
+.feature-card::after {
+  bottom: 0;
+  right: 0;
+  border-bottom: 2px solid var(--feature-color, var(--accent));
+  border-right: 2px solid var(--feature-color, var(--accent));
+}
+
+.feature-card:hover::before,
+.feature-card:hover::after {
+  opacity: 1;
 }
 
 .feature-card:not(.module-card) {
@@ -378,4 +482,31 @@
 
 .changelog-item.pinned {
   border-left-color: var(--accent);
+}
+
+/* Panel terminal du CTA final */
+.cta-panel {
+  max-width: 640px;
+  margin: 0 auto;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  text-align: left;
+  position: relative;
+}
+
+.cta-panel-header {
+  display: flex;
+  align-items: 'center';
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+  font-family: var(--font-jetbrains), monospace;
+}
+
+.cta-panel-body {
+  padding: 36px 28px;
+  text-align: center;
 }
