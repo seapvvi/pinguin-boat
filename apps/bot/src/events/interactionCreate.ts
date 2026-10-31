@@ -1,6 +1,6 @@
 import { CommandInteraction, Client, Interaction, AutocompleteInteraction, ButtonInteraction, ModalSubmitInteraction, StringSelectMenuInteraction, GuildMember } from 'discord.js';
 import { checkCooldown } from '../guards/cooldown';
-import { checkModPermissions } from '../guards/permissions';
+import { checkModPermissions, checkPermissions } from '../guards/permissions';
 import { checkInteractionBlacklist } from '../guards/blacklist';
 import { requireModule } from '../guards/module';
 import { errorEmbed } from '../services/embed';
@@ -106,7 +106,7 @@ export async function execute(interaction: Interaction, client: Client): Promise
     }
   }
 
-  if (command.permissions || command.requireAdmin) {
+  if (command.permissions?.length || command.requireAdmin) {
     if (!interaction.member || !(interaction.member instanceof GuildMember)) {
       await interaction.reply({
         embeds: [errorEmbed('Permission refusée', 'Impossible de vérifier vos permissions.')],
@@ -114,13 +114,27 @@ export async function execute(interaction: Interaction, client: Client): Promise
       });
       return;
     }
-    const permCheck = await checkModPermissions(interaction.member, command.requireAdmin ?? false);
-    if (!permCheck.allowed) {
-      await interaction.reply({
-        embeds: [errorEmbed('Permission refusée', permCheck.message!)],
-        ephemeral: true,
-      });
-      return;
+
+    const modCheck = await checkModPermissions(interaction.member, command.requireAdmin ?? false);
+    if (!modCheck.allowed) {
+      // Le niveau de rôle ne suffit pas : on tente la vérif fine des
+      // permissions Discord déclarées par la commande (ex. BanMembers).
+      if (command.permissions?.length) {
+        const permCheck = await checkPermissions(interaction.member, command.permissions);
+        if (!permCheck.allowed) {
+          await interaction.reply({
+            embeds: [errorEmbed('Permission refusée', permCheck.message!)],
+            ephemeral: true,
+          });
+          return;
+        }
+      } else {
+        await interaction.reply({
+          embeds: [errorEmbed('Permission refusée', modCheck.message!)],
+          ephemeral: true,
+        });
+        return;
+      }
     }
   }
 
@@ -128,7 +142,7 @@ export async function execute(interaction: Interaction, client: Client): Promise
     await command.execute(interaction, client);
     void incrementCommandsExecuted();
   } catch (error) {
-      logger.error(`Erreur commande ${command.data.name}`, { err: error instanceof Error ? error.message : String(error) });
+    logger.error(`Erreur commande ${command.data.name}`, { err: error instanceof Error ? error.message : String(error) });
 
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({

@@ -59,7 +59,8 @@ async function start() {
 
 start();
 
-// Safety net: never let an unexpected async error crash the whole bot.
+// Dernier filet de sécurité : on journalise l'erreur puis on quitte proprement.
+// Le gestionnaire de processus (pm2, Docker, systemd) se charge du redémarrage.
 process.on('unhandledRejection', (reason: unknown) => {
   logger.error('Unhandled rejection', { reason, app: 'bot' });
   process.exit(1);
@@ -79,4 +80,3 @@ async function shutdown(): Promise<void> {
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
-

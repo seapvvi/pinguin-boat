@@ -63,7 +63,7 @@ export async function checkPermissions(
   if (combined.level >= PermissionLevel.ADMIN) return { allowed: true };
 
   for (const perm of requiredPermissions) {
-    if (!member.permissions.has(perm as any)) {
+    if (!member.permissions.has(perm)) {
       return {
         allowed: false,
         message: 'Vous n\'avez pas les permissions nécessaires pour utiliser cette commande.',
